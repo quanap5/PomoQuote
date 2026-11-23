@@ -2,11 +2,12 @@ using System.Drawing.Text;
 using System.Runtime.InteropServices;
 using HelloWorldBot.Pomodoro;
 using HelloWorldBot.Weather;
+using HelloWorldBot.Widget;
 
 namespace HelloWorldBot;
 
 /// <summary>Shows "Hello World" in a bundled digital font with a real-time analog clock below it.</summary>
-internal sealed class MainForm : Form
+internal sealed partial class MainForm : Form
 {
     private const string DisplayText = "Hello World";
 
@@ -48,12 +49,15 @@ internal sealed class MainForm : Form
         WeatherService.Shared,
         new SettingsStore(SettingsStore.DefaultPath),
         new PomodoroStore(PomodoroStore.DefaultPath),
-        TimeProvider.System)
+        TimeProvider.System,
+        new WidgetStore(WidgetStore.DefaultPath))
     {
     }
 
-    public MainForm(WeatherService weatherService, SettingsStore settingsStore, PomodoroStore pomodoroStore, TimeProvider clock)
+    public MainForm(WeatherService weatherService, SettingsStore settingsStore, PomodoroStore pomodoroStore, TimeProvider clock, WidgetStore widgetStore)
     {
+        _widgetStore = widgetStore;
+        _widgetSettings = widgetStore.Load();
         _pomodoro = new PomodoroController(clock, pomodoroStore, Path.Combine(AppContext.BaseDirectory, "Assets", "Sounds"));
         _pomodoroPanel = new PomodoroPanel(_pomodoro) { Dock = DockStyle.Right };
         _pomodoro.TitleChanged += (_, title) => Text = title is null ? DisplayText : $"{title} - {DisplayText}";
@@ -107,6 +111,7 @@ internal sealed class MainForm : Form
 
         var viewMenu = new ToolStripMenuItem("&View");
         viewMenu.DropDownItems.Add(wallpaperMenu);
+        BuildWidget(viewMenu);
         _menu = new MenuStrip { Dock = DockStyle.Top };
         _menu.Items.Add(viewMenu);
         _menu.Items.Add(settingsMenu);
@@ -134,6 +139,8 @@ internal sealed class MainForm : Form
         MinimumSize = SizeFromClientSize(minimumClientSize);
         ClientSize = LogicalToDeviceUnits(LogicalClientSize);
         CenterToScreen();
+        _normalBounds = Bounds;
+        if (_widgetSettings.Enabled) SetWidgetMode(true);
     }
 
     protected override void OnShown(EventArgs e)
@@ -188,7 +195,7 @@ internal sealed class MainForm : Form
             requested = dialog.Value;
         }
 
-        _cityItem.Enabled = false;
+        SetCityItemsEnabled(false);
         try
         {
             var city = await _weatherService.GeocodeAsync(requested);
@@ -218,7 +225,7 @@ internal sealed class MainForm : Form
         }
         finally
         {
-            if (!IsDisposed) _cityItem.Enabled = true;
+            if (!IsDisposed) SetCityItemsEnabled(true);
         }
     }
 
@@ -229,7 +236,7 @@ internal sealed class MainForm : Form
     protected override void OnPaintBackground(PaintEventArgs e)
     {
         base.OnPaintBackground(e);
-        _wallpaper.Paint(e.Graphics, ClientRectangle);
+        if (!_widgetMode) _wallpaper.Paint(e.Graphics, ClientRectangle);
     }
 
     /// <summary>Shows the chosen wallpaper, or the plain background for null. Exactly one menu item stays checked.</summary>
@@ -292,6 +299,7 @@ internal sealed class MainForm : Form
         if (disposing)
         {
             _weatherTimer.Dispose();
+            DisposeWidget();
             _pomodoro.Dispose();
             _weatherRefresh?.Cancel();
             _wallpaper.Dispose();

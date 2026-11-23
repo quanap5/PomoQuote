@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Widget mode** (View > Widget mode, Ctrl+W): the window turns into a compact (about 260x140) borderless, always-on-top widget that you can drag anywhere. It shows the time, the weather and the Pomodoro phase, remaining time and progress bar. Right-click it for Exit widget mode, Start/Pause Pomodoro, Opacity, Settings and Exit app. **View > Widget opacity** sets 100%, 80% or 60%.
+- Widget mode, position and opacity are remembered in `%AppData%\HelloWorldBot\widget.json`. On start the widget is moved fully inside a visible monitor, also when the monitor it was on is no longer connected. Switching modes keeps the running Pomodoro, the weather and the settings.
+- Unit tests for widget placement (multi-monitor clamping) and the widget settings file.
 - **Pomodoro timer** panel next to the clock: Work 25 min, Break 5 min, a 15 min long break after 4 work sessions (all adjustable), with a progress ring, Start / Pause / Resume, Skip and Reset. Each phase end plays a short alert sound, shows a balloon notification and the window title shows "mm:ss Work" or "mm:ss Break". Today's finished work sessions are counted and remembered.
 - **Settings > Pomodoro...** for the durations, sessions before a long break, sound on/off and auto-start of the next phase. Options and the daily count are saved in `%AppData%\HelloWorldBot\pomodoro.json`. Alert sounds are CC0 (credits in `Assets/Sounds/CREDITS.md`).
 - Unit tests for the Pomodoro state machine (phases, long break, skip, pause/resume, clock jumps) and its settings file.

@@ -48,6 +48,24 @@ internal sealed class WeatherPanel : Control
         }
     }
 
+    /// <summary>The city shown, as "City, Country".</summary>
+    public string CityName => _cityName;
+
+    /// <summary>Temperature and conditions on one line (for the compact widget), or a status message.</summary>
+    public string CompactSummary
+    {
+        get
+        {
+            if (_report is null) return _failed ? "Weather unavailable" : "Loading weather…";
+            var (condition, symbol) = WeatherCodes.Describe(_report.WeatherCode);
+            var text = $"{_report.TemperatureCelsius:0.#} °C  {symbol} {condition}";
+            return _failed ? text + "  (stale)" : text;
+        }
+    }
+
+    /// <summary>Raised whenever the city or the weather text changes.</summary>
+    public event EventHandler? Updated;
+
     /// <summary>Height that fits the three lines at the current display scale.</summary>
     public int MeasureHeight() => _cityFont.Height + _valueFont.Height + _detailFont.Height + Padding.Vertical + 8;
 
@@ -58,6 +76,7 @@ internal sealed class WeatherPanel : Control
         _report = null;
         _failed = false;
         Invalidate();
+        Updated?.Invoke(this, EventArgs.Empty);
     }
 
     public void ShowReport(WeatherReport report, DateTime time)
@@ -66,6 +85,7 @@ internal sealed class WeatherPanel : Control
         _reportTime = time;
         _failed = false;
         Invalidate();
+        Updated?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>The refresh failed: "Weather unavailable", plus the last known values marked stale.</summary>
@@ -73,6 +93,7 @@ internal sealed class WeatherPanel : Control
     {
         _failed = true;
         Invalidate();
+        Updated?.Invoke(this, EventArgs.Empty);
     }
 
     protected override void OnPaint(PaintEventArgs e)
