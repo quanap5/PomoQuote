@@ -23,6 +23,12 @@ dotnet run
 
 The **Help > About** menu opens a dialog with the app name and version. The version is set once, as `<Version>` in `HelloWorldBot.csproj` ([SemVer](https://semver.org/)). Notable changes are listed in [CHANGELOG.md](CHANGELOG.md).
 
+## Widget mode
+
+**View > Widget mode** (or **Ctrl+W**) turns the window into a small widget (about 260x140): no title bar, always on top, with the time, the weather and the Pomodoro phase, remaining time and progress bar on a dark panel that stays readable over any desktop. Drag it anywhere with the mouse. **Right-click** it to exit widget mode (or press Ctrl+W again), start or pause the Pomodoro, change the opacity, open the Settings dialogs or exit the app. **View > Widget opacity** offers 100%, 80% and 60%.
+
+Nothing restarts when you switch: the Pomodoro keeps running and the weather and settings stay as they are. The mode, the widget position and the opacity are saved in `%AppData%\HelloWorldBot\widget.json`; on start the widget is placed fully inside a visible monitor, so it comes back on screen even if the monitor it was on was unplugged. A missing or damaged file means normal mode.
+
 ## Pomodoro timer
 
 The panel on the right shows a Pomodoro timer: **Work** 25 minutes, **Break** 5 minutes, and a **Long break** of 15 minutes after every 4 work sessions (the defaults). Use **Start**, **Pause / Resume**, **Skip** (next phase, without an alert) and **Reset** (back to a fresh work session). When a phase ends the next one starts by itself, a sound plays and a balloon notification appears; while a timer is active the window title reads "mm:ss Work" / "mm:ss Break" so you can follow it when the window is minimized. The panel also shows how many work sessions you finished today; the count starts again each day. A running timer is not resumed after a restart.
