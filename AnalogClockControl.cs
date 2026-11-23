@@ -10,6 +10,7 @@ internal sealed class AnalogClockControl : Control
 {
     private const int HourMarkCount = 12;
     private const int PollIntervalMilliseconds = 200;
+    private const float EdgeMargin = 2f;
 
     private readonly System.Windows.Forms.Timer _timer = new() { Interval = PollIntervalMilliseconds };
     private DateTime _shownTime = DateTime.Now;
@@ -47,13 +48,17 @@ internal sealed class AnalogClockControl : Control
         var graphics = e.Graphics;
         graphics.SmoothingMode = SmoothingMode.AntiAlias;
 
-        var diameter = Math.Min(ClientSize.Width, ClientSize.Height) - 4f;
-        if (diameter < 20f) return;
+        // The outer edge of the rim stroke stays EdgeMargin inside the control: a pen is centered
+        // on its path, so the path is inset by half the stroke width as well.
+        var outerRadius = Math.Min(ClientSize.Width, ClientSize.Height) / 2f - EdgeMargin;
+        if (outerRadius < 10f) return;
 
+        var rimWidth = Math.Max(2f, outerRadius / 30f);
+        var radius = outerRadius - rimWidth / 2f;
+        var diameter = radius * 2f;
         var center = new PointF(ClientSize.Width / 2f, ClientSize.Height / 2f);
-        var radius = diameter / 2f;
 
-        using (var rim = new Pen(Color.DimGray, Math.Max(2f, radius / 30f)))
+        using (var rim = new Pen(Color.DimGray, rimWidth))
         {
             graphics.DrawEllipse(rim, center.X - radius, center.Y - radius, diameter, diameter);
         }
