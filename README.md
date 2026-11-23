@@ -8,7 +8,16 @@ HelloWorldBot is a small practice project. Its purpose is to give the OrcaTeam a
 
 ## Status
 
-Early, just started. This README is the first file in the repository, and the bot has not been implemented yet.
+Early, just started. The repository contains a Windows Forms app that shows "Hello World" in the center of its window.
+
+## Build and run
+
+Requires Windows and the .NET 9 SDK.
+
+```powershell
+dotnet build
+dotnet run
+```
 
 ## How the team works on it
 
@@ -19,4 +28,6 @@ Early, just started. This README is the first file in the repository, and the bo
 
 ## License
 
-TBD
+Project license: TBD.
+
+The bundled DSEG font is licensed under the SIL Open Font License 1.1. See `Assets/Fonts/DSEG-LICENSE.txt`.
