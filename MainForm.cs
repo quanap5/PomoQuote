@@ -9,14 +9,18 @@ internal sealed class MainForm : Form
     private const string DisplayText = "Hello World";
 
     // DSEG's space glyph is very narrow; its "!" glyph is a blank, full-width digit cell.
-    private const string DigitalFontDisplayText = "Hello!World";
+    private const string DigitalFontDrawnText = "Hello!World";
 
     private const float FontSizePoints = 36f;
     private const string FallbackFontFamily = "Consolas";
 
+    private static readonly Size LogicalClientSize = new(800, 300);
+    private static readonly Size LogicalTextPadding = new(48, 48);
+
     // The collection must outlive any Font created from it.
     private readonly PrivateFontCollection _fonts = new();
     private readonly Font _displayFont;
+    private readonly CenteredTextLabel _label;
 
     public MainForm()
     {
@@ -24,20 +28,27 @@ internal sealed class MainForm : Form
         _displayFont = digitalFont ?? new Font(FallbackFontFamily, FontSizePoints, FontStyle.Regular, GraphicsUnit.Point);
 
         Text = DisplayText;
-        ClientSize = new Size(800, 300);
         StartPosition = FormStartPosition.CenterScreen;
 
-        Controls.Add(new Label
+        _label = new CenteredTextLabel(digitalFont is null ? DisplayText : DigitalFontDrawnText)
         {
-            Text = digitalFont is null ? DisplayText : DigitalFontDisplayText,
-            AccessibleName = DisplayText,
+            Text = DisplayText,
             Font = _displayFont,
             ForeColor = Color.Green,
             Dock = DockStyle.Fill,
-            TextAlign = ContentAlignment.MiddleCenter,
-            // GDI text rendering cannot draw fonts from a PrivateFontCollection; GDI+ can.
-            UseCompatibleTextRendering = true,
-        });
+        };
+        Controls.Add(_label);
+    }
+
+    protected override void OnLoad(EventArgs e)
+    {
+        base.OnLoad(e);
+
+        // Sizes depend on the display scale, so they are applied once the window has a DPI.
+        var minimumClientSize = _label.MeasureDrawnText() + LogicalToDeviceUnits(LogicalTextPadding);
+        MinimumSize = SizeFromClientSize(minimumClientSize);
+        ClientSize = LogicalToDeviceUnits(LogicalClientSize);
+        CenterToScreen();
     }
 
     private Font? LoadDigitalFont()
@@ -57,12 +68,12 @@ internal sealed class MainForm : Form
 
     protected override void Dispose(bool disposing)
     {
+        base.Dispose(disposing);
+
         if (disposing)
         {
             _displayFont.Dispose();
             _fonts.Dispose();
         }
-
-        base.Dispose(disposing);
     }
 }
