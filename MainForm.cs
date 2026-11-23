@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 
 namespace HelloWorldBot;
 
-/// <summary>Shows "Hello World" centered in the window using a bundled digital font.</summary>
+/// <summary>Shows "Hello World" in a bundled digital font with a real-time analog clock below it.</summary>
 internal sealed class MainForm : Form
 {
     private const string DisplayText = "Hello World";
@@ -16,11 +16,13 @@ internal sealed class MainForm : Form
 
     private static readonly Size LogicalClientSize = new(800, 300);
     private static readonly Size LogicalTextPadding = new(48, 48);
+    private const int LogicalMinimumClockSize = 120;
 
     // The collection must outlive any Font created from it.
     private readonly PrivateFontCollection _fonts = new();
     private readonly Font _displayFont;
     private readonly CenteredTextLabel _label;
+    private readonly AnalogClockControl _clock;
 
     public MainForm()
     {
@@ -35,8 +37,12 @@ internal sealed class MainForm : Form
             Text = DisplayText,
             Font = _displayFont,
             ForeColor = Color.Green,
-            Dock = DockStyle.Fill,
+            Dock = DockStyle.Top,
         };
+        _clock = new AnalogClockControl { Dock = DockStyle.Fill };
+
+        // The clock fills what remains below the text band, so the two never overlap.
+        Controls.Add(_clock);
         Controls.Add(_label);
     }
 
@@ -45,7 +51,9 @@ internal sealed class MainForm : Form
         base.OnLoad(e);
 
         // Sizes depend on the display scale, so they are applied once the window has a DPI.
-        var minimumClientSize = _label.MeasureDrawnText() + LogicalToDeviceUnits(LogicalTextPadding);
+        var textBand = _label.MeasureDrawnText() + LogicalToDeviceUnits(LogicalTextPadding);
+        _label.Height = textBand.Height;
+        var minimumClientSize = new Size(textBand.Width, textBand.Height + LogicalToDeviceUnits(LogicalMinimumClockSize));
         MinimumSize = SizeFromClientSize(minimumClientSize);
         ClientSize = LogicalToDeviceUnits(LogicalClientSize);
         CenterToScreen();
