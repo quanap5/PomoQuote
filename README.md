@@ -19,6 +19,10 @@ dotnet build
 dotnet run
 ```
 
+## Help > About and versioning
+
+The **Help > About** menu opens a dialog with the app name and version. The version is set once, as `<Version>` in `HelloWorldBot.csproj` ([SemVer](https://semver.org/)). Notable changes are listed in [CHANGELOG.md](CHANGELOG.md).
+
 ## How the team works on it
 
 1. **Branch:** the Developer makes each change on its own branch.
