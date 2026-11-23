@@ -341,6 +341,55 @@ public class PomodoroTimerTests
     }
 
     [Fact]
+    public void Changing_durations_mid_phase_keeps_remaining_time_and_progress_consistent()
+    {
+        var timer = Create();
+        timer.Start();
+        _clock.Advance(10 * Minute); // 10 of 25 minutes done
+
+        timer.ApplySettings(new PomodoroSettings(WorkMinutes: 5, ShortBreakMinutes: 2));
+
+        Assert.Equal(15 * Minute, timer.Remaining);
+        Assert.Equal(25 * Minute, timer.PhaseDuration);
+        Assert.Equal(0.4, timer.Progress, 3);
+
+        _clock.Advance(5 * Minute);
+        Assert.Equal(0.6, timer.Progress, 3);
+
+        timer.Pause();
+        timer.ApplySettings(new PomodoroSettings(WorkMinutes: 90));
+        Assert.Equal(10 * Minute, timer.Remaining);
+        Assert.Equal(0.6, timer.Progress, 3);
+
+        timer.Resume();
+        Assert.Equal(0.6, timer.Progress, 3);
+        _clock.Advance(10 * Minute);
+        Assert.True(timer.Tick());
+        Assert.Equal(PomodoroPhase.ShortBreak, timer.Phase);
+        Assert.Equal(5 * Minute, timer.Remaining); // the break length is still the new setting's default 5
+    }
+
+    [Fact]
+    public void Next_phase_after_a_mid_phase_change_uses_the_new_durations_and_fresh_progress()
+    {
+        var timer = Create();
+        timer.Start();
+        _clock.Advance(10 * Minute);
+        timer.ApplySettings(new PomodoroSettings(WorkMinutes: 5, ShortBreakMinutes: 2));
+
+        FinishPhase(timer);
+
+        Assert.Equal(PomodoroPhase.ShortBreak, timer.Phase);
+        Assert.Equal(2 * Minute, timer.Remaining);
+        Assert.Equal(2 * Minute, timer.PhaseDuration);
+        Assert.Equal(0, timer.Progress, 3);
+
+        FinishPhase(timer);
+        Assert.Equal(5 * Minute, timer.Remaining); // the next work phase
+        Assert.Equal(5 * Minute, timer.PhaseDuration);
+    }
+
+    [Fact]
     public void New_settings_change_an_idle_phase_immediately()
     {
         var timer = Create();

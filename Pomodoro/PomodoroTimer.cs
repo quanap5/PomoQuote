@@ -31,6 +31,7 @@ internal sealed class PomodoroTimer
     private PomodoroSettings _settings;
     private long _endTimestamp;
     private TimeSpan _pausedRemaining;
+    private TimeSpan _activeDuration;
 
     public PomodoroTimer(TimeProvider clock, PomodoroSettings settings)
     {
@@ -47,7 +48,11 @@ internal sealed class PomodoroTimer
 
     public PomodoroSettings Settings => _settings;
 
-    public TimeSpan PhaseDuration => _settings.DurationOf(Phase);
+    /// <summary>
+    /// The full length of the current phase: what it started with while running or paused (so changing
+    /// the options mid-phase does not distort the progress), the configured length while idle.
+    /// </summary>
+    public TimeSpan PhaseDuration => State == PomodoroRunState.Idle ? _settings.DurationOf(Phase) : _activeDuration;
 
     public TimeSpan Remaining => State switch
     {
@@ -73,7 +78,7 @@ internal sealed class PomodoroTimer
         switch (State)
         {
             case PomodoroRunState.Idle:
-                BeginRunning(PhaseDuration);
+                BeginRunning(PhaseDuration, newPhase: true);
                 break;
             case PomodoroRunState.Paused:
                 Resume();
@@ -92,7 +97,7 @@ internal sealed class PomodoroTimer
     public void Resume()
     {
         if (State != PomodoroRunState.Paused) return;
-        BeginRunning(_pausedRemaining);
+        BeginRunning(_pausedRemaining, newPhase: false);
     }
 
     /// <summary>Back to an idle work phase with a fresh cycle.</summary>
@@ -154,7 +159,7 @@ internal sealed class PomodoroTimer
         Phase = next;
         if (startNext)
         {
-            BeginRunning(_settings.DurationOf(next));
+            BeginRunning(_settings.DurationOf(next), newPhase: true);
         }
         else
         {
@@ -165,8 +170,10 @@ internal sealed class PomodoroTimer
         return next;
     }
 
-    private void BeginRunning(TimeSpan duration)
+    private void BeginRunning(TimeSpan duration, bool newPhase)
     {
+        if (newPhase) _activeDuration = duration;
+
         _endTimestamp = _clock.GetTimestamp() + (long)(duration.TotalSeconds * _clock.TimestampFrequency);
         State = PomodoroRunState.Running;
         Changed?.Invoke(this, EventArgs.Empty);
