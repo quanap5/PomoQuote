@@ -1,5 +1,6 @@
 using System.Drawing.Text;
 using System.Runtime.InteropServices;
+using HelloWorldBot.Pomodoro;
 using HelloWorldBot.Weather;
 
 namespace HelloWorldBot;
@@ -15,9 +16,10 @@ internal sealed class MainForm : Form
     private const float FontSizePoints = 36f;
     private const string FallbackFontFamily = "Consolas";
 
-    private static readonly Size LogicalClientSize = new(800, 420);
+    private static readonly Size LogicalClientSize = new(800, 520);
     private static readonly Size LogicalTextPadding = new(48, 48);
     private const int LogicalMinimumClockSize = 120;
+    private const int LogicalPomodoroWidth = 250;
     private static readonly TimeSpan WeatherRefreshInterval = TimeSpan.FromMinutes(10);
 
     // The collection must outlive any Font created from it.
@@ -27,6 +29,8 @@ internal sealed class MainForm : Form
     private readonly AnalogClockControl _clock;
     private readonly MenuStrip _menu;
     private readonly WeatherPanel _weather = new() { Dock = DockStyle.Top };
+    private readonly PomodoroController _pomodoro;
+    private readonly PomodoroPanel _pomodoroPanel;
     private readonly ToolStripMenuItem _cityItem;
     private readonly System.Windows.Forms.Timer _weatherTimer = new() { Interval = (int)WeatherRefreshInterval.TotalMilliseconds };
     private readonly WeatherService _weatherService;
@@ -40,12 +44,19 @@ internal sealed class MainForm : Form
     // A light dial keeps the dark hands readable over any wallpaper.
     private static readonly Color WallpaperClockFace = Color.FromArgb(200, 255, 255, 255);
 
-    public MainForm() : this(WeatherService.Shared, new SettingsStore(SettingsStore.DefaultPath))
+    public MainForm() : this(
+        WeatherService.Shared,
+        new SettingsStore(SettingsStore.DefaultPath),
+        new PomodoroStore(PomodoroStore.DefaultPath),
+        TimeProvider.System)
     {
     }
 
-    public MainForm(WeatherService weatherService, SettingsStore settingsStore)
+    public MainForm(WeatherService weatherService, SettingsStore settingsStore, PomodoroStore pomodoroStore, TimeProvider clock)
     {
+        _pomodoro = new PomodoroController(clock, pomodoroStore, Path.Combine(AppContext.BaseDirectory, "Assets", "Sounds"));
+        _pomodoroPanel = new PomodoroPanel(_pomodoro) { Dock = DockStyle.Right };
+        _pomodoro.TitleChanged += (_, title) => Text = title is null ? DisplayText : $"{title} - {DisplayText}";
         _weatherService = weatherService;
         _settingsStore = settingsStore;
         _settings = settingsStore.Load();
@@ -70,6 +81,7 @@ internal sealed class MainForm : Form
 
         // The clock fills what remains below the text band, so the two never overlap.
         Controls.Add(_clock);
+        Controls.Add(_pomodoroPanel);
         Controls.Add(_weather);
         Controls.Add(_label);
 
@@ -88,8 +100,10 @@ internal sealed class MainForm : Form
         }
 
         _cityItem = new ToolStripMenuItem("&City...", null, (_, _) => ChangeCity());
+        var pomodoroItem = new ToolStripMenuItem("&Pomodoro...", null, (_, _) => ShowPomodoroSettings());
         var settingsMenu = new ToolStripMenuItem("&Settings");
         settingsMenu.DropDownItems.Add(_cityItem);
+        settingsMenu.DropDownItems.Add(pomodoroItem);
 
         var viewMenu = new ToolStripMenuItem("&View");
         viewMenu.DropDownItems.Add(wallpaperMenu);
@@ -112,9 +126,11 @@ internal sealed class MainForm : Form
         var textBand = _label.MeasureDrawnText() + LogicalToDeviceUnits(LogicalTextPadding);
         _label.Height = textBand.Height;
         _weather.Height = _weather.MeasureHeight();
+        _pomodoroPanel.Width = LogicalToDeviceUnits(LogicalPomodoroWidth);
+        var belowWeather = Math.Max(LogicalToDeviceUnits(LogicalMinimumClockSize), _pomodoroPanel.MeasureMinimumHeight());
         var minimumClientSize = new Size(
-            textBand.Width,
-            _menu.Height + textBand.Height + _weather.Height + LogicalToDeviceUnits(LogicalMinimumClockSize));
+            Math.Max(textBand.Width, _pomodoroPanel.Width + LogicalToDeviceUnits(LogicalMinimumClockSize)),
+            _menu.Height + textBand.Height + _weather.Height + belowWeather);
         MinimumSize = SizeFromClientSize(minimumClientSize);
         ClientSize = LogicalToDeviceUnits(LogicalClientSize);
         CenterToScreen();
@@ -124,7 +140,14 @@ internal sealed class MainForm : Form
     {
         base.OnShown(e);
         _weatherTimer.Start();
+        _pomodoro.Start();
         _ = RefreshWeatherAsync();
+    }
+
+    private void ShowPomodoroSettings()
+    {
+        using var dialog = new PomodoroSettingsDialog(_pomodoro.Timer.Settings);
+        if (dialog.ShowDialog(this) == DialogResult.OK) _pomodoro.ApplySettings(dialog.Value);
     }
 
     /// <summary>
@@ -220,7 +243,7 @@ internal sealed class MainForm : Form
             }
             catch (Exception ex) when (ex is IOException or ArgumentException or ExternalException or OutOfMemoryException)
             {
-                MessageBox.Show(this, $"Could not load the \"{wallpaper.Name}\" wallpaper.", Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(this, $"Could not load the \"{wallpaper.Name}\" wallpaper.", DisplayText, MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
         }
@@ -237,6 +260,7 @@ internal sealed class MainForm : Form
 
         _clock.FaceColor = wallpaper is null ? Color.Transparent : WallpaperClockFace;
         _weather.OnWallpaper = wallpaper is not null;
+        _pomodoroPanel.OnWallpaper = wallpaper is not null;
         Invalidate(true);
     }
 
@@ -268,6 +292,7 @@ internal sealed class MainForm : Form
         if (disposing)
         {
             _weatherTimer.Dispose();
+            _pomodoro.Dispose();
             _weatherRefresh?.Cancel();
             _wallpaper.Dispose();
             _displayFont.Dispose();

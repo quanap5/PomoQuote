@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Pomodoro timer** panel next to the clock: Work 25 min, Break 5 min, a 15 min long break after 4 work sessions (all adjustable), with a progress ring, Start / Pause / Resume, Skip and Reset. Each phase end plays a short alert sound, shows a balloon notification and the window title shows "mm:ss Work" or "mm:ss Break". Today's finished work sessions are counted and remembered.
+- **Settings > Pomodoro...** for the durations, sessions before a long break, sound on/off and auto-start of the next phase. Options and the daily count are saved in `%AppData%\HelloWorldBot\pomodoro.json`. Alert sounds are CC0 (credits in `Assets/Sounds/CREDITS.md`).
+- Unit tests for the Pomodoro state machine (phases, long break, skip, pause/resume, clock jumps) and its settings file.
 - Live weather under the title: city, temperature (°C), conditions, humidity and wind, from the free [Open-Meteo](https://open-meteo.com/) API (no API key). It loads on start, refreshes about every 10 minutes without blocking the window, and shows "Weather unavailable" (keeping the last known values) when offline.
 - **Settings > City...** to choose the city. It is looked up with Open-Meteo geocoding and saved in `%AppData%\HelloWorldBot\settings.json`; the default is Hanoi.
 - Unit tests (`HelloWorldBot.Tests`) for the Open-Meteo parsing, the weather service error handling and the settings file.
