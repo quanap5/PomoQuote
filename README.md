@@ -23,6 +23,17 @@ dotnet run
 
 The **Help > About** menu opens a dialog with the app name and version. The version is set once, as `<Version>` in `HelloWorldBot.csproj` ([SemVer](https://semver.org/)). Notable changes are listed in [CHANGELOG.md](CHANGELOG.md).
 
+## Taskbar mascot
+
+When you **minimize** the window it hides to the system tray and a small pixel-art robot walks along the top edge of the taskbar (along the bottom of the screen if the taskbar is hidden or at the top or side). **Click the robot, or the tray icon**, to bring the window back; the tray menu offers Open, Start/Pause Pomodoro, Settings and Exit.
+
+- The robot follows the Pomodoro: it walks briskly while you work, jumps and shouts when a work session ends, sleeps during a break and strolls slowly when no timer runs.
+- With several monitors it walks across all of them and **jumps with a shout** each time it crosses onto the next one. Plugging or unplugging a monitor while it walks is handled.
+- It never takes focus and clicks pass through everything except the robot itself. The animation stops while the screen is locked or the PC sleeps, and the robot hides while a full-screen app or game is in front. Only one copy of the app runs at a time.
+- **Settings > Mascot...** sets: show the mascot (off = minimize works as usual), sound on/off, volume, speed, robot size and which monitors it walks on. They are saved in `%AppData%\HelloWorldBot\mascot.json`.
+
+The sprite sheet is original CC0 pixel art and the shout is a CC0 recording; see [Assets/Mascot/CREDITS.md](Assets/Mascot/CREDITS.md). The app is system-DPI-aware: on monitors with other scale factors Windows scales the robot with the rest of the window.
+
 ## Widget mode
 
 **View > Widget mode** (or **Ctrl+W**) turns the window into a small widget (about 260x140): no title bar, always on top, with the time, the weather and the Pomodoro phase, remaining time and progress bar on a dark panel that stays readable over any desktop. Drag it anywhere with the mouse. **Right-click** it to exit widget mode (or press Ctrl+W again), start or pause the Pomodoro, change the opacity, open the Settings dialogs or exit the app. **View > Widget opacity** offers 100%, 80% and 60%.

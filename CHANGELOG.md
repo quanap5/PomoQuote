@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Taskbar mascot**: minimizing the window hides it to the system tray (tray menu: Open, Start/Pause Pomodoro, Settings, Exit) and a pixel-art robot walks along the top edge of the taskbar (the bottom of the screen if the taskbar is hidden or on another edge). Click the robot or the tray icon to bring the window back. The robot follows the Pomodoro: brisk walk while working, a jump and shout when a work session ends, asleep during a break, a slow stroll when idle.
+- The robot walks across every monitor and jumps with a shout onto the next one. It copes with different resolutions, monitors above/below each other and monitors plugged or unplugged while it walks. Its click-through window never takes focus, it stops while the screen is locked or the PC sleeps, and hides while a full-screen app is in front.
+- **Settings > Mascot...**: enable the mascot, sound on/off, volume, speed, robot size and which monitors it walks on (saved in `%AppData%\HelloWorldBot\mascot.json`). Sprite and shout sound are CC0 (credits in `Assets/Mascot/CREDITS.md`).
+- The app now runs as a single instance, and the Pomodoro balloons share one tray icon with the mascot.
+- Unit tests for the robot's route, movement, monitor crossing, animation timing, settings file and sound scaling.
 - **Widget mode** (View > Widget mode, Ctrl+W): the window turns into a compact (about 260x140) borderless, always-on-top widget that you can drag anywhere. It shows the time, the weather and the Pomodoro phase, remaining time and progress bar. Right-click it for Exit widget mode, Start/Pause Pomodoro, Opacity, Settings and Exit app. **View > Widget opacity** sets 100%, 80% or 60%.
 - Widget mode, position and opacity are remembered in `%AppData%\HelloWorldBot\widget.json`. On start the widget is moved fully inside a visible monitor, also when the monitor it was on is no longer connected. Switching modes keeps the running Pomodoro, the weather and the settings.
 - Unit tests for widget placement (multi-monitor clamping) and the widget settings file.
