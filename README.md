@@ -23,6 +23,10 @@ dotnet run
 
 The **Help > About** menu opens a dialog with the app name and version. The version is set once, as `<Version>` in `HelloWorldBot.csproj` ([SemVer](https://semver.org/)). Notable changes are listed in [CHANGELOG.md](CHANGELOG.md).
 
+## View > Wallpaper
+
+**View > Wallpaper** switches the window background between three bundled photos (Night Sky, Foggy Forest, Mountain Lake) and **None** (the plain background). The photo is scaled to cover the window and a dark overlay keeps the text readable. The photos are CC0; see [Assets/Wallpapers/CREDITS.md](Assets/Wallpapers/CREDITS.md) for titles, authors and sources.
+
 ## How the team works on it
 
 1. **Branch:** the Developer makes each change on its own branch.

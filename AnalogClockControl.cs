@@ -14,16 +14,34 @@ internal sealed class AnalogClockControl : Control
 
     private readonly System.Windows.Forms.Timer _timer = new() { Interval = PollIntervalMilliseconds };
     private DateTime _shownTime = DateTime.Now;
+    private Color _faceColor = Color.Transparent;
 
     public AnalogClockControl()
     {
         DoubleBuffered = true;
         ResizeRedraw = true;
 
+        // Transparent so the form's wallpaper shows around the dial.
+        SetStyle(ControlStyles.SupportsTransparentBackColor, true);
+        BackColor = Color.Transparent;
+
         // Polling several times a second keeps the hands within 1 second of the system clock
         // without drifting like a single 1000 ms timer would.
         _timer.Tick += (_, _) => RefreshIfSecondChanged();
         _timer.Start();
+    }
+
+    /// <summary>Fill behind the dial, so the dark hands stay readable over a wallpaper. Default: none.</summary>
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+    public Color FaceColor
+    {
+        get => _faceColor;
+        set
+        {
+            if (_faceColor == value) return;
+            _faceColor = value;
+            Invalidate();
+        }
     }
 
     /// <summary>Clockwise angle in degrees from 12 o'clock for each hand.</summary>
@@ -57,6 +75,12 @@ internal sealed class AnalogClockControl : Control
         var radius = outerRadius - rimWidth / 2f;
         var diameter = radius * 2f;
         var center = new PointF(ClientSize.Width / 2f, ClientSize.Height / 2f);
+
+        if (_faceColor.A > 0)
+        {
+            using var face = new SolidBrush(_faceColor);
+            graphics.FillEllipse(face, center.X - radius, center.Y - radius, diameter, diameter);
+        }
 
         using (var rim = new Pen(Color.DimGray, rimWidth))
         {

@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <None Include="Assets\Fonts\*" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Assets\Wallpapers\*.jpg" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
