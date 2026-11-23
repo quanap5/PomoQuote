@@ -16,6 +16,7 @@ internal sealed partial class MainForm
     private MascotController _mascot = null!;
     private ContextMenuStrip _trayMenu = null!;
     private ToolStripMenuItem _trayPomodoroToggleItem = null!;
+    private Font? _trayOpenFont;
     private bool _inTray;
 
     /// <summary>The monitors the robot may walk on. Replaceable so tests can fake a monitor layout.</summary>
@@ -54,7 +55,8 @@ internal sealed partial class MainForm
         settings.DropDownItems.Add(new ToolStripMenuItem("&Mascot...", null, (_, _) => { RestoreFromTray(); ShowMascotSettings(); }));
 
         _trayMenu = new ContextMenuStrip();
-        _trayMenu.Items.Add(new ToolStripMenuItem("&Open", null, (_, _) => RestoreFromTray()) { Font = new Font(Font, FontStyle.Bold) });
+        _trayOpenFont = new Font(Font, FontStyle.Bold);
+        _trayMenu.Items.Add(new ToolStripMenuItem("&Open", null, (_, _) => RestoreFromTray()) { Font = _trayOpenFont });
         _trayMenu.Items.Add(_trayPomodoroToggleItem);
         _trayMenu.Items.Add(settings);
         _trayMenu.Items.Add(new ToolStripSeparator());
@@ -124,5 +126,6 @@ internal sealed partial class MainForm
     {
         _mascot.Dispose();
         _trayMenu.Dispose();
+        _trayOpenFont?.Dispose();
     }
 }

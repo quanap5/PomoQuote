@@ -10,4 +10,4 @@
 | --- | --- | --- | --- | --- |
 | `shout.wav` | ahhh (cc0) | UncleSigmund | [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:UncleSigmund_-_ahhh_(cc0)_(freesound).mp3) (originally from freesound) | CC0 1.0 |
 
-The recording ("Someone screams ahhh") was trimmed to 1.3 s, faded in and out, and converted to mono 22.05 kHz 16-bit WAV for this app. It is played when the robot jumps onto another monitor and when a work session ends. The Pomodoro phase-end sounds are credited in `Assets/Sounds/CREDITS.md`.
+The recording ("Someone screams ahhh") was trimmed to 1.3 s, faded in and out, and converted to mono 22.05 kHz 16-bit WAV for this app. It is played when the robot jumps onto another monitor, and when a work session ends if the Pomodoro's own sound is turned off (otherwise the Pomodoro's gong plays alone). The Pomodoro phase-end sounds are credited in `Assets/Sounds/CREDITS.md`.

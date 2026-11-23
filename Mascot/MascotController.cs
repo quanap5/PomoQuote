@@ -28,6 +28,7 @@ internal sealed class MascotController : IDisposable
     private MascotSettings _settings;
     private long _lastTimestamp;
     private int _ticks;
+    private SynchronizationContext? _uiContext;
     private bool _running;
     private bool _paused;
     private bool _fullScreenHidden;
@@ -71,6 +72,9 @@ internal sealed class MascotController : IDisposable
         _running = true;
         _paused = false;
         _fullScreenHidden = false;
+
+        // SystemEvents are raised on their own thread; the UI thread's context lets the handlers hop back.
+        _uiContext = SynchronizationContext.Current;
         ApplyToMover();
         RefreshRoute();
         UpdateMood();
@@ -187,14 +191,21 @@ internal sealed class MascotController : IDisposable
         if (++_ticks % HousekeepingEvery == 0) Housekeeping();
         if (_fullScreenHidden) return;
 
-        var events = _mover.Update(TimeSpan.FromSeconds(seconds));
-        if (events.HasFlag(MascotEvents.CrossingStarted))
+        try
         {
-            PlayShout();
-            Crossed?.Invoke(this, EventArgs.Empty);
-        }
+            var events = _mover.Update(TimeSpan.FromSeconds(seconds));
+            if (events.HasFlag(MascotEvents.CrossingStarted))
+            {
+                PlayShout();
+                Crossed?.Invoke(this, EventArgs.Empty);
+            }
 
-        Draw();
+            Draw();
+        }
+        catch (Exception ex) when (ex is ExternalException or ArgumentException or InvalidOperationException or OutOfMemoryException)
+        {
+            // A drawing or window failure costs this frame only: a tray-only app must not crash over its mascot.
+        }
     }
 
     private void Draw()
@@ -232,15 +243,16 @@ internal sealed class MascotController : IDisposable
     {
         if (!e.WorkSessionCompleted) return;
         _mover.Celebrate();
-        PlayShout();
+
+        // The Pomodoro already plays its own phase-end sound; add the shout only when that one is off.
+        if (!_pomodoro.Timer.Settings.SoundEnabled) PlayShout();
     }
 
     private void OnRobotClicked(object? sender, EventArgs e) => RobotClicked?.Invoke(this, EventArgs.Empty);
 
-    private void OnDisplaySettingsChanged(object? sender, EventArgs e)
-    {
-        if (_running) RefreshRoute();
-    }
+    // The three SystemEvents below arrive on a background thread. Everything they touch (the WinForms timer,
+    // the mover, the window) belongs to the UI thread, so each handler only posts the work back to it.
+    private void OnDisplaySettingsChanged(object? sender, EventArgs e) => RunOnUiThread(RefreshRoute);
 
     private void OnSessionSwitch(object? sender, SessionSwitchEventArgs e)
     {
@@ -249,20 +261,39 @@ internal sealed class MascotController : IDisposable
             case SessionSwitchReason.SessionLock:
             case SessionSwitchReason.ConsoleDisconnect:
             case SessionSwitchReason.RemoteDisconnect:
-                Pause();
+                RunOnUiThread(Pause);
                 break;
             case SessionSwitchReason.SessionUnlock:
             case SessionSwitchReason.ConsoleConnect:
             case SessionSwitchReason.RemoteConnect:
-                Resume();
+                RunOnUiThread(Resume);
                 break;
         }
     }
 
     private void OnPowerModeChanged(object? sender, PowerModeChangedEventArgs e)
     {
-        if (e.Mode == PowerModes.Suspend) Pause();
-        else if (e.Mode == PowerModes.Resume) Resume();
+        if (e.Mode == PowerModes.Suspend) RunOnUiThread(Pause);
+        else if (e.Mode == PowerModes.Resume) RunOnUiThread(Resume);
+    }
+
+    /// <summary>
+    /// Runs <paramref name="action"/> on the UI thread, later. It is skipped if the mascot was stopped in the
+    /// meantime, so a late system event can never touch a window or timer that is already gone.
+    /// </summary>
+    private void RunOnUiThread(Action action)
+    {
+        var context = _uiContext;
+        if (context is null)
+        {
+            if (_running) action();
+            return;
+        }
+
+        context.Post(_ =>
+        {
+            if (_running) action();
+        }, null);
     }
 
     /// <summary>Stops the animation (the screen is locked or the PC is going to sleep).</summary>
