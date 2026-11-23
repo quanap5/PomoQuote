@@ -8,7 +8,7 @@ HelloWorldBot is a small practice project. Its purpose is to give the OrcaTeam a
 
 ## Status
 
-Early, just started. The repository contains a Windows Forms app that shows "Hello World" in the center of its window.
+Early, just started. The repository contains a Windows Forms app that shows "Hello World" with a real-time analog clock below it.
 
 ## Build and run
 
