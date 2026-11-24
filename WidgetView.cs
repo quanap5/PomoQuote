@@ -195,7 +195,7 @@ internal sealed partial class WidgetView : Control
         }
     }
 
-    private static readonly float[] DateSizes = [11.5f, 11f, 10.5f, 10f];
+    private static readonly float[] DateSizes = [12f, 11.5f, 11f, 10.5f, 10f];
     private readonly float[] _datePixels = [11.5f, 11.5f];
     private string? _measuredSolar;
     private string? _measuredLunar;

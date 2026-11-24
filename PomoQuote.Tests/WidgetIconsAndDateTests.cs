@@ -188,9 +188,10 @@ public sealed class WidgetIconsAndDateTests
     }
 
     [Fact]
-    public void The_claude_icon_is_the_libraries_claude_code_mark_in_its_brand_colour_and_the_files_are_credited()
+    public void The_claude_icon_is_credited_as_a_lobe_icons_drawing_and_not_as_an_anthropic_asset()
     {
         var root = RepositoryRoot();
+        if (!File.Exists(Path.Combine(root, "Assets", "Providers", "claude-on-dark.png"))) return; // the owner removed the icon: the neutral glyph is used (see the fallback test)
         var svg = File.ReadAllText(Path.Combine(root, "Assets", "Providers", "source", "lobe-icons-claudecode-color.svg"));
         var credits = File.ReadAllText(Path.Combine(root, "THIRD_PARTY_ASSETS.md"));
         using var icons = new ProviderIcons();
@@ -200,8 +201,15 @@ public sealed class WidgetIconsAndDateTests
         Assert.Contains("#D97757", svg);
         Assert.Contains("lobehub/lobe-icons", credits);
         Assert.Contains("MIT", credits);
+        Assert.Contains("not an Anthropic asset", credits);
+        Assert.Contains("not an official Anthropic asset", credits);
+        Assert.DoesNotContain("real Claude Code mark", credits);
+        Assert.DoesNotContain("the Claude Code mark itself", credits);
+        var readme = File.ReadAllText(Path.Combine(root, "README.md"));
+        Assert.Contains("not an official Anthropic asset", readme);
+        Assert.DoesNotContain("the **Claude Code mark**", readme);
         Assert.Contains("claude-neutral-on-dark.png", credits);
-        // The visible mark is the library's orange, unrecoloured.
+        // The visible mark is the library's own orange, not recoloured.
         var orange = 0;
         for (var y = 0; y < icon.Height; y++)
         {
@@ -220,7 +228,9 @@ public sealed class WidgetIconsAndDateTests
     {
         var names = typeof(ProviderIcons).Assembly.GetManifestResourceNames().Where(n => n.StartsWith("PomoQuote.providers.", StringComparison.Ordinal)).ToList();
 
-        foreach (var key in new[] { "codex-on-dark", "codex-on-light", "claude-on-dark", "claude-on-light", "claude-neutral-on-dark", "claude-neutral-on-light", "antigravity-on-dark", "antigravity-on-light" })
+        var keys = new List<string> { "codex-on-dark", "codex-on-light", "claude-neutral-on-dark", "claude-neutral-on-light", "antigravity-on-dark", "antigravity-on-light" };
+        if (File.Exists(Path.Combine(RepositoryRoot(), "Assets", "Providers", "claude-on-dark.png"))) keys.AddRange(["claude-on-dark", "claude-on-light"]); // the two files the owner may delete
+        foreach (var key in keys)
         {
             Assert.Contains($"PomoQuote.providers.{key}.png", names);
         }
