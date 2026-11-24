@@ -1,4 +1,5 @@
 using PomoQuote.AiUsage;
+using PomoQuote.AiUsage.Claude;
 
 namespace PomoQuote;
 
@@ -26,11 +27,25 @@ internal sealed class UsageSettingsDialog : Form
     private readonly NumericUpDown _warn;
     private readonly NumericUpDown _critical;
     private readonly Button _ok;
+    private readonly ClaudeActions _claude;
+    private readonly string _claudeSettingsPath;
+    private readonly Func<Form, BridgePreview, bool> _confirmBridge;
+    private readonly CheckBox _claudeEnabled;
+    private readonly Label _claudeStatus;
+    private readonly Label _claudeResult;
+    private readonly Button _setup;
+    private readonly Button _remove;
+    private readonly Button _checkBridge;
+    private readonly Button _checkProject;
+    private readonly Button _refreshClaude;
 
     public UsageSettingsDialog(
         UsageSettings current, IReadOnlyList<(string Id, string Name)> providers, CodexDetector detector,
-        Func<string, CancellationToken, Task<UsageStatus?>> test)
+        Func<string, CancellationToken, Task<UsageStatus?>> test, ClaudeActions claude, string claudeSettingsPath, Func<Form, BridgePreview, bool> confirmBridge)
     {
+        _claude = claude;
+        _claudeSettingsPath = claudeSettingsPath;
+        _confirmBridge = confirmBridge;
         _providers = providers;
         _detector = detector;
         _test = test;
@@ -46,7 +61,7 @@ internal sealed class UsageSettingsDialog : Form
 
         var intro = new Label
         {
-            Text = "Shows how much of your Codex quota is used, read from the official Codex CLI on this PC. PomoQuote never asks for a password, key or token and never stores one: log in with the CLI itself.",
+            Text = "Shows how much of your Codex and Claude Code quota is used, read from the official CLIs on this PC. PomoQuote never asks for a password, key or token and never stores one: log in with the CLI itself.",
             AutoSize = true,
             MaximumSize = new Size(440, 0),
             Margin = new Padding(0, 0, 0, 10),
@@ -61,6 +76,22 @@ internal sealed class UsageSettingsDialog : Form
         testRow.Controls.Add(_testButton);
         testRow.Controls.Add(_testResult);
 
+        // ---------- Claude Code ----------
+        _claudeEnabled = new CheckBox { Text = "Show Claude Code usage on the widget", AutoSize = true, Checked = current.IsEnabled(ClaudeSnapshotProvider.ProviderId), Margin = new Padding(0, 12, 0, 0) };
+        _claudeStatus = new Label { Text = "Checking your Claude settings...", AutoSize = true, MaximumSize = new Size(440, 0), Margin = new Padding(20, 2, 0, 2) };
+        _setup = new Button { Text = "Set up status line bridge...", AutoSize = true, Enabled = false };
+        _remove = new Button { Text = "Remove bridge", AutoSize = true, Enabled = false };
+        _checkBridge = new Button { Text = "Check", AutoSize = true };
+        _checkProject = new Button { Text = "Check a project folder...", AutoSize = true };
+        _refreshClaude = new Button { Text = "Refresh Claude now", AutoSize = true };
+        _claudeResult = new Label { Text = "", AutoSize = true, MaximumSize = new Size(440, 0), Margin = new Padding(20, 2, 0, 2) };
+        _setup.Click += (_, _) => SetUpBridge();
+        _remove.Click += (_, _) => RemoveBridge();
+        _checkBridge.Click += async (_, _) => await ShowClaudeStateAsync(check: true);
+        _checkProject.Click += (_, _) => CheckProject();
+        _refreshClaude.Click += async (_, _) => await RefreshClaudeAsync();
+        var claudeButtons = new FlowLayoutPanel { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, WrapContents = true, MaximumSize = new Size(460, 0), Margin = new Padding(20, 2, 0, 2) };
+        claudeButtons.Controls.AddRange([_setup, _remove, _checkBridge, _checkProject, _refreshClaude]);
         _order = new ListBox { Height = 40, Width = 200, IntegralHeight = false };
         foreach (var id in current.Order.Where(id => providers.Any(p => p.Id == id)).Concat(providers.Select(p => p.Id)).Distinct())
         {
@@ -115,6 +146,10 @@ internal sealed class UsageSettingsDialog : Form
         layout.Controls.Add(_codex);
         layout.Controls.Add(_codexStatus);
         layout.Controls.Add(testRow);
+        layout.Controls.Add(_claudeEnabled);
+        layout.Controls.Add(_claudeStatus);
+        layout.Controls.Add(claudeButtons);
+        layout.Controls.Add(_claudeResult);
         layout.Controls.Add(new Label { Text = "Display order:", AutoSize = true, Margin = new Padding(0, 10, 0, 2) });
         layout.Controls.Add(orderRow);
         layout.Controls.Add(new Label { Text = "Display mode:", AutoSize = true, Margin = new Padding(0, 10, 0, 2) });
@@ -127,7 +162,11 @@ internal sealed class UsageSettingsDialog : Form
         layout.Controls.Add(buttons);
         Controls.Add(layout);
 
-        Shown += async (_, _) => await DetectAsync();
+        Shown += async (_, _) =>
+        {
+            await DetectAsync();
+            await ShowClaudeStateAsync(check: false);
+        };
         FormClosing += (_, _) => _closing.Cancel();
         RefreshState();
     }
@@ -137,7 +176,7 @@ internal sealed class UsageSettingsDialog : Form
     {
         var order = _order.Items.Cast<string>().Select(name => _providers.First(p => p.Name == name).Id).ToList();
         var thresholds = _warn.Value == _critical.Value ? [(int)_warn.Value] : new List<int> { (int)_warn.Value, (int)_critical.Value };
-        return current.WithEnabled(CodexUsageProvider.ProviderId, _codex.Checked) with
+        return current.WithEnabled(CodexUsageProvider.ProviderId, _codex.Checked).WithEnabled(ClaudeSnapshotProvider.ProviderId, _claudeEnabled.Checked) with
         {
             Order = order,
             DisplayMode = _mode.SelectedIndex == 1 ? UsageDisplayMode.Percent : UsageDisplayMode.Bars,
@@ -163,6 +202,106 @@ internal sealed class UsageSettingsDialog : Form
         _warn.Enabled = _critical.Enabled = _alerts.Checked;
         // Two different levels are expected; equal ones are saved as one.
         _ok.Enabled = true;
+    }
+
+    private async Task ShowClaudeStateAsync(bool check)
+    {
+        try
+        {
+            var status = await Task.Run(() => _claude.Check());
+            if (IsDisposed) return;
+            _claudeStatus.Text = status.State switch
+            {
+                StatusLineState.None => "You have no status line. The bridge would add one (a short usage line).",
+                StatusLineState.Custom => "You have your own status line. The bridge would wrap it: yours keeps running exactly as before.",
+                StatusLineState.Bridged => "The status line bridge is set up. Numbers appear after the first reply in a Claude Code session.",
+                _ => $"Your Claude settings cannot be used: {status.Reason}.",
+            };
+            _setup.Enabled = status.State is StatusLineState.None or StatusLineState.Custom;
+            _remove.Enabled = status.State == StatusLineState.Bridged;
+            if (check)
+            {
+                _claudeResult.Text = status.Problems.Count == 0 ? "Check: no problem found." : "Check: " + string.Join(" ", status.Problems);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            if (!IsDisposed) _claudeStatus.Text = "Your Claude settings cannot be read right now.";
+        }
+    }
+
+    private async void SetUpBridge()
+    {
+        var preview = _claude.Preview();
+        if (preview is null)
+        {
+            _claudeResult.Text = "Nothing to set up (already set up, or the settings file cannot be used).";
+            return;
+        }
+
+        // Nothing is written before the user has seen the exact change and clicked "Set up bridge".
+        if (!_confirmBridge(this, preview)) return;
+
+        var result = _claude.Install();
+        _claudeResult.Text = result switch
+        {
+            BridgeResult.Done => $"Done. A backup of the file is in {preview.BackupDirectory}.",
+            BridgeResult.AlreadyBridged => "Already set up.",
+            BridgeResult.ChangedMeanwhile => "The settings file changed while it was being backed up (Claude Code may be using it). Nothing was changed; try again.",
+            BridgeResult.WriteFailed => "The settings file could not be written (it may be locked). Nothing was changed; try again.",
+            _ => "The settings file cannot be used. Nothing was changed.",
+        };
+        await ShowClaudeStateAsync(check: false);
+    }
+
+    private async void RemoveBridge()
+    {
+        var answer = MessageBox.Show(this, "Put your original Claude status line back?", "Remove bridge", MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2);
+        if (answer != DialogResult.Yes) return;
+
+        var result = _claude.Uninstall();
+        _claudeResult.Text = result switch
+        {
+            BridgeResult.Done => "Removed. Your original status line is back.",
+            BridgeResult.NotOurs => "The status line is no longer the bridge, so nothing was changed.",
+            _ => "The settings file cannot be used right now. Nothing was changed.",
+        };
+        await ShowClaudeStateAsync(check: false);
+    }
+
+    private void CheckProject()
+    {
+        using var picker = new FolderBrowserDialog { Description = "Choose a project folder where you use Claude Code. A project that has its own status line replaces the bridge there.", UseDescriptionForTitle = true };
+        if (picker.ShowDialog(this) != DialogResult.OK) return;
+        _claudeResult.Text = ClaudeBridgeInstaller.ProjectOverrides(picker.SelectedPath)
+            ? $"\"{Path.GetFileName(picker.SelectedPath.TrimEnd('\\', '/'))}\" has its own status line: it replaces the bridge in that project, so its usage is not read from there."
+            : "That project does not override the status line.";
+    }
+
+    private async Task RefreshClaudeAsync()
+    {
+        if (!_claude.RefreshNoteSeen)
+        {
+            var go = MessageBox.Show(this, ClaudeActions.RefreshNote + "\r\n\r\nRefresh now?", "Refresh Claude now", MessageBoxButtons.YesNo, MessageBoxIcon.Information, MessageBoxDefaultButton.Button2);
+            if (go != DialogResult.Yes) return;
+            _claude.MarkRefreshNoteSeen();
+        }
+
+        _refreshClaude.Enabled = false;
+        _claudeResult.Text = "Asking Claude...";
+        try
+        {
+            var result = await _claude.RefreshAsync(_closing.Token);
+            if (!IsDisposed) _claudeResult.Text = result.Message;
+        }
+        catch (OperationCanceledException)
+        {
+            // The dialog was closed.
+        }
+        finally
+        {
+            if (!IsDisposed) _refreshClaude.Enabled = true;
+        }
     }
 
     private async Task DetectAsync()
