@@ -41,7 +41,8 @@ internal sealed class BridgeConfirmDialog : Form
                 $"File:    {settingsPath}\r\n\r\n" +
                 $"Now:     statusLine.command = {(preview.CurrentCommand is null ? "(none)" : preview.CurrentCommand)}\r\n\r\n" +
                 $"After:   statusLine.command = {preview.NewCommand}\r\n\r\n" +
-                $"Backup:  a copy of the whole file is saved first in {preview.BackupDirectory}\r\n" +
+                $"Program: PomoQuote copies the bridge to {preview.ProgramPath} so moving or updating the app cannot break your status line. If that copy goes missing, your own command still runs.\r\n\r\n" +
+                $"Backup:  {(preview.NoFileYet ? "there is no settings file yet; it will be created with only the status line (a note is kept in " : "a copy of the whole file is saved first in ")}{preview.BackupDirectory}{(preview.NoFileYet ? ")" : "")}\r\n" +
                 "Undo:    Settings > AI Usage > Remove bridge puts the original back.",
         };
 

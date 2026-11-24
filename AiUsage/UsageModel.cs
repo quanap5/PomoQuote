@@ -35,6 +35,9 @@ public enum UsageState
     /// <summary>The account has no plan limits to show (an API-key login has no 5-hour or weekly window).</summary>
     NoPlanLimits,
 
+    /// <summary>The Claude status line bridge is set up but its program is missing or its saved command is damaged (the user's own status line keeps running).</summary>
+    BridgeMissing,
+
     /// <summary>The CLI answered, but not in a shape PomoQuote understands (an older or newer version).</summary>
     Unsupported,
 

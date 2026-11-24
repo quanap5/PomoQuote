@@ -25,7 +25,7 @@ internal sealed partial class MainForm
         providers ??=
         [
             new CodexUsageProvider(new CodexAppServerSessionFactory(), TimeProvider.System),
-            new ClaudeSnapshotProvider(claude.Store, () => claude.Installer.Detect().State, TimeProvider.System),
+            new ClaudeSnapshotProvider(claude.Store, () => claude.Installer.Detect().State, TimeProvider.System, () => claude.Installer.Check().ProgramMissing),
         ];
         _usage = new UsageController(
             this,
@@ -39,6 +39,10 @@ internal sealed partial class MainForm
         _claudeSettingsPath = claude.Installer.SettingsPath;
         _usage.Changed += (_, _) => ApplyUsageLayout();
         ApplyUsageLayout();
+
+        // Once, when AI Usage starts: a bridge that went missing is announced instead of silently losing the numbers.
+        var installer = claude.Installer;
+        _ = Task.Run(() => ClaudeActions.StartupCheck(installer, (title, message) => BeginInvoke(() => { if (!IsDisposed) _tray.ShowBalloon(title, message); })));
     }
 
     private string _claudeSettingsPath = "";

@@ -13,12 +13,15 @@ internal sealed class ClaudeSnapshotProvider : IUsageProvider
     private readonly ClaudeSnapshotStore _store;
     private readonly Func<StatusLineState> _bridgeState;
     private readonly TimeProvider _clock;
+    private readonly Func<bool>? _bridgeBroken;
 
-    public ClaudeSnapshotProvider(ClaudeSnapshotStore store, Func<StatusLineState> bridgeState, TimeProvider clock)
+    /// <param name="bridgeBroken">True when the set-up bridge program is missing or its saved command is damaged (the strip then says so).</param>
+    public ClaudeSnapshotProvider(ClaudeSnapshotStore store, Func<StatusLineState> bridgeState, TimeProvider clock, Func<bool>? bridgeBroken = null)
     {
         _store = store;
         _bridgeState = bridgeState;
         _clock = clock;
+        _bridgeBroken = bridgeBroken;
     }
 
     public string Id => ProviderId;
@@ -35,6 +38,12 @@ internal sealed class ClaudeSnapshotProvider : IUsageProvider
         var now = _clock.GetUtcNow();
         var source = new UsageSource(ProviderId, UsageEnvironment.Windows, "", "");
         UsageSnapshot Empty(UsageState state, string text) => UsageSnapshot.Empty(source, now, DataSource, state, text);
+
+        // A bridge that cannot run is worth more than any number: the user must know the status line is no longer measured.
+        if (_bridgeBroken is not null && _bridgeState() == StatusLineState.Bridged && _bridgeBroken())
+        {
+            return Task.FromResult(Empty(UsageState.BridgeMissing, "bridge missing"));
+        }
 
         IReadOnlyList<ClaudeSnapshot> snapshots;
         try

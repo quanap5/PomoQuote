@@ -235,7 +235,7 @@ internal sealed class UsageSettingsDialog : Form
         var preview = _claude.Preview();
         if (preview is null)
         {
-            _claudeResult.Text = "Nothing to set up (already set up, or the settings file cannot be used).";
+            _claudeResult.Text = _claude.CannotInstallReason() ?? "Nothing to set up (already set up, or the settings file cannot be used).";
             return;
         }
 
@@ -249,6 +249,7 @@ internal sealed class UsageSettingsDialog : Form
             BridgeResult.AlreadyBridged => "Already set up.",
             BridgeResult.ChangedMeanwhile => "The settings file changed while it was being backed up (Claude Code may be using it). Nothing was changed; try again.",
             BridgeResult.WriteFailed => "The settings file could not be written (it may be locked). Nothing was changed; try again.",
+            BridgeResult.WrongProgram => _claude.CannotInstallReason() ?? "The bridge program could not be copied to its folder. Your Claude settings were not changed.",
             _ => "The settings file cannot be used. Nothing was changed.",
         };
         await ShowClaudeStateAsync(check: false);

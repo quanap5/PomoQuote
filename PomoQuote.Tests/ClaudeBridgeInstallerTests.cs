@@ -14,7 +14,22 @@ public sealed class ClaudeBridgeInstallerTests : IDisposable
 
     private string State => Path.Combine(_root, "state");
 
-    public ClaudeBridgeInstallerTests() => Directory.CreateDirectory(Path.GetDirectoryName(Settings)!);
+    /// <summary>The folder the "running app" lives in: a fake PomoQuote.exe with the files the bridge copy needs.</summary>
+    private string App => Path.Combine(_root, "app");
+
+    private string AppExe => Path.Combine(App, "PomoQuote.exe");
+
+    private string BridgeExe => Path.Combine(State, "bridge", "PomoQuote.exe");
+
+    public ClaudeBridgeInstallerTests()
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(Settings)!);
+        Directory.CreateDirectory(App);
+        File.WriteAllText(AppExe, "exe");
+        File.WriteAllText(Path.Combine(App, "PomoQuote.dll"), "dll");
+        File.WriteAllText(Path.Combine(App, "PomoQuote.runtimeconfig.json"), "{}");
+        File.WriteAllText(Path.Combine(App, "PomoQuote.pdb"), "symbols");
+    }
 
     public void Dispose()
     {
@@ -22,20 +37,22 @@ public sealed class ClaudeBridgeInstallerTests : IDisposable
     }
 
     private ClaudeBridgeInstaller Installer(bool bash = true) =>
-        new(Settings, State, () => @"C:\Apps\PomoQuote\PomoQuote.exe", () => bash ? @"C:\Git\bin\bash.exe" : null, () => new DateTimeOffset(2026, 11, 24, 7, 0, 0, TimeSpan.Zero));
+        new(Settings, State, () => AppExe, () => bash ? @"C:\Git\bin\bash.exe" : null, () => new DateTimeOffset(2026, 11, 24, 7, 0, 0, TimeSpan.Zero));
 
     private static string Sha(byte[] bytes) => Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
 
     private const string Custom = "{\n  \"theme\": \"dark\",\n  \"statusLine\": { \"type\": \"command\", \"command\": \"node C:/t/line.js\", \"padding\": 1 },\n  \"model\": \"x\"\n}\n";
 
     [Fact]
-    public void A_missing_file_is_unreadable_and_install_creates_nothing()
+    public void A_missing_settings_folder_is_unreadable_and_install_creates_nothing()
     {
+        Directory.Delete(Path.GetDirectoryName(Settings)!);
         var installer = Installer();
 
         Assert.Equal(StatusLineState.Unreadable, installer.Detect().State);
         Assert.Equal(BridgeResult.Unreadable, installer.Install());
         Assert.False(File.Exists(Settings));
+        Assert.False(Directory.Exists(Path.GetDirectoryName(Settings)!));
         Assert.False(Directory.Exists(installer.BackupDirectory));
     }
 
@@ -63,7 +80,9 @@ public sealed class ClaudeBridgeInstallerTests : IDisposable
         var preview = Installer().Preview()!;
 
         Assert.Equal("node C:/t/line.js", preview.CurrentCommand);
-        Assert.StartsWith("\"C:/Apps/PomoQuote/PomoQuote.exe\" --bridge claude --chain-b64 ", preview.NewCommand);
+        Assert.StartsWith("if [ -f \"", preview.NewCommand);
+        Assert.Contains($"\"{BridgeExe.Replace('\\', '/')}\" --bridge claude --chain-b64 ", preview.NewCommand);
+        Assert.Equal(BridgeExe, preview.ProgramPath);
         Assert.Equal(Installer().BackupDirectory, preview.BackupDirectory);
         Assert.Equal(Custom, File.ReadAllText(Settings)); // a preview changes nothing
     }
@@ -136,7 +155,7 @@ public sealed class ClaudeBridgeInstallerTests : IDisposable
         Installer().Uninstall();
         Installer().Install();
         var backups = Directory.GetFiles(Installer().BackupDirectory);
-        Assert.Equal(2, backups.Length);
+        Assert.Equal(3, backups.Length); // install, the copy taken before the undo, install again
     }
 
     [Fact]
@@ -247,14 +266,16 @@ public sealed class ClaudeBridgeInstallerTests : IDisposable
 
         var preview = Installer(bash: false).Preview()!;
 
-        Assert.StartsWith("& \"C:/Apps/PomoQuote/PomoQuote.exe\" --bridge claude", preview.NewCommand);
+        Assert.StartsWith("if (Test-Path -LiteralPath '", preview.NewCommand);
+        Assert.Contains("& '" + BridgeExe.Replace('\\', '/') + "' --bridge claude", preview.NewCommand);
     }
 
     [Fact]
     public void Check_reports_a_missing_bridge_program_and_a_project_that_overrides_the_status_line()
     {
         File.WriteAllText(Settings, Custom);
-        Installer().Install(); // the program path in the command (C:\Apps\...) does not exist here
+        Installer().Install();
+        Directory.Delete(Path.Combine(State, "bridge"), recursive: true); // the bridge program is gone
         var project = Path.Combine(_root, "proj");
         Directory.CreateDirectory(Path.Combine(project, ".claude"));
         File.WriteAllText(Path.Combine(project, ".claude", "settings.json"), "{ \"statusLine\": { \"command\": \"own\" } }");
@@ -262,20 +283,22 @@ public sealed class ClaudeBridgeInstallerTests : IDisposable
         var status = Installer().Check([project]);
 
         Assert.Equal(StatusLineState.Bridged, status.State);
-        Assert.Contains(status.Problems, p => p.Contains("missing or was moved"));
+        Assert.Contains(status.Problems, p => p.Contains("bridge program is missing"));
+        Assert.True(status.ProgramMissing);
+        Assert.True(status.NeedsAttention);
         Assert.Contains(status.Problems, p => p.Contains("proj") && p.Contains("own status line"));
     }
 
     [Fact]
     public void Check_is_quiet_when_everything_is_in_place()
     {
-        var exe = Path.Combine(_root, "PomoQuote.exe");
-        File.WriteAllText(exe, "x");
         File.WriteAllText(Settings, Custom);
-        var installer = new ClaudeBridgeInstaller(Settings, State, () => exe, () => null);
+        var installer = Installer(bash: true);
         installer.Install();
 
-        Assert.Empty(installer.Check().Problems);
+        var status = installer.Check();
+        Assert.Empty(status.Problems);
+        Assert.False(status.NeedsAttention);
     }
 
     [Fact]
@@ -286,7 +309,19 @@ public sealed class ClaudeBridgeInstallerTests : IDisposable
         Assert.Equal(@"C:\Program Files\PomoQuote\PomoQuote.exe", ClaudeBridgeCommand.ExecutableOf(command));
         Assert.Equal("echo \"hi there\" | cat", ClaudeBridge.ChainFrom(ClaudeBridgeCommand.Arguments(command)));
         Assert.True(ClaudeBridgeCommand.HasChainArgument(command));
-        Assert.Equal(@"C:\Program Files\PomoQuote\PomoQuote.exe", ClaudeBridgeCommand.ExecutableOf("& " + command[0..]));
-        Assert.DoesNotContain(" ", ClaudeBridgeCommand.Arguments(command).Last()); // the chain is one shell-safe token
+        Assert.DoesNotContain(" ", ClaudeBridgeCommand.Arguments(command).First(a => a.Length > 20 && a != "--chain-b64")); // the chain is one shell-safe token
+
+        var powershell = ClaudeBridgeCommand.Build(@"C:\Program Files\PomoQuote\PomoQuote.exe", "echo \"hi there\" | cat", bash: false);
+        Assert.Equal(@"C:\Program Files\PomoQuote\PomoQuote.exe", ClaudeBridgeCommand.ExecutableOf(powershell));
+        Assert.Equal("echo \"hi there\" | cat", ClaudeBridge.ChainFrom(ClaudeBridgeCommand.Arguments(powershell)));
+        Assert.True(ClaudeBridgeCommand.IsBashForm(command));
+        Assert.False(ClaudeBridgeCommand.IsBashForm(powershell));
+
+        // The form PomoQuote 1.1 wrote (no fallback) is still understood.
+        var legacy = "\"C:/Apps/PomoQuote.exe\" --bridge claude --chain-b64 " + ClaudeBridge.EncodeChain("node x.js");
+        Assert.Equal(@"C:\Apps\PomoQuote.exe", ClaudeBridgeCommand.ExecutableOf(legacy));
+        Assert.Equal("node x.js", ClaudeBridge.ChainFrom(ClaudeBridgeCommand.Arguments(legacy)));
+        Assert.True(ClaudeBridgeCommand.IsBashForm(legacy));
+        Assert.False(ClaudeBridgeCommand.IsBashForm("& " + legacy));
     }
 }

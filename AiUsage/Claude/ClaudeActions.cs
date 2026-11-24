@@ -19,6 +19,28 @@ internal sealed class ClaudeActions
 
     public StatusLineInfo Detect() => _installer.Detect();
 
+    /// <summary>Why the bridge cannot be set up from this program (not PomoQuote.exe, files missing), else null.</summary>
+    public string? CannotInstallReason() => _installer.CannotInstallReason();
+
+    /// <summary>
+    /// Run once when AI Usage starts: refreshes the bridge copy after an app update, then checks the set-up bridge. When it is
+    /// missing, damaged or written for the wrong shell, <paramref name="notify"/> gets a title and a message (a balloon).
+    /// Only reads (plus PomoQuote's own bridge folder); the Claude settings are never written. Returns the status.
+    /// </summary>
+    public static BridgeStatus StartupCheck(ClaudeBridgeInstaller installer, Action<string, string> notify)
+    {
+        installer.RefreshProgramCopy();
+        var status = installer.Check();
+        if (status.NeedsAttention)
+        {
+            notify("Claude usage bridge", status.ProgramMissing
+                ? "The Claude status line bridge is missing, so PomoQuote cannot read Claude usage. Your own status line still runs. Open Settings > AI Usage > Claude."
+                : "The Claude status line bridge does not match the shell Claude Code uses now. Open Settings > AI Usage > Claude.");
+        }
+
+        return status;
+    }
+
     public BridgePreview? Preview() => _installer.Preview();
 
     public BridgeStatus Check(IEnumerable<string>? projectDirectories = null) => _installer.Check(projectDirectories);
