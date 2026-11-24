@@ -68,7 +68,7 @@ public sealed class WidgetRedesignTests
     {
         Assert.True(UsageGeometry.Columns(0, UsageGeometry.CompactRowsWidth).BarWidth >= 60);
         Assert.True(UsageGeometry.Columns(0, UsageGeometry.CardRowsWidth).BarWidth >= 44);
-        Assert.Equal(UsageGeometry.WidgetWidth - 2 * UsageGeometry.Margin - UsageGeometry.LogoColumn - UsageGeometry.ToggleColumn, UsageGeometry.CompactRowsWidth);
+        Assert.Equal(UsageGeometry.WidgetWidth - 2 * UsageGeometry.Margin - UsageGeometry.LogoColumn, UsageGeometry.CompactRowsWidth);
     }
 
     [Fact]

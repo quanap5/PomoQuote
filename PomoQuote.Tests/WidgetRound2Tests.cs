@@ -205,6 +205,131 @@ public sealed class WidgetAnchorTests : IDisposable
         });
     }
 
+    // ---------- the separator, the centred button and the plain blocks ----------
+
+    private static UsageExpandToggle ToggleOf(WidgetView view) => (UsageExpandToggle)typeof(WidgetView).GetField("_toggle", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(view)!;
+
+    private static UsageLogoSelector SelectorOf(WidgetView view) => (UsageLogoSelector)typeof(WidgetView).GetField("_selector", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(view)!;
+
+    [Fact]
+    public void The_expand_button_sits_centred_on_the_separator_line_in_both_layouts_and_not_in_the_margin()
+    {
+        OnStaThread(() =>
+        {
+            var work = Screen.PrimaryScreen!.WorkingArea;
+            using var form = Form(new Point(work.Left + 60, work.Top + 40));
+            var view = ViewOf(form);
+            var toggle = ToggleOf(view);
+
+            foreach (var expanded in new[] { false, true })
+            {
+                if (expanded) ClickToggle(view);
+                var unit = view.ClientSize.Width / (float)UsageGeometry.WidgetWidth;
+                var centre = new PointF(toggle.Left + toggle.Width / 2f, toggle.Top + toggle.Height / 2f);
+
+                Assert.True(toggle.Visible);
+                Assert.InRange(centre.X, view.ClientSize.Width / 2f - 1.5f, view.ClientSize.Width / 2f + 1.5f); // horizontally centred
+                Assert.InRange(centre.Y, view.SeparatorY * unit - 1.5f, view.SeparatorY * unit + 1.5f); // on the line
+                Assert.True(toggle.Left > UsageGeometry.Margin * unit * 3, "not in the left margin");
+                Assert.True(toggle.Right < view.ClientSize.Width - UsageGeometry.Margin * unit * 3, "not in the right margin");
+                Assert.True(toggle.TabStop && toggle.AccessibleName.Length > 0, "keyboard access and an accessible name");
+                Assert.Equal(expanded ? "Collapse AI usage" : "Expand AI usage", toggle.AccessibleName);
+            }
+
+            form.Close();
+        });
+    }
+
+    [Fact]
+    public void The_separator_is_between_the_quote_and_the_usage_area_and_adds_no_row_in_compact()
+    {
+        OnStaThread(() =>
+        {
+            var work = Screen.PrimaryScreen!.WorkingArea;
+            using var form = Form(new Point(work.Left + 60, work.Top + 40));
+            var view = ViewOf(form);
+
+            Assert.True(view.SeparatorY < view.UsageTop, "the line is above the first row");
+            Assert.True(view.UsageTop - view.SeparatorY <= UsageGeometry.AreaTopGap);
+            // Compact is still one fixed area of at most three lines below the line.
+            Assert.Equal(UsageGeometry.CompactHeight, UsageGeometry.AreaHeight([new UsageProviderView("a", "", [], "x", false)], false));
+            form.Close();
+        });
+    }
+
+    [Fact]
+    public void Switching_provider_in_Compact_never_changes_the_widget_height()
+    {
+        OnStaThread(() =>
+        {
+            var work = Screen.PrimaryScreen!.WorkingArea;
+            using var form = Form(new Point(work.Left + 60, work.Top + 40));
+            var view = ViewOf(form);
+            var heights = new HashSet<int> { view.LogicalHeight };
+            var heightsPixels = new HashSet<int> { form.Height };
+            var wheel = typeof(Control).GetMethod("OnMouseWheel", BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+            for (var i = 0; i < 7; i++)
+            {
+                wheel.Invoke(SelectorOf(view), [new MouseEventArgs(MouseButtons.None, 0, 3, 3, -120)]);
+                Pump(120);
+                heights.Add(view.LogicalHeight);
+                heightsPixels.Add(form.Height);
+            }
+
+            Assert.Single(heights);
+            Assert.Single(heightsPixels);
+            form.Close();
+        });
+    }
+
+    [Fact]
+    public void Expanded_paints_no_card_background_border_or_rounded_container()
+    {
+        OnStaThread(() =>
+        {
+            var work = Screen.PrimaryScreen!.WorkingArea;
+            using var form = Form(new Point(work.Left + 60, work.Top + 40));
+            var view = ViewOf(form);
+            ClickToggle(view);
+            using var bitmap = new Bitmap(form.ClientSize.Width, form.ClientSize.Height);
+            form.DrawToBitmap(bitmap, new Rectangle(Point.Empty, form.Size));
+            var unit = view.ClientSize.Width / (float)UsageGeometry.WidgetWidth;
+            var panel = Color.FromArgb(28, 32, 40);
+            var border = form.Size - form.ClientSize; // DrawToBitmap includes the window frame, if any
+            var frame = new Point(border.Width / 2, border.Height - border.Width / 2);
+
+            // Where the old cards were: the empty strips between the blocks and the empty end of the footer lines.
+            foreach (var blockTop in Enumerable.Range(0, 2).Select(i => view.UsageTop + i * (UsageGeometry.CardHeight(new UsageProviderView("a", "", [new UsageRow("5h", "1%", 0.01, "1h", UsageLevel.Normal), new UsageRow("Week", "1%", 0.01, "1h", UsageLevel.Normal)], "x", false)) + UsageGeometry.CardGap)))
+            {
+                var y = (int)((blockTop + 4) * unit) + frame.Y;
+                foreach (var x in new[] { 3 + (int)(UsageGeometry.Margin * unit), (int)((UsageGeometry.WidgetWidth - UsageGeometry.Margin - UsageGeometry.ScrollGutter - 4) * unit) })
+                {
+                    var pixel = bitmap.GetPixel(Math.Min(x + frame.X, bitmap.Width - 1), Math.Min(y, bitmap.Height - 1));
+                    Assert.True(pixel == panel || (Math.Abs(pixel.R - panel.R) < 14 && Math.Abs(pixel.G - panel.G) < 14 && Math.Abs(pixel.B - panel.B) < 14), $"a card background is painted at ({x},{y}): {pixel}");
+                }
+            }
+
+            // And the code that draws the blocks has no fill, rounded path or card colour.
+            var source = File.ReadAllText(Path.Combine(RepositoryRoot(), "WidgetView.Usage.cs")).Replace("\r\n", "\n");
+            var start = source.IndexOf("private void DrawExpanded(", StringComparison.Ordinal);
+            var end = source.IndexOf("private void DrawScrollbar(", StringComparison.Ordinal);
+            var method = source[start..end];
+            Assert.DoesNotContain("CardColor", method);
+            Assert.DoesNotContain("PillBar.Rounded", method);
+            Assert.DoesNotContain("FillPath", method);
+            Assert.DoesNotContain("FillRectangle", method);
+            form.Close();
+        });
+    }
+
+    private static string RepositoryRoot()
+    {
+        var root = AppContext.BaseDirectory;
+        while (root is not null && !File.Exists(Path.Combine(root, "PomoQuote.csproj"))) root = Path.GetDirectoryName(root);
+        return root ?? throw new InvalidOperationException("repository root not found");
+    }
+
     [Fact]
     public void With_little_room_below_the_clock_still_does_not_move_only_the_usage_area_gets_shorter_and_scrolls()
     {

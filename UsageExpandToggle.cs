@@ -103,17 +103,18 @@ internal sealed class UsageExpandToggle : Control
         g.Clear(BackColor);
         g.SmoothingMode = SmoothingMode.AntiAlias;
         var u = Math.Max(0.5f, PixelsPerUnit);
-        if (_hot)
+        // A small pill button sitting on the separator line: its own panel-coloured face hides the line behind it.
+        using (var face = new SolidBrush(_hot ? Color.FromArgb(52, 60, 74) : BackColor))
+        using (var outline = new Pen(Color.FromArgb(84, 94, 110), Math.Max(1f, u)))
+        using (var path = Widget.PillBar.Pill(new RectangleF(0.5f * u, 0.5f * u, Width - 1 * u, Height - 1 * u)))
         {
-            using var hot = new SolidBrush(Color.FromArgb(40, 255, 255, 255));
-            using var path = Widget.PillBar.Rounded(new RectangleF(1, 1, Width - 2, Height - 2), 4 * u);
-            g.FillPath(hot, path);
+            g.FillPath(face, path);
+            g.DrawPath(outline, path);
         }
-
         using var pen = new Pen(_hot ? Color.White : Color.FromArgb(196, 206, 218), Math.Max(1.5f, 1.7f * u)) { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
         var cx = Width / 2f;
         var cy = Height / 2f;
-        var half = 3.2f * u;
+        var half = 3.4f * u;
         var tilt = _expanded ? -1 : 1; // down chevron to expand, up chevron to collapse
         g.DrawLines(pen, [new PointF(cx - half, cy - tilt * half * 0.5f), new PointF(cx, cy + tilt * half * 0.5f), new PointF(cx + half, cy - tilt * half * 0.5f)]);
 

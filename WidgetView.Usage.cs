@@ -248,7 +248,7 @@ internal sealed partial class WidgetView
                 var u = owner.Unit;
                 var top = owner._views.Take(index).Sum(v => UsageGeometry.CardHeight(v) + UsageGeometry.CardGap);
                 var rect = new Rectangle((int)Math.Round(UsageGeometry.Margin * u), (int)Math.Round((owner._usageTop + top - owner._scroll) * u),
-                    (int)Math.Round((UsageGeometry.WidgetWidth - 2 * UsageGeometry.Margin - UsageGeometry.ToggleColumn) * u), (int)Math.Round(UsageGeometry.CardHeight(View) * u));
+                    (int)Math.Round((UsageGeometry.WidgetWidth - 2 * UsageGeometry.Margin - UsageGeometry.ScrollGutter) * u), (int)Math.Round(UsageGeometry.CardHeight(View) * u));
                 return owner.RectangleToScreen(rect);
             }
         }
@@ -315,9 +315,10 @@ internal sealed partial class WidgetView
 
         var areaHeight = UsageGeometry.AreaHeight(_views, _expanded, _maxArea);
         _selector.Bounds = new Rectangle((int)Math.Round(UsageGeometry.Margin * u), (int)Math.Round(_usageTop * u), (int)Math.Round(UsageGeometry.LogoColumn * u), (int)Math.Round(UsageGeometry.CompactHeight * u));
-        var toggleSize = (int)Math.Round(16 * u);
-        var toggleY = _expanded ? _usageTop + 2 : _usageTop + (UsageGeometry.CompactHeight - 16) / 2;
-        _toggle.Bounds = new Rectangle((int)Math.Round((UsageGeometry.WidgetWidth - UsageGeometry.Margin - UsageGeometry.ToggleColumn) * u), (int)Math.Round(toggleY * u), toggleSize, toggleSize);
+        // The button sits on the separator line, centred horizontally: no extra row, and the same place in Compact and Expanded.
+        var toggleWidth = (int)Math.Round(UsageGeometry.ToggleWidth * u);
+        var toggleHeight = (int)Math.Round(UsageGeometry.ToggleHeight * u);
+        _toggle.Bounds = new Rectangle((ClientSize.Width - toggleWidth) / 2, (int)Math.Round(_separatorY * u) - toggleHeight / 2, toggleWidth, toggleHeight);
         _tip.SetToolTip(_toggle, _toggle.TipText);
 
         var view = Selected;
@@ -432,46 +433,43 @@ internal sealed partial class WidgetView
     {
         var state = graphics.Save();
         graphics.SetClip(area);
-        var cardWidth = area.Width - UsageGeometry.ToggleColumn * u;
+        var blockWidth = area.Width - UsageGeometry.ScrollGutter * u;
         var y = area.Y - _scroll * u;
         using var name = new Font("Segoe UI Semibold", 12f * u, FontStyle.Regular, GraphicsUnit.Pixel);
         using var text = new Font("Segoe UI", 12f * u, FontStyle.Regular, GraphicsUnit.Pixel);
         using var footer = new Font("Segoe UI", 11f * u, FontStyle.Regular, GraphicsUnit.Pixel);
         using var primary = new SolidBrush(PrimaryText);
         using var near = new StringFormat(StringFormatFlags.NoWrap) { Trimming = StringTrimming.EllipsisCharacter };
+        using var centred = new StringFormat(near) { LineAlignment = StringAlignment.Center };
 
+        var index = -1;
         foreach (var view in _views)
         {
-            var card = new RectangleF(area.X, y, cardWidth, UsageGeometry.CardHeight(view) * u);
-            y = card.Bottom + UsageGeometry.CardGap * u;
-            if (card.Bottom < area.Y || card.Y > area.Bottom) continue;
+            index++;
+            // A provider block is plain: no background, border or rounded container, only space between the blocks.
+            var block = new RectangleF(area.X, y, blockWidth, UsageGeometry.CardHeight(view) * u);
+            y = block.Bottom + UsageGeometry.CardGap * u;
+            if (block.Bottom < area.Y || block.Y > area.Bottom) continue;
 
-            using (var path = PillBar.Rounded(card, 8 * u))
-            using (var fill = new SolidBrush(CardColor))
+            if (Focused && (ShowFocusCues || _keyboardUsed) && index == _focusedCard)
             {
-                graphics.FillPath(fill, path);
+                using var ring = new Pen(Color.FromArgb(150, 190, 240), Math.Max(1f, u)) { DashStyle = DashStyle.Dot };
+                graphics.DrawRectangle(ring, block.X - 2 * u, block.Y - 1 * u, block.Width + 4 * u, block.Height + 2 * u);
             }
 
-            if (Focused && (ShowFocusCues || _keyboardUsed) && _focusedCard >= 0 && _focusedCard < _views.Count && ReferenceEquals(_views[_focusedCard], view))
-            {
-                using var ring = new Pen(Color.FromArgb(150, 190, 240), Math.Max(1.5f, 1.6f * u));
-                using var ringPath = PillBar.Rounded(RectangleF.Inflate(card, -0.5f * u, -0.5f * u), 8 * u);
-                graphics.DrawPath(ring, ringPath);
-            }
-
-            // The logo: far left, centred on the card.
+            // The logo: far left, centred on the block.
             var logo = UsageGeometry.LogoSize * u;
-            var logoBox = new RectangleF(card.X + UsageGeometry.CardPadding * u + (UsageGeometry.LogoColumn - UsageGeometry.LogoSize) * u / 2f - 3 * u, card.Y + (card.Height - logo) / 2f, logo, logo);
+            var logoBox = new RectangleF(block.X + (UsageGeometry.LogoColumn - UsageGeometry.LogoSize) * u / 2f, block.Y + (block.Height - logo) / 2f, logo, logo);
             DrawLogo(graphics, view, logoBox, u);
-            _hotSpots.Add((new RectangleF(card.X, card.Y, UsageGeometry.CardPadding * u + UsageGeometry.LogoColumn * u, card.Height), "logo:" + view.Id, view.Tip));
+            _hotSpots.Add((new RectangleF(block.X, block.Y, UsageGeometry.LogoColumn * u, block.Height), "logo:" + view.Id, view.Tip));
 
-            var left = card.X + (UsageGeometry.CardPadding + UsageGeometry.LogoColumn) * u;
-            var right = card.Right - UsageGeometry.CardPadding * u;
-            var rowTop = card.Y + (UsageGeometry.CardPadding + UsageGeometry.HeaderHeight) * u;
-            var header = view.Plan.Length > 0 ? $"{view.Name}  ·  {view.Plan}" : view.Name;
-            graphics.DrawString(header, name, primary, new RectangleF(left, card.Y + UsageGeometry.CardPadding * u, right - left - (view.Refreshing ? 14 * u : 0), UsageGeometry.HeaderHeight * u), near);
-            if (view.Refreshing) WidgetGlyphs.DrawUpdating(graphics, new RectangleF(right - 11 * u, card.Y + (UsageGeometry.CardPadding + 3) * u, 10 * u, 10 * u), u);
-            _hotSpots.Add((new RectangleF(left, card.Y + UsageGeometry.CardPadding * u, right - left, UsageGeometry.HeaderHeight * u), "head:" + view.Id, view.Tip));
+            var left = block.X + UsageGeometry.LogoColumn * u;
+            var right = block.Right;
+            var rowTop = block.Y + UsageGeometry.HeaderHeight * u;
+            var header = view.Plan.Length > 0 ? $"{view.Name}  \u00B7  {view.Plan}" : view.Name;
+            graphics.DrawString(header, name, primary, new RectangleF(left, block.Y, right - left - (view.Refreshing ? 14 * u : 0), UsageGeometry.HeaderHeight * u), near);
+            if (view.Refreshing) WidgetGlyphs.DrawUpdating(graphics, new RectangleF(right - 11 * u, block.Y + 3 * u, 10 * u, 10 * u), u);
+            _hotSpots.Add((new RectangleF(left, block.Y, right - left, UsageGeometry.HeaderHeight * u), "head:" + view.Id, view.Tip));
 
             var columns = ScaledColumns(left, (right - left) / u, u);
             if (view.HasData)
@@ -484,15 +482,14 @@ internal sealed partial class WidgetView
             }
             else
             {
-                using var centred = new StringFormat(near) { LineAlignment = StringAlignment.Center };
                 graphics.DrawString("N/A", name, primary, new RectangleF(left, rowTop, right - left, UsageGeometry.RowHeight * u), centred);
                 rowTop += UsageGeometry.RowHeight * u;
             }
 
             // Footer: where the numbers come from and when (or what is wrong), in readable secondary text.
-            var line = view.Source.Length > 0 ? $"{view.Source}  ·  {view.Note}" : view.Note;
+            var line = view.Source.Length > 0 ? $"{view.Source}  \u00B7  {view.Note}" : view.Note;
             var room = right - left;
-            var shown = UsageViewBuilder.FitNote(view with { Note = line, ShortNote = view.Source.Length > 0 ? $"{view.Source}  ·  {view.Short}" : view.Short }, room, s => graphics.MeasureString(s, footer, int.MaxValue, near).Width);
+            var shown = UsageViewBuilder.FitNote(view with { Note = line, ShortNote = view.Source.Length > 0 ? $"{view.Source}  \u00B7  {view.Short}" : view.Short }, room, s => graphics.MeasureString(s, footer, int.MaxValue, near).Width);
             using var footerBrush = new SolidBrush(view.IsProblem ? WarningColor : SecondaryText);
             graphics.DrawString(shown, footer, footerBrush, new RectangleF(left, rowTop, room, UsageGeometry.FooterHeight * u), near);
         }
@@ -500,13 +497,12 @@ internal sealed partial class WidgetView
         graphics.Restore(state);
         DrawScrollbar(graphics, u, area);
     }
-
     private void DrawScrollbar(Graphics graphics, float u, RectangleF area)
     {
         var max = UsageGeometry.MaxScroll(_views, _maxArea);
         if (max <= 0) return;
         var content = UsageGeometry.ExpandedContentHeight(_views);
-        var track = new RectangleF(area.Right - 4 * u, area.Y + 22 * u, 3 * u, area.Height - 24 * u);
+        var track = new RectangleF(area.Right - 4 * u, area.Y + 2 * u, 3 * u, area.Height - 4 * u);
         var thumbHeight = Math.Max(14 * u, track.Height * _maxArea / content);
         var thumbTop = track.Y + (track.Height - thumbHeight) * _scroll / max;
         PillBar.Draw(graphics, track, 0, TrackColor, TrackColor);

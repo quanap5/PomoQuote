@@ -195,6 +195,10 @@ internal sealed partial class WidgetView : Control
     public Size LogicalClientSize => new(UsageGeometry.WidgetWidth, LogicalHeight);
 
     private int _usageTop;
+    private int _separatorY;
+
+    /// <summary>Where the separator line between the quote and the usage area is, in logical px (the button sits centred on it).</summary>
+    public int SeparatorY => _separatorY;
 
     /// <summary>Where the usage area starts, in logical px (the room below it decides how tall Expanded may be).</summary>
     public int UsageTop => _usageTop;
@@ -203,10 +207,13 @@ internal sealed partial class WidgetView : Control
     {
         _quotePlan = PlanQuote();
         var y = QuoteTop;
-        if (_quotePlan is { } plan) y += (int)plan.CardHeight + QuoteTail + 6;
-        _usageTop = y;
+        if (_quotePlan is { } plan) y += (int)plan.CardHeight + QuoteTail;
+        var hasUsage = _views.Count > 0;
+        // A separator line under the quote bubble, with the Expand/Collapse button centred on it; the usage area starts below it.
+        _separatorY = y + UsageGeometry.SeparatorGap;
+        _usageTop = hasUsage ? _separatorY + UsageGeometry.AreaTopGap : y + 6;
         var area = UsageGeometry.AreaHeight(_views, _expanded, _maxArea);
-        LogicalHeight = Math.Max(150, y + area + (area > 0 ? 12 : 8));
+        LogicalHeight = Math.Max(150, hasUsage ? _usageTop + area + 12 : y + 8);
         PositionUsageControls();
         UpdateAccessibleSummary();
     }
@@ -269,6 +276,12 @@ internal sealed partial class WidgetView : Control
         _hotSpots.Add((new RectangleF(left, 85 * u, width, 42 * u), "timer", TimerTooltip.Text(timer.Phase, timer.State, timer.PhaseDuration, timer.Remaining, DateTime.Now)));
 
         DrawQuote(graphics, u);
+        if (_views.Count > 0)
+        {
+            using var separator = new Pen(BorderColor, Math.Max(1f, u));
+            graphics.DrawLine(separator, left, _separatorY * u, left + width, _separatorY * u);
+        }
+
         DrawUsage(graphics, u);
     }
 

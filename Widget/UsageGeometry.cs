@@ -26,11 +26,22 @@ internal static class UsageGeometry
     /// <summary>The logo itself (the brief asks for about 18 to 20 px).</summary>
     public const int LogoSize = 20;
 
-    /// <summary>The column on the right that holds the Expand/Collapse button (and the scrollbar of Expanded).</summary>
-    public const int ToggleColumn = 16;
+    /// <summary>The strip on the right of Expanded that holds its scrollbar.</summary>
+    public const int ScrollGutter = 8;
 
-    public const int CardPadding = 6;
-    public const int CardGap = 6;
+    /// <summary>The Expand/Collapse button: a small pill sitting on the separator line, centred horizontally.</summary>
+    public const int ToggleWidth = 30;
+
+    public const int ToggleHeight = 16;
+
+    /// <summary>From the bottom of the quote bubble (its tail) to the separator line, and from the line to the first row.</summary>
+    public const int SeparatorGap = 8;
+
+    public const int AreaTopGap = 12;
+
+    // A provider block has no background, border or rounded container: plain rows with only space between blocks.
+    public const int CardPadding = 0;
+    public const int CardGap = 8;
     public const int HeaderHeight = 16;
     public const int FooterHeight = 14;
 
@@ -55,13 +66,13 @@ internal static class UsageGeometry
         return new RowColumns(labelX, LabelWidth, barX, bar, percentX, PercentWidth, resetX, ResetWidth);
     }
 
-    /// <summary>The width the rows get in Compact: the widget minus its margins, the logo column and the button column.</summary>
-    public static float CompactRowsWidth => WidgetWidth - 2 * Margin - LogoColumn - ToggleColumn;
+    /// <summary>The width the rows get in Compact: the widget minus its margins and the logo column.</summary>
+    public static float CompactRowsWidth => WidgetWidth - 2 * Margin - LogoColumn;
 
-    /// <summary>The width a card's rows get in Expanded: the card minus its padding and the logo column.</summary>
-    public static float CardRowsWidth => WidgetWidth - 2 * Margin - ToggleColumn - 2 * CardPadding - LogoColumn;
+    /// <summary>The width a provider block's rows get in Expanded: the widget minus its margins, the logo column and the scroll gutter.</summary>
+    public static float CardRowsWidth => WidgetWidth - 2 * Margin - ScrollGutter - LogoColumn;
 
-    /// <summary>A card: padding, the header, one row per window (one line for N/A or a note), the footer, padding.</summary>
+    /// <summary>A provider block: the header, one row per window (one line for N/A or a note) and the footer.</summary>
     public static int CardHeight(UsageProviderView view) => CardPadding + HeaderHeight + Math.Max(1, view.Rows.Count) * RowHeight + FooterHeight + CardPadding;
 
     public static int ExpandedContentHeight(IReadOnlyList<UsageProviderView> views) =>
