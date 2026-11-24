@@ -44,7 +44,10 @@ internal static class OpenMeteoParser
             throw new WeatherException("The weather service returned incomplete data.");
         }
 
-        return new WeatherReport(temperature, (int)Math.Round(humidity), wind, (int)code);
+        // is_day and wind_direction_10m are optional: an older or partial answer still parses (day, no direction).
+        var isDay = !TryGetNumber(current, "is_day", out var day) || day >= 0.5;
+        double? direction = TryGetNumber(current, "wind_direction_10m", out var degrees) && degrees is >= 0 and <= 360 ? degrees : null;
+        return new WeatherReport(temperature, (int)Math.Round(humidity), wind, (int)code, isDay, direction);
     }
 
     private static JsonDocument Parse(string json)

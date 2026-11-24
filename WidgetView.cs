@@ -2,6 +2,7 @@ using System.Drawing.Drawing2D;
 using System.Drawing.Text;
 using System.Runtime.InteropServices;
 using HelloWorldBot.Pomodoro;
+using HelloWorldBot.Weather;
 
 namespace HelloWorldBot;
 
@@ -98,11 +99,12 @@ internal sealed class WidgetView : Control
 
         // Weather: city on the left, temperature and conditions below
         using (var small = new Font("Segoe UI", 11.5f * u, FontStyle.Regular, GraphicsUnit.Pixel))
-        using (var secondary = new SolidBrush(SecondaryText))
-        using (var primary = new SolidBrush(PrimaryText))
         {
-            graphics.DrawString(_weather.CityName, small, secondary, new RectangleF(left, 48 * u, width, 17 * u), near);
-            graphics.DrawString(_weather.CompactSummary, small, primary, new RectangleF(left, 65 * u, width, 17 * u), near);
+            // Every weather value comes with its own icon, drawn crisp at exactly this size (see IconTextLine).
+            var snapshot = _weather.Snapshot;
+            var iconSize = (int)Math.Round(14 * u);
+            IconTextLine.Draw(graphics, _weather.Icons, WeatherLines.City(snapshot), small, iconSize, 5 * u, left, 48 * u, SecondaryText, shadow: false);
+            IconTextLine.Draw(graphics, _weather.Icons, WeatherLines.Summary(snapshot), small, iconSize, 5 * u, left, 65 * u, PrimaryText, shadow: false);
         }
 
         // Pomodoro: phase and remaining time, today's count, progress bar

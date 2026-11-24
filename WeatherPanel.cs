@@ -5,8 +5,9 @@ using HelloWorldBot.Weather;
 namespace HelloWorldBot;
 
 /// <summary>
-/// Shows a city's current weather as three centered lines on a transparent background. Over a
-/// wallpaper the text turns white with a shadow; on the plain background it is dark gray.
+/// Shows a city's current weather as three centered lines of icons and text on a transparent background: the place, the
+/// temperature and conditions, and humidity and wind. Over a wallpaper the text turns white with a shadow; on the plain
+/// background it is dark gray. The icons carry their own outline, so they read on either.
 /// </summary>
 internal sealed class WeatherPanel : Control
 {
@@ -35,6 +36,9 @@ internal sealed class WeatherPanel : Control
         _detailFont = new Font("Segoe UI", 11f, FontStyle.Regular, GraphicsUnit.Point);
     }
 
+    /// <summary>The one icon cache of the weather UI (the widget draws from it too). Disposed with the panel.</summary>
+    internal WeatherIconCache Icons { get; } = new();
+
     /// <summary>True while a wallpaper is behind the panel, so the text needs the light style.</summary>
     [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
     public bool OnWallpaper
@@ -51,17 +55,8 @@ internal sealed class WeatherPanel : Control
     /// <summary>The city shown, as "City, Country".</summary>
     public string CityName => _cityName;
 
-    /// <summary>Temperature and conditions on one line (for the compact widget), or a status message.</summary>
-    public string CompactSummary
-    {
-        get
-        {
-            if (_report is null) return _failed ? "Weather unavailable" : "Loading weather…";
-            var (condition, symbol) = WeatherCodes.Describe(_report.WeatherCode);
-            var text = $"{_report.TemperatureCelsius:0.#} °C  {symbol} {condition}";
-            return _failed ? text + "  (stale)" : text;
-        }
-    }
+    /// <summary>The city, the last report and whether the latest refresh failed.</summary>
+    internal WeatherSnapshot Snapshot => new(_cityName, _report, _reportTime, _failed);
 
     /// <summary>Raised whenever the city or the weather text changes.</summary>
     public event EventHandler? Updated;
@@ -99,50 +94,25 @@ internal sealed class WeatherPanel : Control
     protected override void OnPaint(PaintEventArgs e)
     {
         var graphics = e.Graphics;
-        graphics.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
-        using var format = new StringFormat(StringFormatFlags.NoWrap)
-        {
-            Alignment = StringAlignment.Center,
-            LineAlignment = StringAlignment.Near,
-            Trimming = StringTrimming.EllipsisCharacter,
-        };
-
-        var (valueLine, detailLine) = BuildLines();
+        var snapshot = Snapshot;
         var y = Padding.Top + 4f;
-        DrawLine(graphics, _cityName, _cityFont, ref y, format);
-        DrawLine(graphics, valueLine, _valueFont, ref y, format);
-        DrawLine(graphics, detailLine, _detailFont, ref y, format);
+        DrawLine(graphics, WeatherLines.City(snapshot), _cityFont, ref y);
+        DrawLine(graphics, WeatherLines.Value(snapshot), _valueFont, ref y);
+        DrawLine(graphics, WeatherLines.Detail(snapshot), _detailFont, ref y);
     }
 
-    private (string Value, string Detail) BuildLines()
+    /// <summary>Draws one line centered. A line too wide for the panel is shifted left to the padding rather than cut on both sides.</summary>
+    private void DrawLine(Graphics graphics, IReadOnlyList<LinePart> parts, Font font, ref float y)
     {
-        if (_report is null)
+        if (parts.Count > 0)
         {
-            return _failed ? ("Weather unavailable", "Will try again shortly") : ("Loading weather…", "");
+            var iconSize = IconTextLine.IconSizeFor(font);
+            var gap = font.Height * 0.3f;
+            var width = IconTextLine.Measure(graphics, parts, font, iconSize, gap);
+            var x = Math.Max(Padding.Left, (ClientSize.Width - width) / 2f);
+            IconTextLine.Draw(graphics, Icons, parts, font, iconSize, gap, x, y, _onWallpaper ? Color.White : PlainTextColor, _onWallpaper);
         }
 
-        var (condition, symbol) = WeatherCodes.Describe(_report.WeatherCode);
-        var value = $"{_report.TemperatureCelsius:0.#} °C   {symbol} {condition}";
-        var detail = $"Humidity {_report.HumidityPercent}%   Wind {_report.WindSpeedKmh:0.#} km/h";
-        if (_failed)
-        {
-            detail += $"   · Weather unavailable, last updated {_reportTime:HH:mm}";
-        }
-
-        return (value, detail);
-    }
-
-    private void DrawLine(Graphics graphics, string text, Font font, ref float y, StringFormat format)
-    {
-        var area = new RectangleF(Padding.Left, y, Math.Max(1, ClientSize.Width - Padding.Horizontal), font.Height);
-        if (_onWallpaper)
-        {
-            using var shadow = new SolidBrush(Color.FromArgb(170, 0, 0, 0));
-            graphics.DrawString(text, font, shadow, new RectangleF(area.X + 1, area.Y + 1, area.Width, area.Height), format);
-        }
-
-        using var brush = new SolidBrush(_onWallpaper ? Color.White : PlainTextColor);
-        graphics.DrawString(text, font, brush, area, format);
         y += font.Height;
     }
 
@@ -153,6 +123,7 @@ internal sealed class WeatherPanel : Control
             _cityFont.Dispose();
             _valueFont.Dispose();
             _detailFont.Dispose();
+            Icons.Dispose();
         }
 
         base.Dispose(disposing);
