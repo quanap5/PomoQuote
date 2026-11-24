@@ -15,7 +15,7 @@ public class MascotRouteTests
         var route = MascotRoute.Build([BottomTaskbar("A")]);
 
         var walkway = Assert.Single(route);
-        Assert.Equal(new Walkway("A", 0, 1920, 1032, 96), walkway);
+        Assert.Equal(new Walkway("A", 0, 1920, 1032, 96, 0, 1080), walkway);
     }
 
     [Fact]

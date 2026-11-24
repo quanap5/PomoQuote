@@ -5,40 +5,48 @@ using Microsoft.Win32;
 namespace HelloWorldBot.Mascot;
 
 /// <summary>
-/// Runs the taskbar mascot while the main window is hidden in the tray: a ~12 fps timer feeds the
-/// <see cref="MascotMover"/>, each frame is drawn into the click-through <see cref="MascotWindow"/>, and the
-/// robot reacts to the Pomodoro (mood, celebration), to monitors coming and going, to the screen being
-/// locked or the PC sleeping (animation stops), and to full-screen apps (robot hides). Everything it creates
-/// is released again by <see cref="Stop"/>, so minimize / restore cycles do not leak.
+/// Runs the taskbar character while the main window is hidden in the tray: a timer feeds the <see cref="MascotActor"/>,
+/// each frame is drawn into the click-through <see cref="MascotWindow"/> (only when something changed), and the character
+/// reacts to the Pomodoro (mood, celebration, sadness), to being clicked and dragged, to monitors coming and going, to the
+/// screen being locked or the PC sleeping (animation stops), and to full-screen apps (it hides). Everything it creates is
+/// released again by <see cref="Stop"/>, so minimize / restore cycles do not leak.
 /// </summary>
 internal sealed class MascotController : IDisposable
 {
-    private const int TickMilliseconds = 80;
+    private const int TickMilliseconds = 50; // 20 updates a second: smooth movement, animation frames follow their own fps
     private const double MaxStepSeconds = 0.25;
-    private const int HousekeepingEvery = 12; // about once a second
+    private const int HousekeepingEvery = 20; // about once a second
 
     private readonly PomodoroController _pomodoro;
     private readonly TimeProvider _clock;
     private readonly string _assetsDirectory;
+    private readonly string? _userConfigPath;
+    private readonly Func<double> _random;
     private readonly System.Windows.Forms.Timer _timer = new() { Interval = TickMilliseconds };
-    private readonly MascotMover _mover = new();
+    private MascotActor? _actor;
+    private MascotConfig _config = MascotConfig.Default;
     private MascotRenderer? _renderer;
     private MascotSound? _shout;
     private MascotWindow? _window;
     private MascotSettings _settings;
+    private SynchronizationContext? _uiContext;
     private long _lastTimestamp;
     private int _ticks;
-    private SynchronizationContext? _uiContext;
     private bool _running;
     private bool _paused;
     private bool _fullScreenHidden;
+    private PointF _grabOffset;
+    private (int X, int Y, int Row, int Frame, bool Right, int Size) _lastDrawn;
+    private bool _hasDrawn;
 
-    public MascotController(PomodoroController pomodoro, MascotSettings settings, string assetsDirectory, TimeProvider clock)
+    public MascotController(PomodoroController pomodoro, MascotSettings settings, string assetsDirectory, TimeProvider clock, string? userConfigPath = null, Func<double>? random = null)
     {
         _pomodoro = pomodoro;
         _settings = settings;
         _assetsDirectory = assetsDirectory;
         _clock = clock;
+        _userConfigPath = userConfigPath;
+        _random = random ?? Random.Shared.NextDouble;
         _timer.Tick += (_, _) => Tick();
     }
 
@@ -53,17 +61,24 @@ internal sealed class MascotController : IDisposable
 
     public bool IsAnimating => _running && _timer.Enabled;
 
-    public MascotPose? Pose => _mover.Pose;
+    public MascotPose? Pose => _actor?.Pose;
+
+    public MascotActor? Actor => _actor;
 
     public MascotSettings Settings => _settings;
 
-    /// <summary>Raised when the robot is clicked.</summary>
-    public event EventHandler? RobotClicked;
+    public MascotConfig Config => _config;
 
-    /// <summary>Raised each time the robot jumps onto another monitor (when its shout is played).</summary>
+    /// <summary>Problems found in the animation config files the last time they were loaded (empty when all is well).</summary>
+    public IReadOnlyList<string> ConfigWarnings { get; private set; } = [];
+
+    /// <summary>Raised when the character is double-clicked: the window should come back.</summary>
+    public event EventHandler? RestoreRequested;
+
+    /// <summary>Raised each time the character jumps onto another monitor (when its shout is played).</summary>
     public event EventHandler? Crossed;
 
-    /// <summary>Puts the robot on the taskbar and starts walking. Does nothing if the mascot is disabled or its art is missing.</summary>
+    /// <summary>Puts the character on the taskbar. Does nothing if the mascot is disabled or its art is missing.</summary>
     public bool Start()
     {
         if (_running) return true;
@@ -72,28 +87,37 @@ internal sealed class MascotController : IDisposable
         _running = true;
         _paused = false;
         _fullScreenHidden = false;
+        _hasDrawn = false;
 
         // SystemEvents are raised on their own thread; the UI thread's context lets the handlers hop back.
         _uiContext = SynchronizationContext.Current;
-        ApplyToMover();
+
+        _actor = new MascotActor(_config, _random);
+        ApplyToActor();
         RefreshRoute();
         UpdateMood();
 
         _pomodoro.Timer.Changed += OnPomodoroChanged;
         _pomodoro.Timer.PhaseCompleted += OnPhaseCompleted;
+        _pomodoro.Timer.PhaseSkipped += OnPhaseSkipped;
+        _pomodoro.Timer.ResetPerformed += OnPhaseSkipped;
         SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
         SystemEvents.SessionSwitch += OnSessionSwitch;
         SystemEvents.PowerModeChanged += OnPowerModeChanged;
 
         _window = new MascotWindow();
-        _window.RobotClicked += OnRobotClicked;
+        _window.Clicked += OnClicked;
+        _window.DoubleClicked += OnDoubleClicked;
+        _window.DragStarted += OnDragStarted;
+        _window.DragMoved += OnDragMoved;
+        _window.DragEnded += OnDragEnded;
         _lastTimestamp = _clock.GetTimestamp();
         _timer.Start();
         Tick();
         return true;
     }
 
-    /// <summary>Takes the robot off the taskbar and releases the window, the timer subscriptions and the system hooks.</summary>
+    /// <summary>Takes the character off the taskbar and releases the window, the timer subscriptions and the system hooks.</summary>
     public void Stop()
     {
         if (!_running) return;
@@ -102,17 +126,25 @@ internal sealed class MascotController : IDisposable
 
         _pomodoro.Timer.Changed -= OnPomodoroChanged;
         _pomodoro.Timer.PhaseCompleted -= OnPhaseCompleted;
+        _pomodoro.Timer.PhaseSkipped -= OnPhaseSkipped;
+        _pomodoro.Timer.ResetPerformed -= OnPhaseSkipped;
         SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
         SystemEvents.SessionSwitch -= OnSessionSwitch;
         SystemEvents.PowerModeChanged -= OnPowerModeChanged;
 
         if (_window is not null)
         {
-            _window.RobotClicked -= OnRobotClicked;
+            _window.Clicked -= OnClicked;
+            _window.DoubleClicked -= OnDoubleClicked;
+            _window.DragStarted -= OnDragStarted;
+            _window.DragMoved -= OnDragMoved;
+            _window.DragEnded -= OnDragEnded;
             _window.Close();
             _window.Dispose();
             _window = null;
         }
+
+        _actor = null;
     }
 
     /// <summary>Applies new options immediately. Disabling the mascot while it is running stops it.</summary>
@@ -126,19 +158,56 @@ internal sealed class MascotController : IDisposable
             return;
         }
 
-        ApplyToMover();
+        ApplyToActor();
         RefreshRoute();
+        _hasDrawn = false;
+    }
+
+    /// <summary>
+    /// Reads the animation and behaviour config files again (the shipped one, then the user's in %AppData%) and applies
+    /// them at once. Returns the warnings about anything invalid that was ignored.
+    /// </summary>
+    public IReadOnlyList<string> ReloadConfig()
+    {
+        var previousFrameSize = _config.FrameSize;
+        var warnings = LoadConfig();
+        if (_running && _actor is not null)
+        {
+            _actor.SetConfig(_config);
+            if (_renderer is not null && previousFrameSize != _config.FrameSize)
+            {
+                _renderer.Dispose();
+                _renderer = null;
+                LoadAssets();
+            }
+
+            _hasDrawn = false;
+        }
+
+        return warnings;
+    }
+
+    private IReadOnlyList<string> LoadConfig()
+    {
+        var warnings = new List<string>();
+        _config = MascotConfig.Load(Path.Combine(_assetsDirectory, "mascot-config.json"), _userConfigPath, warnings);
+        ConfigWarnings = warnings;
+        return warnings;
     }
 
     private bool LoadAssets()
     {
-        try
+        if (_renderer is null)
         {
-            _renderer ??= new MascotRenderer(Path.Combine(_assetsDirectory, "robot-sprites.png"));
-        }
-        catch (Exception ex) when (ex is IOException or ArgumentException or ExternalException or OutOfMemoryException)
-        {
-            return false; // no art, no robot
+            LoadConfig();
+            try
+            {
+                _renderer = new MascotRenderer(Path.Combine(_assetsDirectory, "robot-sprites.png"), _config.FrameSize);
+            }
+            catch (Exception ex) when (ex is IOException or ArgumentException or ExternalException or OutOfMemoryException)
+            {
+                return false; // no art, no character
+            }
         }
 
         if (_shout is null)
@@ -149,40 +218,39 @@ internal sealed class MascotController : IDisposable
             }
             catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException)
             {
-                // The robot still walks; it just cannot shout.
+                // The character still walks; it just cannot shout.
             }
         }
 
         return true;
     }
 
-    private void ApplyToMover()
+    private void ApplyToActor()
     {
-        _mover.SizeScale = _settings.SizeScale;
-        _mover.SpeedFactor = _settings.SpeedFactor;
+        if (_actor is null) return;
+        _actor.SizeScale = _settings.SizeScale;
+        _actor.SpeedFactor = _settings.SpeedFactor;
+        _actor.RandomActions = _settings.RandomActions;
     }
 
-    private void RefreshRoute()
-    {
-        var monitors = MonitorProvider();
-        var enabled = _settings.EnabledMonitors;
-        _mover.SetRoute(MascotRoute.Build(monitors, enabled));
-    }
+    private void RefreshRoute() => _actor?.SetRoute(MascotRoute.Build(MonitorProvider(), _settings.EnabledMonitors));
 
     private void UpdateMood()
     {
+        if (_actor is null) return;
         var timer = _pomodoro.Timer;
-        _mover.Mood = (timer.State, timer.Phase) switch
+        _actor.Mood = (timer.State, timer.Phase) switch
         {
             (PomodoroRunState.Running, PomodoroPhase.Work) => MascotMood.Working,
-            (PomodoroRunState.Running, _) => MascotMood.Break,
+            (PomodoroRunState.Running, PomodoroPhase.ShortBreak) => MascotMood.Break,
+            (PomodoroRunState.Running, PomodoroPhase.LongBreak) => MascotMood.LongBreak,
             _ => MascotMood.Idle,
         };
     }
 
     private void Tick()
     {
-        if (!_running || _window is null || _renderer is null) return;
+        if (!_running || _window is null || _renderer is null || _actor is null) return;
 
         var now = _clock.GetTimestamp();
         var seconds = Math.Min(MaxStepSeconds, Math.Max(0, _clock.GetElapsedTime(_lastTimestamp, now).TotalSeconds));
@@ -193,7 +261,7 @@ internal sealed class MascotController : IDisposable
 
         try
         {
-            var events = _mover.Update(TimeSpan.FromSeconds(seconds));
+            var events = _actor.Update(TimeSpan.FromSeconds(seconds));
             if (events.HasFlag(MascotEvents.CrossingStarted))
             {
                 PlayShout();
@@ -208,13 +276,19 @@ internal sealed class MascotController : IDisposable
         }
     }
 
+    /// <summary>Draws the current pose, unless it looks exactly like the last one drawn (sleeping costs nothing).</summary>
     private void Draw()
     {
-        if (_window is null || _renderer is null || _mover.Pose is not { } pose) return;
+        if (_window is null || _renderer is null || _actor?.Pose is not { } pose) return;
 
-        using var frame = _renderer.Render(pose, _settings.SizeScale, pose.Dpi);
+        var frame = _renderer.Render(pose, _settings.SizeScale, pose.Dpi);
         var topLeft = new Point((int)Math.Round(pose.FeetX - frame.Width / 2.0), (int)Math.Round(pose.FeetY - frame.Height));
+        var signature = (topLeft.X, topLeft.Y, pose.Row, pose.Frame, pose.FacingRight, frame.Width);
+        if (_hasDrawn && signature == _lastDrawn && _window.Visible) return;
+
         _window.SetFrame(frame, topLeft);
+        _lastDrawn = signature;
+        _hasDrawn = true;
         if (!_window.Visible) _window.Show();
     }
 
@@ -226,7 +300,11 @@ internal sealed class MascotController : IDisposable
         {
             _fullScreenHidden = fullScreen;
             if (fullScreen) _window?.Hide();
-            else Draw();
+            else
+            {
+                _hasDrawn = false;
+                Draw();
+            }
         }
 
         if (!fullScreen) _window?.KeepOnTop();
@@ -237,21 +315,58 @@ internal sealed class MascotController : IDisposable
         if (_settings.SoundEnabled) _shout?.Play(_settings.VolumeGain);
     }
 
+    // -- Pomodoro ---------------------------------------------------------------------------------------------------
+
     private void OnPomodoroChanged(object? sender, EventArgs e) => UpdateMood();
 
     private void OnPhaseCompleted(object? sender, PhaseCompletedEventArgs e)
     {
         if (!e.WorkSessionCompleted) return;
-        _mover.Celebrate();
+        _actor?.Celebrate();
 
         // The Pomodoro already plays its own phase-end sound; add the shout only when that one is off.
         if (!_pomodoro.Timer.Settings.SoundEnabled) PlayShout();
     }
 
-    private void OnRobotClicked(object? sender, EventArgs e) => RobotClicked?.Invoke(this, EventArgs.Empty);
+    private void OnPhaseSkipped(object? sender, EventArgs e) => _actor?.Sadden();
+
+    // -- Mouse -------------------------------------------------------------------------------------------------------
+
+    private void OnClicked(object? sender, EventArgs e)
+    {
+        _actor?.React();
+        _hasDrawn = false;
+    }
+
+    private void OnDoubleClicked(object? sender, EventArgs e) => RestoreRequested?.Invoke(this, EventArgs.Empty);
+
+    private void OnDragStarted(Point cursor)
+    {
+        if (_actor?.Pose is not { } pose) return;
+        _grabOffset = new PointF((float)(pose.FeetX - cursor.X), (float)(pose.FeetY - cursor.Y));
+        _actor.BeginDrag(cursor.X + _grabOffset.X, cursor.Y + _grabOffset.Y);
+        Draw();
+    }
+
+    private void OnDragMoved(Point cursor)
+    {
+        if (_actor is null) return;
+        _actor.DragTo(cursor.X + _grabOffset.X, cursor.Y + _grabOffset.Y);
+        Draw();
+    }
+
+    private void OnDragEnded(Point cursor)
+    {
+        if (_actor is null) return;
+        _actor.DragTo(cursor.X + _grabOffset.X, cursor.Y + _grabOffset.Y);
+        _actor.EndDrag();
+        Draw();
+    }
+
+    // -- System events (arrive on a background thread) -------------------------------------------------------
 
     // The three SystemEvents below arrive on a background thread. Everything they touch (the WinForms timer,
-    // the mover, the window) belongs to the UI thread, so each handler only posts the work back to it.
+    // the actor, the window) belongs to the UI thread, so each handler only posts the work back to it.
     private void OnDisplaySettingsChanged(object? sender, EventArgs e) => RunOnUiThread(RefreshRoute);
 
     private void OnSessionSwitch(object? sender, SessionSwitchEventArgs e)
@@ -314,7 +429,7 @@ internal sealed class MascotController : IDisposable
         _timer.Start();
     }
 
-    /// <summary>One animation step, for tests and for driving the robot without waiting for the timer.</summary>
+    /// <summary>One animation step, for tests and for driving the character without waiting for the timer.</summary>
     internal void StepForTest() => Tick();
 
     public void Dispose()

@@ -22,7 +22,8 @@ public sealed class MascotStoreTests : IDisposable
         Assert.True(settings.SoundEnabled);
         Assert.Equal(70, settings.VolumePercent);
         Assert.Equal(100, settings.SpeedPercent);
-        Assert.Equal(3, settings.SizeScale);
+        Assert.Equal(2, settings.SizeScale);
+        Assert.Equal(2, settings.RandomActions);
         Assert.Null(settings.EnabledMonitors);
     }
 
@@ -30,7 +31,7 @@ public sealed class MascotStoreTests : IDisposable
     public void Saved_settings_survive_a_reload_and_create_the_folder()
     {
         var store = new MascotStore(StorePath);
-        store.Save(new MascotSettings(false, false, 25, 150, 4, ["\\\\.\\DISPLAY1", "\\\\.\\DISPLAY3"]));
+        store.Save(new MascotSettings(false, false, 25, 150, 4, ["\\\\.\\DISPLAY1", "\\\\.\\DISPLAY3"], 1));
 
         var loaded = new MascotStore(StorePath).Load();
 
@@ -39,6 +40,7 @@ public sealed class MascotStoreTests : IDisposable
         Assert.Equal(25, loaded.VolumePercent);
         Assert.Equal(150, loaded.SpeedPercent);
         Assert.Equal(4, loaded.SizeScale);
+        Assert.Equal(1, loaded.RandomActions);
         Assert.Equal(["\\\\.\\DISPLAY1", "\\\\.\\DISPLAY3"], loaded.EnabledMonitors!);
         Assert.False(File.Exists(StorePath + ".tmp"));
     }
@@ -63,8 +65,9 @@ public sealed class MascotStoreTests : IDisposable
     [InlineData(2, 2)]
     [InlineData(3, 3)]
     [InlineData(4, 4)]
-    [InlineData(0, 3)]
-    [InlineData(7, 3)]
+    [InlineData(0, 2)]
+    [InlineData(7, 2)]
+    [InlineData(1, 2)]
     public void Size_must_be_one_of_the_offered_scales(int stored, int expected)
     {
         Assert.Equal(expected, new MascotSettings(SizeScale: stored).Normalized().SizeScale);
@@ -93,7 +96,7 @@ public sealed class MascotStoreTests : IDisposable
 
         var settings = new MascotStore(StorePath).Load();
 
-        Assert.Equal((100, 25, 3), (settings.VolumePercent, settings.SpeedPercent, settings.SizeScale));
+        Assert.Equal((100, 25, 2), (settings.VolumePercent, settings.SpeedPercent, settings.SizeScale));
     }
 
     [Theory]

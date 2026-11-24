@@ -14,8 +14,15 @@ internal sealed class MascotWindow : Form
     private const int WS_EX_LAYERED = 0x00080000;
     private const int WS_EX_NOACTIVATE = 0x08000000;
     private const int WM_MOUSEACTIVATE = 0x0021;
+    private const int WM_MOUSEMOVE = 0x0200;
+    private const int WM_LBUTTONDOWN = 0x0201;
     private const int WM_LBUTTONUP = 0x0202;
+    private const int WM_LBUTTONDBLCLK = 0x0203;
     private const int MA_NOACTIVATE = 3;
+    private const int DragThresholdPixels = 4;
+    private bool _pressed;
+    private bool _dragging;
+    private Point _pressedAt;
     private const int ULW_ALPHA = 2;
     private const byte AC_SRC_OVER = 0;
     private const byte AC_SRC_ALPHA = 1;
@@ -33,8 +40,24 @@ internal sealed class MascotWindow : Form
         Size = new Size(16, 16);
     }
 
-    /// <summary>Raised when the robot is clicked with the left mouse button.</summary>
-    public event EventHandler? RobotClicked;
+    /// <summary>Raised when the character is clicked (pressed and released without moving).</summary>
+    public event EventHandler? Clicked;
+
+    /// <summary>Raised when the character is double-clicked.</summary>
+    public event EventHandler? DoubleClicked;
+
+    /// <summary>Raised once the mouse has moved far enough with the button down: the character is picked up. Screen position.</summary>
+    public event Action<Point>? DragStarted;
+
+    /// <summary>Raised while the picked-up character is moved. Screen position of the mouse.</summary>
+    public event Action<Point>? DragMoved;
+
+    /// <summary>Raised when the mouse button is released after a drag. Screen position of the mouse.</summary>
+    public event Action<Point>? DragEnded;
+
+    /// <summary>Where the mouse pointer is, in screen pixels. Replaceable so tests can drive a drag without moving the real mouse.</summary>
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+    internal Func<Point> CursorProvider { get; set; } = () => Cursor.Position;
 
     protected override bool ShowWithoutActivation => true;
 
@@ -57,7 +80,36 @@ internal sealed class MascotWindow : Form
         }
 
         base.WndProc(ref m);
-        if (m.Msg == WM_LBUTTONUP) RobotClicked?.Invoke(this, EventArgs.Empty);
+        switch (m.Msg)
+        {
+            case WM_LBUTTONDOWN:
+                _pressed = true;
+                _dragging = false;
+                _pressedAt = CursorProvider();
+                Capture = true; // keep getting mouse messages while the pointer leaves the small window
+                break;
+            case WM_MOUSEMOVE when _pressed:
+                var position = CursorProvider();
+                if (!_dragging && Math.Abs(position.X - _pressedAt.X) + Math.Abs(position.Y - _pressedAt.Y) >= DragThresholdPixels)
+                {
+                    _dragging = true;
+                    DragStarted?.Invoke(position);
+                }
+
+                if (_dragging) DragMoved?.Invoke(position);
+                break;
+            case WM_LBUTTONUP when _pressed:
+                var wasDragging = _dragging;
+                _pressed = false;
+                _dragging = false;
+                Capture = false;
+                if (wasDragging) DragEnded?.Invoke(CursorProvider());
+                else Clicked?.Invoke(this, EventArgs.Empty);
+                break;
+            case WM_LBUTTONDBLCLK:
+                DoubleClicked?.Invoke(this, EventArgs.Empty);
+                break;
+        }
     }
 
     /// <summary>Shows <paramref name="frame"/> (premultiplied ARGB) with its top-left corner at <paramref name="topLeft"/>.</summary>

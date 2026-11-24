@@ -2,7 +2,7 @@
 
 ## Robot sprite sheet
 
-`robot-sprites.png` (96x48, 16x16 pixel cells: walk x4, shout x2, sleep x2) is original pixel art drawn for this project, with no third-party material. It is dedicated to the public domain under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/). The app enlarges it by whole factors with nearest-neighbour scaling.
+`robot-sprites.png` (192x336, 24x24 px frames, 14 animations) is original pixel art drawn for this project, with no third-party material. It is produced by [tools/generate-mascot-sprites.ps1](../../tools/generate-mascot-sprites.ps1), which also writes `contact-sheet.png` (every frame, labelled). `preview-life.png` is a simulated minute of the character's life drawn by the app's own renderer onto a mock taskbar. The sheet, the script, `mascot-config.json` and the previews are dedicated to the public domain under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/). The app enlarges the sheet by whole factors with nearest-neighbour scaling.
 
 ## Shout sound
 

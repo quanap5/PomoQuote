@@ -4,20 +4,23 @@ namespace HelloWorldBot.Mascot;
 
 /// <summary>
 /// Options for the taskbar mascot. <see cref="EnabledMonitors"/> lists the monitors (by device name) the
-/// robot may walk on; null means all of them.
+/// robot may walk on; null means all of them. <see cref="RandomActions"/> is 0 (off), 1 (few) or 2 (normal).
 /// </summary>
 internal sealed record MascotSettings(
     bool Enabled = true,
     bool SoundEnabled = true,
     int VolumePercent = 70,
     int SpeedPercent = 100,
-    int SizeScale = 3,
-    string[]? EnabledMonitors = null)
+    int SizeScale = 2,
+    string[]? EnabledMonitors = null,
+    int RandomActions = 2)
 {
     public const int MinVolume = 0;
     public const int MaxVolume = 100;
     public const int MinSpeed = 25;
     public const int MaxSpeed = 300;
+    public const int DefaultSizeScale = 2;
+    public const int MaxRandomActions = 2;
     public static readonly IReadOnlyList<int> SizeChoices = [2, 3, 4];
 
     public static MascotSettings Default { get; } = new();
@@ -27,8 +30,9 @@ internal sealed record MascotSettings(
     {
         VolumePercent = Math.Clamp(VolumePercent, MinVolume, MaxVolume),
         SpeedPercent = Math.Clamp(SpeedPercent, MinSpeed, MaxSpeed),
-        SizeScale = SizeChoices.Contains(SizeScale) ? SizeScale : 3,
+        SizeScale = SizeChoices.Contains(SizeScale) ? SizeScale : DefaultSizeScale,
         EnabledMonitors = EnabledMonitors is { Length: > 0 } ? EnabledMonitors : null,
+        RandomActions = Math.Clamp(RandomActions, 0, MaxRandomActions),
     };
 
     /// <summary>The walking speed as a factor of the normal speed.</summary>
@@ -54,6 +58,10 @@ internal sealed class MascotStore
 
     public static string DefaultPath { get; } = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "HelloWorldBot", "mascot.json");
+
+    /// <summary>The optional user file that overrides the animation and behaviour defaults.</summary>
+    public static string UserConfigPath { get; } = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "HelloWorldBot", "mascot-config.json");
 
     public MascotSettings Load()
     {
