@@ -160,7 +160,7 @@ public sealed class WidgetIconsAndDateTests
         var source = File.ReadAllText(Path.Combine(RepositoryRoot(), "WidgetView.cs"));
 
         Assert.Contains("MeasureString(\"88:88:88\", timeFont", source); // the widest the clock gets: the date never moves or overlaps
-        Assert.Contains("DrawDate(graphics, u, dateLeft", source);
+        Assert.Contains("DrawDate(graphics, u, widestClock", source);
         Assert.Contains("DateLineCache", source);
         Assert.Contains("RefreshDate();", source);
     }
