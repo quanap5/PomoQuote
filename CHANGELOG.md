@@ -7,12 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Proposed version for this release: **1.1.0** (the rename is a visible change, and the sentences are a new feature). The version in `PomoQuote.csproj` is left at 1.0.0 until the owner decides.
+## [1.1.0] - 2026-11-24
 
 ### Changed
 
 - The tray icon is now the PomoQuote logo (it was the robot's first frame); the robot stays the taskbar mascot.
-- **The app is now called PomoQuote** (was HelloWorldBot): window title (and the Pomodoro title, now "mm:ss Work - PomoQuote"), About dialog, tray icon, exe name (`PomoQuote.exe`), project, namespaces and test project (`PomoQuote.Tests`), single-instance name, settings folder and documentation. The GitHub repository keeps the name HelloWorldBot.
+- **The app is now called PomoQuote** (was HelloWorldBot): window title (and the Pomodoro title, now "mm:ss Work - PomoQuote"), About dialog, tray icon, exe name (`PomoQuote.exe`), project, namespaces and test project (`PomoQuote.Tests`), single-instance name, settings folder and documentation. The GitHub repository is now `quanap5/PomoQuote` (it was `quanap5/HelloWorldBot`; old links redirect).
 - The big "Hello World" text is replaced by an English sentence with its Vietnamese translation (see below); the bundled digital font is no longer used and was removed.
 - The widget is taller (about 260x210) to make room for the sentence strip.
 
@@ -25,7 +25,7 @@ Proposed version for this release: **1.1.0** (the rename is a visible change, an
 - **Settings migration**: on first start the files in `%AppData%\HelloWorldBot` are copied to `%AppData%\PomoQuote` once, without overwriting or deleting anything; a failure is logged and the app starts with the defaults.
 - Unit tests for the data file, the rotation, the quote settings, the migration and the text layout.
 
-### Added (earlier, not yet released)
+### Added (continued)
 
 - **Taskbar mascot**: minimizing the window hides it to the system tray (tray menu: Open, Start/Pause Pomodoro, Settings, Exit) and a pixel-art robot walks along the top edge of the taskbar (the bottom of the screen if the taskbar is hidden or on another edge). Click the robot or the tray icon to bring the window back. The robot follows the Pomodoro: brisk walk while working, a jump and shout when a work session ends, asleep during a break, a slow stroll when idle.
 - The robot walks across every monitor and jumps with a shout onto the next one. It copes with different resolutions, monitors above/below each other and monitors plugged or unplugged while it walks. Its click-through window never takes focus, it stops while the screen is locked or the PC sleeps, and hides while a full-screen app is in front.
@@ -43,6 +43,12 @@ Proposed version for this release: **1.1.0** (the rename is a visible change, an
 - Unit tests (`HelloWorldBot.Tests`) for the Open-Meteo parsing, the weather service error handling and the settings file.
 - **View > Wallpaper** menu: pick one of three bundled background photos (Night Sky, Foggy Forest, Mountain Lake) or None. The photo covers the window, resizes with it, and the clock gets a light dial so it stays readable. Photo credits are in `Assets/Wallpapers/CREDITS.md`.
 
+### Known issues
+
+- [#30](https://github.com/quanap5/PomoQuote/issues/30): when the app is started in widget mode, there is no taskbar button after leaving widget mode.
+- The Vietnamese translations of the 357 sentences have not been reviewed by a native speaker.
+- The manual QA items listed in [#22](https://github.com/quanap5/PomoQuote/issues/22) are not all verified yet.
+
 ## [1.0.0] - 2026-11-23
 
 ### Added
@@ -58,5 +64,6 @@ Proposed version for this release: **1.1.0** (the rename is a visible change, an
 - "Hello World" stays on one centered line at any window size (PR #1).
 - The full clock rim stays inside its area at any window size (PR #4).
 
-[Unreleased]: https://github.com/quanap5/PomoQuote/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/quanap5/PomoQuote/releases/tag/v1.0.0
+[Unreleased]: https://github.com/quanap5/PomoQuote/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/quanap5/PomoQuote/releases/tag/v1.1.0
+[1.0.0]: https://github.com/quanap5/PomoQuote/commit/ef0b64619e98481a45595c17f268dd091b359724
