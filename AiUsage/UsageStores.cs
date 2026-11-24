@@ -17,10 +17,12 @@ public enum UsageDisplayMode
 /// <param name="EnabledProviders">Ids of the providers to read (none by default: nothing runs until the user turns one on).</param>
 /// <param name="Order">Provider ids in display order (unknown ids are ignored, missing ones are appended).</param>
 /// <param name="IntervalMinutes">Minutes between reads of a provider.</param>
-/// <param name="DisplayMode">Bars or percent only.</param>
+/// <param name="DisplayMode">Kept for old files; the widget always draws bars now (Compact or Expanded is <paramref name="Expanded"/>).</param>
 /// <param name="AlertsEnabled">Whether a balloon is shown when a threshold is crossed.</param>
 /// <param name="Thresholds">Percent-used levels that raise a warning, ascending.</param>
 /// <param name="ClaudeRefreshAcknowledged">Whether the user has seen the note that "Refresh Claude now" spends a very small amount of quota.</param>
+/// <param name="Expanded">True for the Expanded layout (every provider as a card), false for Compact (one provider at a time).</param>
+/// <param name="SelectedProvider">The provider Compact shows (null: the first one).</param>
 internal sealed record UsageSettings(
     IReadOnlyList<string> EnabledProviders,
     IReadOnlyList<string> Order,
@@ -28,7 +30,9 @@ internal sealed record UsageSettings(
     UsageDisplayMode DisplayMode,
     bool AlertsEnabled,
     IReadOnlyList<int> Thresholds,
-    bool ClaudeRefreshAcknowledged = false)
+    bool ClaudeRefreshAcknowledged = false,
+    bool Expanded = false,
+    string? SelectedProvider = null)
 {
     public const int DefaultIntervalMinutes = 3;
     public const int MaxThresholds = 4;

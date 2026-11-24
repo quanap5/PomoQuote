@@ -71,7 +71,11 @@ internal sealed partial class MainForm
         var english = quote?.English ?? "";
         var vietnamese = quote is not null && _quoteSettings.ShowTranslation ? quote.Vietnamese : null;
         _quote.SetQuote(english, vietnamese);
-        _widgetView?.SetQuote(english, vietnamese);
+        if (_widgetView is not null)
+        {
+            _widgetView.SetQuote(english, vietnamese);
+            FitWidgetHeight();
+        }
     }
 
     private void ToggleTranslation()

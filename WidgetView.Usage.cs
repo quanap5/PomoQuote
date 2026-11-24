@@ -1,0 +1,409 @@
+using System.Drawing.Drawing2D;
+using System.Drawing.Text;
+using PomoQuote.AiUsage;
+using PomoQuote.Widget;
+
+namespace PomoQuote;
+
+/// <summary>What the user chose in the usage area: the layout and the provider Compact shows.</summary>
+internal sealed class UsageUiEventArgs(bool expanded, string? selectedProvider) : EventArgs
+{
+    public bool Expanded { get; } = expanded;
+
+    public string? SelectedProvider { get; } = selectedProvider;
+}
+
+/// <summary>
+/// The AI usage area of the widget. Compact: one provider, its logo on the far left (a focusable selector: the wheel over the logo
+/// steps through the providers, a click opens the list) and its two quota rows on the right; no header, no footer, the details
+/// are in the logo's tooltip. Expanded: a card per enabled provider with the logo on the far left, full name, plan, every window,
+/// source and update time; only this area scrolls. The Expand/Collapse button sits in the right margin, so Compact needs no row of its own.
+/// </summary>
+internal sealed partial class WidgetView
+{
+    private static readonly Color QuotaColor = Color.FromArgb(70, 178, 190);
+    private static readonly Color WarningColor = Color.FromArgb(240, 180, 80);
+    private static readonly Color CriticalColor = Color.FromArgb(240, 98, 82);
+    private static readonly Color StaleColor = Color.FromArgb(240, 180, 80);
+
+    private readonly ProviderIcons _icons = new();
+    private readonly ToolTip _tip = new() { InitialDelay = 350, ReshowDelay = 100, AutoPopDelay = 9000, ShowAlways = true };
+    private readonly List<(RectangleF Bounds, string Text)> _hotSpots = [];
+    private UsageLogoSelector _selector = null!;
+    private UsageExpandToggle _toggle = null!;
+    private IReadOnlyList<UsageProviderView> _views = [];
+    private bool _expanded;
+    private string? _selected;
+    private int _scroll;
+    private string? _tipText;
+
+    /// <summary>Raised when the user switches the layout or the provider; the owner remembers it.</summary>
+    public event EventHandler<UsageUiEventArgs>? UsageUiChanged;
+
+    private void InitializeUsage()
+    {
+        _selector = new UsageLogoSelector { BackColor = PanelColor, Visible = false };
+        _selector.Step += (_, direction) => StepProvider(direction);
+        _selector.OpenList += (_, _) => ShowProviderList();
+        _toggle = new UsageExpandToggle { BackColor = PanelColor, Visible = false };
+        _toggle.Toggled += (_, _) => SetExpanded(!_expanded);
+        _toggle.ScrollRequested += (_, direction) => ScrollBy(direction * UsageGeometry.RowHeight);
+        Controls.Add(_selector);
+        Controls.Add(_toggle);
+        _tip.SetToolTip(_toggle, _toggle.TipText);
+    }
+
+    protected override void OnContextMenuStripChanged(EventArgs e)
+    {
+        base.OnContextMenuStripChanged(e);
+        if (_selector is null) return;
+        _selector.ContextMenuStrip = ContextMenuStrip;
+        _toggle.ContextMenuStrip = ContextMenuStrip;
+    }
+
+    /// <summary>
+    /// Gives the usage area its content and layout; returns true when the widget height changed (the window is then resized).
+    /// <paramref name="selectedProvider"/> is the provider Compact shows (a missing one falls back to the first).
+    /// </summary>
+    public bool SetUsage(Func<IReadOnlyList<UsageProviderView>> views, bool expanded, string? selectedProvider)
+    {
+        _views = views();
+        _expanded = expanded;
+        _selected = ProviderCarousel.Resolve(_views.Select(v => v.Id).ToList(), selectedProvider);
+        _scroll = Math.Clamp(_scroll, 0, UsageGeometry.MaxScroll(_views));
+        var before = LogicalHeight;
+        Relayout();
+        Invalidate();
+        return before != LogicalHeight;
+    }
+
+    private UsageProviderView? Selected => _views.FirstOrDefault(v => v.Id == _selected) ?? _views.FirstOrDefault();
+
+    // ---------- interaction ----------
+
+    private void SetExpanded(bool expanded)
+    {
+        if (expanded == _expanded) return;
+        _expanded = expanded;
+        _scroll = 0;
+        Relayout();
+        Invalidate();
+        UsageUiChanged?.Invoke(this, new UsageUiEventArgs(_expanded, _selected));
+    }
+
+    private void StepProvider(int direction)
+    {
+        var next = ProviderCarousel.Step(_views.Select(v => v.Id).ToList(), _selected, direction);
+        SelectProvider(next);
+    }
+
+    private void SelectProvider(string? id)
+    {
+        if (id is null || id == _selected) return;
+        _selected = id;
+        PositionUsageControls();
+        Invalidate();
+        UsageUiChanged?.Invoke(this, new UsageUiEventArgs(_expanded, _selected));
+    }
+
+    private void ShowProviderList()
+    {
+        var menu = new ContextMenuStrip { ShowImageMargin = true };
+        foreach (var view in _views)
+        {
+            var title = view.Plan.Length > 0 ? $"{view.Name}  ({view.Plan})" : view.Name;
+            var icon = _icons.Get(view.Id, IconBackground.Light, (int)Math.Round(16 * Unit));
+            var item = new ToolStripMenuItem(title, icon) { Checked = view.Id == _selected, Tag = view.Id, ToolTipText = view.Tip };
+            var id = view.Id;
+            item.Click += (_, _) => SelectProvider(id);
+            menu.Items.Add(item);
+        }
+
+        menu.Closed += (_, _) => BeginInvoke(menu.Dispose);
+        menu.Show(_selector, new Point(0, _selector.Height));
+    }
+
+    private void ScrollBy(int logicalDelta)
+    {
+        var max = UsageGeometry.MaxScroll(_views);
+        var next = Math.Clamp(_scroll + logicalDelta, 0, max);
+        if (next == _scroll) return;
+        _scroll = next;
+        Invalidate();
+    }
+
+    protected override void OnMouseWheel(MouseEventArgs e)
+    {
+        base.OnMouseWheel(e);
+        // Only the usage area scrolls, and only in Expanded; the clock and the timer stay where they are. Compact is changed by the logo only.
+        if (!_expanded || _views.Count == 0) return;
+        var u = Unit;
+        var area = new RectangleF(0, _usageTop * u, ClientSize.Width, UsageGeometry.AreaHeight(_views, true) * u);
+        if (area.Contains(e.Location)) ScrollBy(e.Delta > 0 ? -UsageGeometry.RowHeight : UsageGeometry.RowHeight);
+    }
+
+    protected override void OnMouseMove(MouseEventArgs e)
+    {
+        base.OnMouseMove(e);
+        string? text = null;
+        foreach (var (bounds, spotText) in _hotSpots)
+        {
+            if (bounds.Contains(e.Location))
+            {
+                text = spotText;
+                break;
+            }
+        }
+
+        if (text == _tipText) return;
+        _tipText = text;
+        if (text is null) _tip.Hide(this);
+        else _tip.Show(text, this, e.X + 12, e.Y + 18, 7000);
+    }
+
+    protected override void OnMouseLeave(EventArgs e)
+    {
+        base.OnMouseLeave(e);
+        _tipText = null;
+        _tip.Hide(this);
+    }
+
+    // ---------- children and accessibility ----------
+
+    private void PositionUsageControls()
+    {
+        if (_selector is null) return;
+        var u = Unit;
+        var show = _views.Count > 0;
+        _selector.PixelsPerUnit = u;
+        _toggle.PixelsPerUnit = u;
+        _toggle.Expanded = _expanded;
+        _toggle.Visible = show;
+        _selector.Visible = show && !_expanded;
+
+        var areaHeight = UsageGeometry.AreaHeight(_views, _expanded);
+        _selector.Bounds = new Rectangle((int)Math.Round(UsageGeometry.Margin * u), (int)Math.Round(_usageTop * u), (int)Math.Round(UsageGeometry.LogoColumn * u), (int)Math.Round(UsageGeometry.CompactHeight * u));
+        var toggleSize = (int)Math.Round(16 * u);
+        var toggleY = _expanded ? _usageTop + 2 : _usageTop + (UsageGeometry.CompactHeight - 16) / 2;
+        _toggle.Bounds = new Rectangle((int)Math.Round((UsageGeometry.WidgetWidth - UsageGeometry.Margin - UsageGeometry.ToggleColumn) * u), (int)Math.Round(toggleY * u), toggleSize, toggleSize);
+        _tip.SetToolTip(_toggle, _toggle.TipText);
+
+        var view = Selected;
+        if (view is null || _expanded)
+        {
+            _selector.SetState(null, "", ProviderSeverity.None, false, "AI usage provider");
+            return;
+        }
+
+        var others = _views.Where(v => v.Id != view.Id).ToList();
+        var otherWarning = others.Any(v => v.Severity != ProviderSeverity.None);
+        var index = _views.ToList().FindIndex(v => v.Id == view.Id);
+        var names = _views.Select(v => v.Name).ToList();
+        var position = ProviderCarousel.Position(names, Math.Max(0, index));
+        var icon = _icons.Get(view.Id, IconBackground.Dark, (int)Math.Round(UsageGeometry.LogoSize * u));
+        var tip = view.Tip + (otherWarning ? "\n" + string.Join("; ", others.Where(v => v.Severity != ProviderSeverity.None).Select(v => $"{v.Name}: {v.Note}")) : "")
+            + (_views.Count > 1 ? "\nScroll over the logo to switch provider; click to choose." : "");
+        _selector.SetState(icon, view.Name, view.Severity, otherWarning, $"AI usage provider: {position}. {view.Name} {(view.HasData ? string.Join(", ", view.Rows.Select(r => $"{r.Label} {r.Percent} used")) : "no data")}. Use the arrow keys to switch, Enter to choose from a list.");
+        _tip.SetToolTip(_selector, tip);
+        _ = areaHeight;
+    }
+
+    private void UpdateAccessibleSummary()
+    {
+        // A text summary for screen readers: the quote without the decorative marks, and the usage numbers.
+        var parts = new List<string>();
+        if (_quoteEnglish.Length > 0) parts.Add(_quoteEnglish + (_quoteVietnamese is null ? "" : " " + _quoteVietnamese));
+        foreach (var view in _views)
+        {
+            parts.Add($"{view.Name}: " + (view.HasData ? string.Join(", ", view.Rows.Select(r => $"{r.Label} {r.Percent} used, resets in {(r.Reset.Length > 0 ? r.Reset : "unknown")}")) : "N/A") + $". {view.Note}.");
+        }
+
+        AccessibleDescription = string.Join(" ", parts);
+    }
+
+    // ---------- painting ----------
+
+    private void DrawUsage(Graphics graphics, float u)
+    {
+        _hotSpots.Clear();
+        if (_views.Count == 0) return;
+
+        var area = new RectangleF(UsageGeometry.Margin * u, _usageTop * u, (UsageGeometry.WidgetWidth - 2 * UsageGeometry.Margin) * u, UsageGeometry.AreaHeight(_views, _expanded) * u);
+        if (_expanded) DrawExpanded(graphics, u, area);
+        else if (Selected is { } view) DrawCompact(graphics, u, area, view);
+    }
+
+    private void DrawCompact(Graphics graphics, float u, RectangleF area, UsageProviderView view)
+    {
+        var rowsLeft = area.X + UsageGeometry.LogoColumn * u;
+        var columns = ScaledColumns(rowsLeft, UsageGeometry.CompactRowsWidth, u);
+        using var text = new Font("Segoe UI", 12f * u, FontStyle.Regular, GraphicsUnit.Pixel);
+        using var semibold = new Font("Segoe UI Semibold", 12f * u, FontStyle.Regular, GraphicsUnit.Pixel);
+        var rowHeight = UsageGeometry.RowHeight * u;
+        var y = area.Y + 5 * u;
+
+        if (!view.HasData)
+        {
+            // No quota read: say so plainly (N/A, never 0%) and why.
+            using var primary = new SolidBrush(PrimaryText);
+            using var near = new StringFormat(StringFormatFlags.NoWrap) { Trimming = StringTrimming.EllipsisCharacter };
+            graphics.DrawString("N/A", semibold, primary, new RectangleF(rowsLeft, y, columns.LabelWidth + columns.BarWidth, rowHeight), near);
+            var room = columns.Right - rowsLeft;
+            var note = UsageViewBuilder.FitNote(view, room, s => graphics.MeasureString(s, text, int.MaxValue, near).Width);
+            using var noteBrush = new SolidBrush(view.IsProblem ? WarningColor : SecondaryText);
+            graphics.DrawString(note, text, noteBrush, new RectangleF(rowsLeft, y + rowHeight, room, rowHeight), near);
+            _hotSpots.Add((new RectangleF(rowsLeft, area.Y, room, area.Height), view.Tip));
+            return;
+        }
+
+        foreach (var row in view.Rows.Take(2))
+        {
+            DrawRow(graphics, u, columns, y, row, text, semibold);
+            y += rowHeight;
+        }
+    }
+
+    private void DrawRow(Graphics graphics, float u, UsageGeometry.RowColumns c, float y, UsageRow row, Font text, Font semibold)
+    {
+        var rowHeight = UsageGeometry.RowHeight * u;
+        using var near = new StringFormat(StringFormatFlags.NoWrap) { Trimming = StringTrimming.EllipsisCharacter, LineAlignment = StringAlignment.Center };
+        using var far = new StringFormat(StringFormatFlags.NoWrap) { Alignment = StringAlignment.Far, LineAlignment = StringAlignment.Center };
+        using var secondary = new SolidBrush(SecondaryText);
+        using var primary = new SolidBrush(PrimaryText);
+
+        graphics.DrawString(row.Label, text, secondary, new RectangleF(c.LabelX, y, c.LabelWidth, rowHeight), near);
+        var barHeight = 7 * u;
+        PillBar.Draw(graphics, new RectangleF(c.BarX, y + (rowHeight - barHeight) / 2f, c.BarWidth, barHeight), row.Fraction, TrackColor, LevelColor(row.Level));
+        graphics.DrawString(row.Percent, semibold, primary, new RectangleF(c.PercentX, y, c.PercentWidth, rowHeight), far);
+        if (row.Stale) DrawClock(graphics, new RectangleF(c.PercentX - 1 * u, y + (rowHeight - 9 * u) / 2f, 9 * u, 9 * u), u);
+        graphics.DrawString(row.Reset.Length > 0 ? row.Reset : "–", text, secondary, new RectangleF(c.ResetX, y, c.ResetWidth, rowHeight), far);
+        _hotSpots.Add((new RectangleF(c.LabelX, y, c.Right - c.LabelX, rowHeight), row.Tip));
+    }
+
+    /// <summary>The row columns (designed in logical px) for this scale: every position and width multiplied by the display unit, from the device left edge.</summary>
+    private static UsageGeometry.RowColumns ScaledColumns(float left, float logicalWidth, float u)
+    {
+        var c = UsageGeometry.Columns(0, logicalWidth);
+        return new UsageGeometry.RowColumns(left + c.LabelX * u, c.LabelWidth * u, left + c.BarX * u, c.BarWidth * u, left + c.PercentX * u, c.PercentWidth * u, left + c.ResetX * u, c.ResetWidth * u);
+    }
+
+    private static void DrawClock(Graphics graphics, RectangleF box, float u)
+    {
+        using var pen = new Pen(StaleColor, Math.Max(1f, 1.1f * u));
+        graphics.DrawEllipse(pen, box);
+        var cx = box.X + box.Width / 2;
+        var cy = box.Y + box.Height / 2;
+        graphics.DrawLine(pen, cx, cy, cx, cy - box.Height * 0.3f);
+        graphics.DrawLine(pen, cx, cy, cx + box.Width * 0.24f, cy);
+    }
+
+    private void DrawExpanded(Graphics graphics, float u, RectangleF area)
+    {
+        var state = graphics.Save();
+        graphics.SetClip(area);
+        var cardWidth = area.Width - UsageGeometry.ToggleColumn * u;
+        var y = area.Y - _scroll * u;
+        using var name = new Font("Segoe UI Semibold", 12f * u, FontStyle.Regular, GraphicsUnit.Pixel);
+        using var text = new Font("Segoe UI", 12f * u, FontStyle.Regular, GraphicsUnit.Pixel);
+        using var footer = new Font("Segoe UI", 11f * u, FontStyle.Regular, GraphicsUnit.Pixel);
+        using var primary = new SolidBrush(PrimaryText);
+        using var near = new StringFormat(StringFormatFlags.NoWrap) { Trimming = StringTrimming.EllipsisCharacter };
+
+        foreach (var view in _views)
+        {
+            var card = new RectangleF(area.X, y, cardWidth, UsageGeometry.CardHeight(view) * u);
+            y = card.Bottom + UsageGeometry.CardGap * u;
+            if (card.Bottom < area.Y || card.Y > area.Bottom) continue;
+
+            using (var path = PillBar.Rounded(card, 8 * u))
+            using (var fill = new SolidBrush(CardColor))
+            {
+                graphics.FillPath(fill, path);
+            }
+
+            // The logo: far left, centred on the card.
+            var logo = UsageGeometry.LogoSize * u;
+            var logoBox = new RectangleF(card.X + UsageGeometry.CardPadding * u + (UsageGeometry.LogoColumn - UsageGeometry.LogoSize) * u / 2f - 3 * u, card.Y + (card.Height - logo) / 2f, logo, logo);
+            DrawLogo(graphics, view, logoBox, u);
+            _hotSpots.Add((new RectangleF(card.X, card.Y, UsageGeometry.CardPadding * u + UsageGeometry.LogoColumn * u, card.Height), view.Tip));
+
+            var left = card.X + (UsageGeometry.CardPadding + UsageGeometry.LogoColumn) * u;
+            var right = card.Right - UsageGeometry.CardPadding * u;
+            var rowTop = card.Y + (UsageGeometry.CardPadding + UsageGeometry.HeaderHeight) * u;
+            var header = view.Plan.Length > 0 ? $"{view.Name}  ·  {view.Plan}" : view.Name;
+            graphics.DrawString(header, name, primary, new RectangleF(left, card.Y + UsageGeometry.CardPadding * u, right - left, UsageGeometry.HeaderHeight * u), near);
+            _hotSpots.Add((new RectangleF(left, card.Y + UsageGeometry.CardPadding * u, right - left, UsageGeometry.HeaderHeight * u), view.Tip));
+
+            var columns = ScaledColumns(left, (right - left) / u, u);
+            if (view.HasData)
+            {
+                foreach (var row in view.Rows)
+                {
+                    DrawRow(graphics, u, columns, rowTop, row, text, name);
+                    rowTop += UsageGeometry.RowHeight * u;
+                }
+            }
+            else
+            {
+                graphics.DrawString("N/A", name, primary, new RectangleF(left, rowTop, right - left, UsageGeometry.RowHeight * u), new StringFormat(near) { LineAlignment = StringAlignment.Center });
+                rowTop += UsageGeometry.RowHeight * u;
+            }
+
+            // Footer: where the numbers come from and when (or what is wrong), in readable secondary text.
+            var line = view.Source.Length > 0 ? $"{view.Source}  ·  {view.Note}" : view.Note;
+            var room = right - left;
+            var shown = UsageViewBuilder.FitNote(view with { Note = line, ShortNote = view.Source.Length > 0 ? $"{view.Source}  ·  {view.Short}" : view.Short }, room, s => graphics.MeasureString(s, footer, int.MaxValue, near).Width);
+            using var footerBrush = new SolidBrush(view.IsProblem ? WarningColor : SecondaryText);
+            graphics.DrawString(shown, footer, footerBrush, new RectangleF(left, rowTop, room, UsageGeometry.FooterHeight * u), near);
+        }
+
+        graphics.Restore(state);
+        DrawScrollbar(graphics, u, area);
+    }
+
+    private void DrawScrollbar(Graphics graphics, float u, RectangleF area)
+    {
+        var max = UsageGeometry.MaxScroll(_views);
+        if (max <= 0) return;
+        var content = UsageGeometry.ExpandedContentHeight(_views);
+        var track = new RectangleF(area.Right - 4 * u, area.Y + 22 * u, 3 * u, area.Height - 24 * u);
+        var thumbHeight = Math.Max(14 * u, track.Height * UsageGeometry.MaxExpandedHeight / content);
+        var thumbTop = track.Y + (track.Height - thumbHeight) * _scroll / max;
+        PillBar.Draw(graphics, track, 0, TrackColor, TrackColor);
+        using var thumb = PillBar.Pill(new RectangleF(track.X, thumbTop, track.Width, thumbHeight));
+        using var brush = new SolidBrush(Color.FromArgb(150, 162, 178));
+        graphics.FillPath(brush, thumb);
+    }
+
+    /// <summary>The provider logo, or a neutral letter tile when there is no icon (the name stays in the header and the tooltip).</summary>
+    private void DrawLogo(Graphics graphics, UsageProviderView view, RectangleF box, float u)
+    {
+        var icon = _icons.Get(view.Id, IconBackground.Dark, (int)Math.Round(box.Width));
+        if (icon is not null)
+        {
+            graphics.DrawImageUnscaled(icon, (int)Math.Round(box.X), (int)Math.Round(box.Y));
+            return;
+        }
+
+        using var tile = PillBar.Rounded(box, 5 * u);
+        using var fill = new SolidBrush(Color.FromArgb(70, 80, 96));
+        graphics.FillPath(fill, tile);
+        using var font = new Font("Segoe UI Semibold", 11 * u, FontStyle.Regular, GraphicsUnit.Pixel);
+        using var brush = new SolidBrush(Color.FromArgb(235, 240, 246));
+        using var centre = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+        graphics.DrawString(view.Name.Length > 0 ? char.ToUpperInvariant(view.Name[0]).ToString() : "?", font, brush, box, centre);
+    }
+
+    private static Color LevelColor(UsageLevel level) => level switch
+    {
+        UsageLevel.Critical => CriticalColor,
+        UsageLevel.Warning => WarningColor,
+        _ => QuotaColor,
+    };
+
+    private void DisposeUsage()
+    {
+        _tip.Dispose();
+        _icons.Dispose();
+    }
+}

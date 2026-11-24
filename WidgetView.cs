@@ -5,20 +5,21 @@ using PomoQuote.AiUsage;
 using PomoQuote.Pomodoro;
 using PomoQuote.Quotes;
 using PomoQuote.Weather;
+using PomoQuote.Widget;
 
 namespace PomoQuote;
 
 /// <summary>
-/// The compact content of widget mode (about 260x210 logical px): the time, the weather on one line,
-/// the Pomodoro phase, remaining time and progress bar, on a solid dark panel so it stays legible over any
-/// desktop. Everything is laid out in proportion to the control's height, so it scales with the display.
-/// Dragging it anywhere moves the window. It shares the app's controller and weather panel; it has no
-/// timer of its own except a one-second clock tick while it is visible.
+/// The content of widget mode (280 logical px wide): the time, the weather, the Pomodoro phase with its pill progress bar, the
+/// sentence in a message-bubble card and the AI usage area (Compact or Expanded, see WidgetView.Usage.cs), on a dark panel that
+/// stays legible over any desktop. Everything is laid out in logical pixels and scaled by the display (width / 280), so it is
+/// the same at 100, 125, 150 and 200%. Dragging it anywhere moves the window. It shares the app's controller and weather panel;
+/// it has no timer of its own except a clock tick while it is visible.
 /// </summary>
-internal sealed class WidgetView : Control
+internal sealed partial class WidgetView : Control
 {
-    /// <summary>The widget's size at 100% display scale; the layout is designed on this grid.</summary>
-    public static readonly Size LogicalSize = new(260, 210);
+    /// <summary>The widget's width at 100% display scale; the layout is designed on this grid and does not support less.</summary>
+    public static readonly Size LogicalSize = new(UsageGeometry.WidgetWidth, 210);
 
     private const int WM_NCLBUTTONDOWN = 0x00A1;
     private const int HTCAPTION = 2;
@@ -26,14 +27,14 @@ internal sealed class WidgetView : Control
     private static readonly Color PanelColor = Color.FromArgb(28, 32, 40);
     private static readonly Color BorderColor = Color.FromArgb(84, 94, 110);
     private static readonly Color PrimaryText = Color.FromArgb(244, 246, 248);
-    private static readonly Color SecondaryText = Color.FromArgb(178, 188, 200);
+    private static readonly Color SecondaryText = Color.FromArgb(190, 200, 212);
+    private static readonly Color TrackColor = Color.FromArgb(62, 70, 84);
+    private static readonly Color CardColor = Color.FromArgb(40, 50, 66);
 
     private readonly PomodoroController _pomodoro;
     private readonly WeatherPanel _weather;
     private readonly System.Windows.Forms.Timer _clockTick = new() { Interval = 500 };
     private string _shownTime = "";
-    private Func<IReadOnlyList<UsageProviderView>> _usageViews = () => [];
-    private UsageDisplayMode _usageMode;
     private string _quoteEnglish = "";
     private string? _quoteVietnamese;
 
@@ -45,6 +46,9 @@ internal sealed class WidgetView : Control
         ResizeRedraw = true;
         BackColor = PanelColor;
         Cursor = Cursors.SizeAll;
+        AccessibleName = "PomoQuote widget";
+        AccessibleRole = AccessibleRole.Pane;
+        InitializeUsage();
 
         _pomodoro.ViewChanged += (_, _) => Invalidate();
         _weather.Updated += (_, _) => Invalidate();
@@ -55,6 +59,7 @@ internal sealed class WidgetView : Control
             _shownTime = now;
             Invalidate();
         };
+        Relayout();
     }
 
     /// <summary>The clock tick only runs while the widget is on screen.</summary>
@@ -67,6 +72,9 @@ internal sealed class WidgetView : Control
 
     private static string TimeText() => DateTime.Now.ToString("HH:mm:ss");
 
+    /// <summary>The device pixels of one logical pixel.</summary>
+    private float Unit => Math.Max(0.5f, ClientSize.Width / (float)UsageGeometry.WidgetWidth);
+
     protected override void OnMouseDown(MouseEventArgs e)
     {
         base.OnMouseDown(e);
@@ -77,6 +85,148 @@ internal sealed class WidgetView : Control
         SendMessage(form.Handle, WM_NCLBUTTONDOWN, HTCAPTION, 0);
     }
 
+    protected override void OnResize(EventArgs e)
+    {
+        base.OnResize(e);
+        PositionUsageControls();
+    }
+
+    // ---------- the quote card ----------
+
+    private const int QuoteTop = 134;
+    private const int QuotePaddingTop = 16;
+    private const int QuotePaddingBottom = 14;
+    private const int QuoteInsetLeft = 14;
+    private const int QuoteInsetRight = 12;
+    private const int QuoteTail = 6;
+
+    private sealed record QuotePlan(IReadOnlyList<string> English, IReadOnlyList<string>? Vietnamese, float EnglishPixels, float VietnamesePixels, float CardHeight);
+
+    private QuotePlan? _quotePlan;
+
+    /// <summary>Sets the sentence and its translation; returns true when the widget height changed (the card grows with the text).</summary>
+    public bool SetQuote(string english, string? vietnamese)
+    {
+        _quoteEnglish = english;
+        _quoteVietnamese = string.IsNullOrWhiteSpace(vietnamese) ? null : vietnamese;
+        var before = LogicalHeight;
+        Relayout();
+        Invalidate();
+        return before != LogicalHeight;
+    }
+
+    /// <summary>
+    /// Breaks the text into lines for the card's width, at the largest font size that keeps it to a few lines. Nothing is cut
+    /// off unless it still does not fit at the smallest size (then the last line ends with an ellipsis).
+    /// </summary>
+    private QuotePlan? PlanQuote()
+    {
+        if (_quoteEnglish.Length == 0) return null;
+        var inner = UsageGeometry.WidgetWidth - 2 * UsageGeometry.Margin - QuoteInsetLeft - QuoteInsetRight - 4;
+        using var graphics = Graphics.FromHwnd(IntPtr.Zero);
+        using var typographic = new StringFormat(StringFormat.GenericTypographic) { FormatFlags = StringFormatFlags.MeasureTrailingSpaces };
+
+        (IReadOnlyList<string> Lines, float Pixels) Fit(string text, string family, float[] sizes, int maxLines)
+        {
+            IReadOnlyList<string> lines = [];
+            var px = sizes[^1];
+            foreach (var size in sizes)
+            {
+                px = size;
+                using var font = new Font(family, size, FontStyle.Regular, GraphicsUnit.Pixel);
+                lines = TextWrap.Lines(text, inner, s => graphics.MeasureString(s, font, int.MaxValue, typographic).Width);
+                if (lines.Count <= maxLines) return (lines, px);
+            }
+
+            using var smallest = new Font(family, sizes[^1], FontStyle.Regular, GraphicsUnit.Pixel);
+            return (TextWrap.Lines(text, inner, s => graphics.MeasureString(s, smallest, int.MaxValue, typographic).Width, maxLines), px);
+        }
+
+        var english = Fit(_quoteEnglish, QuoteLayout.EnglishFamily, [12.5f, 12f, 11.5f, 11f], 4);
+        (IReadOnlyList<string> Lines, float Pixels)? vietnamese = _quoteVietnamese is null ? null : Fit(_quoteVietnamese, QuoteLayout.VietnameseFamily, [11.5f, 11f, 10.5f, 10f], 3);
+        var height = QuotePaddingTop + english.Lines.Count * english.Pixels * 1.36f
+            + (vietnamese is { } v ? 5 + v.Lines.Count * v.Pixels * 1.36f : 0)
+            + QuotePaddingBottom;
+        return new QuotePlan(english.Lines, vietnamese?.Lines, english.Pixels, vietnamese?.Pixels ?? 0, (float)Math.Ceiling(height));
+    }
+
+    private void DrawQuote(Graphics graphics, float u)
+    {
+        if (_quotePlan is not { } plan) return;
+        var card = new RectangleF(UsageGeometry.Margin * u, QuoteTop * u, (UsageGeometry.WidgetWidth - 2 * UsageGeometry.Margin) * u, plan.CardHeight * u);
+        using (var path = PillBar.Rounded(card, 11 * u))
+        using (var fill = new SolidBrush(CardColor))
+        {
+            graphics.FillPath(fill, path);
+        }
+
+        // The small tail of the bubble, at the lower left.
+        using (var tail = new SolidBrush(CardColor))
+        {
+            var x = card.X + 18 * u;
+            graphics.FillPolygon(tail, [new PointF(x, card.Bottom - 1 * u), new PointF(x + 9 * u, card.Bottom - 1 * u), new PointF(x - 1 * u, card.Bottom + QuoteTail * u)]);
+        }
+
+        // The big quotation marks are decoration: drawn, never text, so a screen reader does not read them out. They sit in the
+        // corners the text leaves free.
+        using (var marks = new Font("Georgia", 34 * u, FontStyle.Bold, GraphicsUnit.Pixel))
+        using (var markBrush = new SolidBrush(Color.FromArgb(70, 160, 180, 210)))
+        using (var typographic = new StringFormat(StringFormat.GenericTypographic))
+        {
+            graphics.DrawString("“", marks, markBrush, card.X + 6 * u, card.Y - 5 * u, typographic);
+            var closing = graphics.MeasureString("”", marks, int.MaxValue, typographic);
+            graphics.DrawString("”", marks, markBrush, card.Right - closing.Width - 6 * u, card.Bottom - 26 * u, typographic);
+        }
+
+        using var typo = new StringFormat(StringFormat.GenericTypographic) { FormatFlags = StringFormatFlags.NoWrap | StringFormatFlags.MeasureTrailingSpaces };
+        using var english = new Font(QuoteLayout.EnglishFamily, plan.EnglishPixels * u, FontStyle.Regular, GraphicsUnit.Pixel);
+        using var englishBrush = new SolidBrush(Color.FromArgb(150, 236, 160));
+        var x0 = card.X + QuoteInsetLeft * u;
+        var y = card.Y + QuotePaddingTop * u;
+        foreach (var line in plan.English)
+        {
+            graphics.DrawString(line, english, englishBrush, x0, y, typo);
+            y += plan.EnglishPixels * 1.36f * u;
+        }
+
+        if (plan.Vietnamese is null) return;
+        y += 5 * u;
+        using var vietnamese = new Font(QuoteLayout.VietnameseFamily, plan.VietnamesePixels * u, FontStyle.Regular, GraphicsUnit.Pixel);
+        using var vietnameseBrush = new SolidBrush(Color.FromArgb(206, 216, 228));
+        foreach (var line in plan.Vietnamese)
+        {
+            graphics.DrawString(line, vietnamese, vietnameseBrush, x0, y, typo);
+            y += plan.VietnamesePixels * 1.36f * u;
+        }
+    }
+
+    // ---------- height ----------
+
+    /// <summary>Height of the widget without the quote card and the usage area, in logical px.</summary>
+    public const int BaseLogicalHeight = QuoteTop;
+
+    /// <summary>The widget's current height at 100% scale: the timer block, the quote card and the usage area.</summary>
+    public int LogicalHeight { get; private set; } = 210;
+
+    /// <summary>The widget's size at 100% scale with what it currently shows.</summary>
+    public Size LogicalClientSize => new(UsageGeometry.WidgetWidth, LogicalHeight);
+
+    private int _usageTop;
+
+    private void Relayout()
+    {
+        _quotePlan = PlanQuote();
+        var y = QuoteTop;
+        if (_quotePlan is { } plan) y += (int)plan.CardHeight + QuoteTail + 6;
+        _usageTop = y;
+        var area = UsageGeometry.AreaHeight(_views, _expanded);
+        LogicalHeight = Math.Max(150, y + area + (area > 0 ? 12 : 8));
+        PositionUsageControls();
+        UpdateAccessibleSummary();
+    }
+
+    // ---------- painting ----------
+
     protected override void OnPaint(PaintEventArgs e)
     {
         var graphics = e.Graphics;
@@ -84,10 +234,9 @@ internal sealed class WidgetView : Control
         graphics.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
         graphics.Clear(PanelColor);
 
-        // One unit = 1/210 of the height: 1 px at 100% scale, 2 px at 200%.
-        var u = Math.Max(0.5f, ClientSize.Height / (float)LogicalHeight);
-        var left = 14 * u;
-        var width = ClientSize.Width - 28 * u;
+        var u = Unit;
+        var left = UsageGeometry.Margin * u;
+        var width = ClientSize.Width - 2 * UsageGeometry.Margin * u;
         using var near = new StringFormat(StringFormatFlags.NoWrap) { Trimming = StringTrimming.EllipsisCharacter };
         using var farFormat = new StringFormat(StringFormatFlags.NoWrap) { Alignment = StringAlignment.Far };
 
@@ -104,7 +253,7 @@ internal sealed class WidgetView : Control
         }
 
         // Weather: city on the left, temperature and conditions below
-        using (var small = new Font("Segoe UI", 11.5f * u, FontStyle.Regular, GraphicsUnit.Pixel))
+        using (var small = new Font("Segoe UI", 12f * u, FontStyle.Regular, GraphicsUnit.Pixel))
         {
             // Every weather value comes with its own icon, drawn crisp at exactly this size (see IconTextLine).
             var snapshot = _weather.Snapshot;
@@ -113,13 +262,13 @@ internal sealed class WidgetView : Control
             IconTextLine.Draw(graphics, _weather.Icons, WeatherLines.Summary(snapshot), small, iconSize, 5 * u, left, 65 * u, PrimaryText, shadow: false);
         }
 
-        // Pomodoro: phase and remaining time, today's count, progress bar
+        // Pomodoro: phase and remaining time, today's count, pill progress bar
         var timer = _pomodoro.Timer;
         var accent = PhaseColor(timer.Phase);
         var seconds = _pomodoro.WholeSecondsLeft();
         var phase = PomodoroController.PhaseName(timer.Phase) + (timer.State == PomodoroRunState.Paused ? " (paused)" : "");
         using (var bold = new Font("Segoe UI Semibold", 14 * u, FontStyle.Regular, GraphicsUnit.Pixel))
-        using (var small = new Font("Segoe UI", 11.5f * u, FontStyle.Regular, GraphicsUnit.Pixel))
+        using (var small = new Font("Segoe UI", 12f * u, FontStyle.Regular, GraphicsUnit.Pixel))
         using (var primary = new SolidBrush(PrimaryText))
         using (var secondary = new SolidBrush(SecondaryText))
         using (var dot = new SolidBrush(accent))
@@ -129,167 +278,10 @@ internal sealed class WidgetView : Control
             graphics.DrawString($"Today {_pomodoro.CompletedToday}", small, secondary, new RectangleF(left, 89 * u, width, 17 * u), farFormat);
         }
 
-        var bar = new RectangleF(left, 116 * u, width, 8 * u);
-        using (var track = new SolidBrush(Color.FromArgb(70, 78, 92)))
-        using (var fill = new SolidBrush(accent))
-        {
-            graphics.FillRectangle(track, bar);
-            graphics.FillRectangle(fill, bar.X, bar.Y, (float)(bar.Width * timer.Progress), bar.Height);
-        }
+        PillBar.Draw(graphics, new RectangleF(left, 116 * u, width, 7 * u), timer.Progress, TrackColor, accent);
 
-        DrawQuote(graphics, u, left, width);
-        DrawUsage(graphics, u, left, width);
-    }
-
-    /// <summary>
-    /// The sentence and its translation in the bottom strip. Each is limited to the lines that fit and ends
-    /// with an ellipsis when cut, so a long sentence never spills over the Pomodoro rows above it.
-    /// </summary>
-    private void DrawQuote(Graphics graphics, float u, float left, float width)
-    {
-        if (_quoteEnglish.Length == 0) return;
-
-        using (var divider = new Pen(BorderColor, Math.Max(1f, u)))
-        {
-            graphics.DrawLine(divider, left, 134 * u, left + width, 134 * u);
-        }
-
-        using var format = new StringFormat { Trimming = StringTrimming.EllipsisWord, FormatFlags = StringFormatFlags.LineLimit };
-        var englishPixels = 11.5f * u;
-        var vietnamesePixels = 10.5f * u;
-        using var english = new Font(QuoteLayout.EnglishFamily, englishPixels, FontStyle.Regular, GraphicsUnit.Pixel);
-        using var vietnamese = new Font(QuoteLayout.VietnameseFamily, vietnamesePixels, FontStyle.Regular, GraphicsUnit.Pixel);
-        using var primary = new SolidBrush(Color.FromArgb(120, 230, 120));
-        using var secondary = new SolidBrush(SecondaryText);
-
-        // Two lines of English; the translation gets what is left, which is two lines when it is shown.
-        var top = 139 * u;
-        var bottom = 205 * u;
-        var englishHeight = englishPixels * 1.35f * 2;
-        graphics.DrawString(_quoteEnglish, english, primary, new RectangleF(left, top, width, englishHeight), format);
-        if (_quoteVietnamese is not null)
-        {
-            var translationTop = top + englishHeight + 2 * u;
-            graphics.DrawString(_quoteVietnamese, vietnamese, secondary, new RectangleF(left, translationTop, width, bottom - translationTop), format);
-        }
-    }
-
-    /// <summary>Height of the base layout in logical px (time, weather, Pomodoro, sentence).</summary>
-    public const int BaseLogicalHeight = 210;
-
-    private const int UsageLineHeight = 15;
-    private const int UsageStripPadding = 10;
-
-    /// <summary>The widget's current height at 100% scale: the base layout plus one line per usage line.</summary>
-    public int LogicalHeight { get; private set; } = BaseLogicalHeight;
-
-    /// <summary>The widget's size at 100% scale with the usage strip it currently shows.</summary>
-    public Size LogicalClientSize => new(LogicalSize.Width, LogicalHeight);
-
-    /// <summary>Sets where the usage strip gets its content and how it is drawn; returns true when the widget height changed.</summary>
-    public bool SetUsage(Func<IReadOnlyList<UsageProviderView>> views, UsageDisplayMode mode)
-    {
-        _usageViews = views;
-        _usageMode = mode;
-        var lines = UsageViewBuilder.LineCount(views(), mode);
-        var height = lines > 0 ? BaseLogicalHeight + UsageStripPadding + lines * UsageLineHeight : BaseLogicalHeight;
-        var changed = height != LogicalHeight;
-        LogicalHeight = height;
-        Invalidate();
-        return changed;
-    }
-
-    /// <summary>
-    /// The AI usage strip under the sentence: per provider a header (name, plan, note) and one bar row per quota
-    /// window, or a single line in percent-only mode. Colours follow the warning thresholds; a note in amber means
-    /// stale data or a problem.
-    /// </summary>
-    private void DrawUsage(Graphics graphics, float u, float left, float width)
-    {
-        var views = _usageViews();
-        if (views.Count == 0) return;
-
-        using (var divider = new Pen(BorderColor, Math.Max(1f, u)))
-        {
-            graphics.DrawLine(divider, left, (BaseLogicalHeight - 1) * u, left + width, (BaseLogicalHeight - 1) * u);
-        }
-
-        using var name = new Font("Segoe UI Semibold", 11f * u, FontStyle.Regular, GraphicsUnit.Pixel);
-        using var small = new Font("Segoe UI", 10.5f * u, FontStyle.Regular, GraphicsUnit.Pixel);
-        using var primary = new SolidBrush(PrimaryText);
-        using var secondary = new SolidBrush(SecondaryText);
-        using var trackBrush = new SolidBrush(Color.FromArgb(70, 78, 92));
-        using var near = new StringFormat(StringFormatFlags.NoWrap) { Trimming = StringTrimming.EllipsisCharacter };
-        using var far = new StringFormat(StringFormatFlags.NoWrap) { Alignment = StringAlignment.Far };
-
-        var y = (BaseLogicalHeight + 4) * u;
-        var line = UsageLineHeight * u;
-        foreach (var view in views)
-        {
-            var noteColor = view.IsProblem ? Color.FromArgb(240, 180, 80) : SecondaryText;
-            if (_usageMode == UsageDisplayMode.Percent)
-            {
-                var noteRoom = width - 54 * u;
-                var text = view.Rows.Count == 0 ? UsageViewBuilder.FitNote(view, noteRoom, s => graphics.MeasureString(s, small, int.MaxValue, near).Width) : string.Join("  ", view.Rows.Select(r => $"{r.Label} {r.Percent}"));
-                using var noteBrush = new SolidBrush(view.Rows.Count == 0 || view.IsProblem ? noteColor : PrimaryText);
-                graphics.DrawString(view.Name, name, primary, new RectangleF(left, y, 52 * u, line), near);
-                graphics.DrawString(text, small, noteBrush, new RectangleF(left + 54 * u, y, width - 54 * u, line), near);
-                y += line;
-                continue;
-            }
-
-            var header = view.Plan.Length > 0 ? $"{view.Name}  {view.Plan}" : view.Name;
-            using (var noteBrush = new SolidBrush(noteColor))
-            {
-                // The note gets everything right of the name; if it still does not fit it is shortened, always keeping the time.
-                var nameWidth = Math.Min(width * 0.5f, graphics.MeasureString(header, name, int.MaxValue, near).Width);
-                var noteRoom = width - nameWidth - 6 * u;
-                var noteText = UsageViewBuilder.FitNote(view, noteRoom, s => graphics.MeasureString(s, small, int.MaxValue, near).Width);
-                graphics.DrawString(header, name, primary, new RectangleF(left, y, nameWidth + 2 * u, line), near);
-                graphics.DrawString(noteText, small, noteBrush, new RectangleF(left + nameWidth + 6 * u, y + 0.5f * u, noteRoom, line), far);
-            }
-
-            y += line;
-            if (view.Rows.Count == 0)
-            {
-                y += line; // keeps the height the layout reserved for a provider without numbers
-                continue;
-            }
-
-            foreach (var row in view.Rows)
-            {
-                var barLeft = left + 34 * u;
-                var barWidth = 96 * u;
-                graphics.DrawString(row.Label, small, secondary, new RectangleF(left, y, 34 * u, line), near);
-                graphics.FillRectangle(trackBrush, barLeft, y + 4 * u, barWidth, 7 * u);
-                using (var fill = new SolidBrush(LevelColor(row.Level)))
-                {
-                    graphics.FillRectangle(fill, barLeft, y + 4 * u, (float)(barWidth * row.Fraction), 7 * u);
-                }
-
-                graphics.DrawString(row.Percent, small, primary, new RectangleF(barLeft + barWidth + 4 * u, y, 32 * u, line), far);
-                if (row.Reset.Length > 0)
-                {
-                    graphics.DrawString(row.Reset, small, secondary, new RectangleF(barLeft + barWidth + 40 * u, y, width - (34 + 96 + 40) * u, line), far);
-                }
-
-                y += line;
-            }
-        }
-    }
-
-    private static Color LevelColor(UsageLevel level) => level switch
-    {
-        UsageLevel.Critical => Color.FromArgb(240, 98, 82),
-        UsageLevel.Warning => Color.FromArgb(240, 180, 80),
-        _ => Color.FromArgb(70, 190, 120),
-    };
-    /// <summary>Sets the sentence shown in the widget (empty text hides the strip's content).</summary>
-    public void SetQuote(string english, string? vietnamese)
-    {
-        _quoteEnglish = english;
-        _quoteVietnamese = string.IsNullOrWhiteSpace(vietnamese) ? null : vietnamese;
-        Invalidate();
+        DrawQuote(graphics, u);
+        DrawUsage(graphics, u);
     }
 
     private static Color PhaseColor(PomodoroPhase phase) => phase switch
@@ -305,6 +297,7 @@ internal sealed class WidgetView : Control
         {
             _clockTick.Stop();
             _clockTick.Dispose();
+            DisposeUsage();
         }
 
         base.Dispose(disposing);

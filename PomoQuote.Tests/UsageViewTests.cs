@@ -130,19 +130,6 @@ public sealed class UsageViewTests
     }
 
     [Fact]
-    public void Line_counts_match_the_display_mode()
-    {
-        var withRows = Build(Status(UsageTestData.Snapshot(1, 2)));
-        var without = Build(Status(null));
-
-        Assert.Equal(3, UsageViewBuilder.LineCount([withRows], UsageDisplayMode.Bars));
-        Assert.Equal(2, UsageViewBuilder.LineCount([without], UsageDisplayMode.Bars));
-        Assert.Equal(1, UsageViewBuilder.LineCount([withRows], UsageDisplayMode.Percent));
-        Assert.Equal(4, UsageViewBuilder.LineCount([withRows, without], UsageDisplayMode.Percent) + 2);
-        Assert.Equal(0, UsageViewBuilder.LineCount([], UsageDisplayMode.Bars));
-    }
-
-    [Fact]
     public void Percentages_are_rounded_for_display_and_the_bar_is_clamped()
     {
         var snapshot = new UsageSnapshot(UsageTestData.Source(), [UsageTestData.Window(QuotaKind.FiveHour, 37.6, UsageTestData.Now.AddHours(1))],

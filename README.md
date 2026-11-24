@@ -17,7 +17,7 @@
 - **Weather.** Current weather for a city (default Hanoi, change it in **Settings > City...**) from [Open-Meteo](https://open-meteo.com/) (free, no API key), refreshed about every 10 minutes, with an icon for every value (sun and moon variants by day and night). Offline it keeps the last values and says so.
 - **Wallpapers.** **View > Wallpaper** switches between three bundled photos and the plain background.
 - **Taskbar mascot.** Minimize the window and it hides to the system tray while a pixel-art robot walks along the top of the taskbar, across all monitors. It reacts to the Pomodoro (brisk walk while working, shout and jump when a session ends, sleeps during breaks), can be clicked and dragged, and never takes focus. **Settings > Mascot...** sets sound, volume, speed, size, random actions and monitors.
-- **Widget mode.** **View > Widget mode** (or **Ctrl+W**) turns the window into a small always-on-top widget (about 260x210) with the time, weather, Pomodoro and the current sentence, plus your Codex quota if you turn on **Settings > AI Usage...**. Drag it anywhere, right-click for options, set its opacity to 100%, 80% or 60%.
+- **Widget mode.** **View > Widget mode** (or **Ctrl+W**) turns the window into a small always-on-top widget (280 px wide) with the time, weather, Pomodoro and the current sentence, plus your Codex quota if you turn on **Settings > AI Usage...**. Drag it anywhere, right-click for options, set its opacity to 100%, 80% or 60%.
 - **Analog clock** that shows the real time, and a single running instance of the app.
 
 Settings live in `%AppData%\PomoQuote` (JSON files; a missing or damaged file falls back to the defaults). The app was called HelloWorldBot before: on the first start its settings in `%AppData%\HelloWorldBot` are copied over once, without overwriting or deleting anything.
@@ -27,7 +27,7 @@ Settings live in `%AppData%\PomoQuote` (JSON files; a missing or damaged file fa
 **Settings > AI Usage...** shows how much of your **Codex** and **Claude Code** quota is used, right on the widget: for the five-hour and the weekly window the percent used, a bar, the time left until the reset, your plan, and when the numbers were read (marked *stale* when they are older than twice the refresh interval). It is **off until you turn it on** there.
 
 - **How it reads:** every 3 minutes (1 to 15, your choice) PomoQuote starts a short-lived `codex app-server` of the Codex CLI installed on this PC, asks it for the rate limits and lets it exit (10 s limit, the process is killed on timeout and when the app closes). Codex keeps your login: **PomoQuote never asks for, reads or stores a password, key or token**, never opens the Codex credential files, and never logs you in or out. If Codex says you are not logged in, run `codex login` in a terminal.
-- **Settings:** enable Codex, see whether Codex is found and logged in (read-only `codex --version` and `codex login status`), **Test connection**, display order, display mode (bars, or percent only), how often to read, and warning levels (default 80% and 95%). Warnings are a balloon notification, once per window and level (not repeated after a restart; they come back for the next window or after usage drops below the level, and never for a window whose reset time is unknown).
+- **Settings:** enable Codex, see whether Codex is found and logged in (read-only `codex --version` and `codex login status`), **Test connection**, display order, the layout (Compact or Expanded), how often to read, and warning levels (default 80% and 95%). Warnings are a balloon notification, once per window and level (not repeated after a restart; they come back for the next window or after usage drops below the level, and never for a window whose reset time is unknown).
 - **What it shows when something is wrong:** *not installed*, *not logged in*, *unsupported version* (an answer in a shape this version does not understand), or *read failed*, with the last good numbers kept and marked. One provider failing never affects another or the rest of the app. After the PC wakes from sleep or the network comes back, it reads again at once.
 - **Files:** `%AppData%\PomoQuote\usage.json` (your choices), `usage-cache.json` (the last good numbers: percent, reset time, plan, hashed account key, no ids or tokens) and `usage-alerts.json` (which warnings were shown).
 - **Not yet:** Windows only, **WSL is not supported yet**; Antigravity comes in a later release (the code is already built for several providers).
@@ -47,14 +47,31 @@ Claude Code only shows its 5-hour and weekly limits to a **status line command**
 - **Not yet:** Windows only (WSL is not supported), and a project-level `statusLine` is only detected for folders you check.
 - **For tests and relocated configs:** `POMOQUOTE_CLAUDE_SETTINGS` names the settings file to work on (it wins over `CLAUDE_CONFIG_DIR`), and `POMOQUOTE_STATE_DIR` moves PomoQuote's own files (backups, the bridge copy). Both exist so tests and manual runs can use a throwaway file and never touch your real Claude settings.
 
-![The widget with Codex and Claude at 100, 125, 150 and 200 percent](Assets/AiUsage/preview-claude-widget-scales-100-125-150-200.png)
+### The widget: Compact and Expanded
 
-![The Claude strip when the bridge is missing, compared with updated, stale and waiting](Assets/AiUsage/preview-claude-bridge-missing.png)
+The widget (280 logical px wide, scaled for 100 to 200% display scaling) keeps its dark, compact style. What changed in this release is how it is drawn, not what it reads:
 
-![Claude states: updated by a manual refresh, high usage, stale, waiting for the first reply, not set up, no plan limits](Assets/AiUsage/preview-claude-states.png)
+- **Compact** (default) shows **one provider at a time** in at most three lines: the provider **logo on the far left**, centred on two quota rows (short window, then weekly: label, pill progress bar, percent used, countdown to the reset, all in aligned columns). There is no header or footer: the provider name, plan, source (Windows or WSL) and the time of the update are in the **logo's tooltip**. **Scroll the mouse wheel over the logo** to step through the providers like a carousel (the logo stays where it is; nothing changes by itself and nothing scrolls outside the logo), **click the logo** (or press Enter) for a list, or use the arrow keys when it has focus. A small badge on the logo says when the chosen provider has an error (red !), stale data (amber clock) or a window near its limit (amber triangle), and a small ring says another provider needs attention. The area keeps the same size whichever provider is shown.
+- **Expanded** shows **every enabled provider** as its own card, logo on the far left, with the full name, plan, every window, percent, countdown, the source and the time of the update. The order is the one in **Settings > AI Usage > Display order**. When the cards are taller than the limit only this area scrolls (wheel over it, or Up/Down on the arrow button); the clock and the timer stay put.
+- The small **arrow button** in the right margin switches between them (no extra row). The layout and the chosen provider are remembered after a restart.
+- **Progress bars** are pills (rounded track and fill) for the timer and the quotas, honest at 0% (nothing drawn, no stray dot), tiny values and 100%. The timer uses its phase colour, quotas a teal, and amber or red only for warnings. Hover a row for the exact used and left percent and the reset time.
+- **N/A, stale, errors:** a missing quota shows **N/A**, never 0%. Stale numbers carry a clock icon, the badge and a tooltip, not only a colour. When a refresh runs, the last numbers stay on screen. Windows are named by what the data says (5h, Week, or its real length such as 3h), never forced into 5 hours and a week.
+- **The sentence** is a message-bubble card (blue-grey, rounded, with a small tail and light decorative quotation marks) with the sentence in front and the translation a size smaller; the text wraps and the card grows instead of cutting it off.
+- **Accessibility:** the logo selector and the arrow button are focusable controls with accessible names; the quotation marks are drawn decoration, not text, so a screen reader does not read them out.
 
-![The widget with the Codex strip at 100, 125, 150 and 200 percent](Assets/AiUsage/preview-widget-scales-100-125-150-200.png)
+![Compact with one provider, Compact with two, Expanded with two and with three providers](Assets/AiUsage/preview-compact-and-expanded.png)
 
+![Compact at 100, 125, 150 and 200 percent](Assets/AiUsage/preview-compact-scales-100-125-150-200.png)
+
+![Expanded at 100, 125 and 150 percent](Assets/AiUsage/preview-expanded-scales-100-125-150.png)
+
+![Compact states: N/A, error, stale, 0% and 100%, near the limit, a long provider name](Assets/AiUsage/preview-compact-states.png)
+
+![Expanded with an error, 0% and 100%, stale data; a long sentence in the bubble](Assets/AiUsage/preview-expanded-states-and-long-quote.png)
+
+### Provider logos
+
+Codex shows the official OpenAI Blossom, Antigravity (when it is added) the official Antigravity icon, both unmodified and only scaled; Claude Code shows a neutral terminal icon, because Anthropic's trademark guidelines do not allow its logos without approval. Sources, terms and the trademark notice are in [THIRD_PARTY_ASSETS.md](THIRD_PARTY_ASSETS.md). The marks belong to their owners, and PomoQuote is not affiliated with any of them.
 ## Build, run and test
 
 Requires Windows and the [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0).

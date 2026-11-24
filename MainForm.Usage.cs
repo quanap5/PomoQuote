@@ -91,10 +91,17 @@ internal sealed partial class MainForm
     private void ApplyUsageLayout()
     {
         if (_widgetView is null) return;
-        var changed = _widgetView.SetUsage(() => _usage.Views(), _usage.Settings.DisplayMode);
-        if (!changed || !_widgetMode) return;
+        _widgetView.SetUsage(() => _usage.Views(), _usage.Settings.Expanded, _usage.Settings.SelectedProvider);
+        FitWidgetHeight();
+    }
 
-        ClientSize = LogicalToDeviceUnits(_widgetView.LogicalClientSize);
+    /// <summary>In widget mode: the window takes the height the widget needs now (the quote card and the usage area grow and shrink) and stays on screen.</summary>
+    internal void FitWidgetHeight()
+    {
+        if (!_widgetMode) return;
+        var wanted = LogicalToDeviceUnits(_widgetView.LogicalClientSize);
+        if (ClientSize == wanted) return;
+        ClientSize = wanted;
         Location = Widget.WidgetPlacement.Clamp(Location, Size, WorkAreaProvider());
     }
 

@@ -14,7 +14,18 @@ public enum UsageLevel
 /// <param name="Fraction">0 to 1, for the bar.</param>
 /// <param name="Reset">"in 3h 12m", "due", "?" or empty when the reset is only a placeholder.</param>
 /// <param name="Level">Colour class from the warning thresholds.</param>
-internal sealed record UsageRow(string Label, string Percent, double Fraction, string Reset, UsageLevel Level);
+/// <param name="Stale">The numbers are older than twice the refresh interval (an icon is drawn, not only a colour).</param>
+/// <param name="Tip">The tooltip: used, left and the exact reset time.</param>
+internal sealed record UsageRow(string Label, string Percent, double Fraction, string Reset, UsageLevel Level, bool Stale = false, string Tip = "");
+
+/// <summary>What the badge on a provider's logo says (the most serious thing first).</summary>
+public enum ProviderSeverity
+{
+    None,
+    NearLimit,
+    Stale,
+    Error,
+}
 
 /// <summary>One provider as the widget shows it.</summary>
 /// <param name="Name">Provider name.</param>
@@ -23,10 +34,17 @@ internal sealed record UsageRow(string Label, string Percent, double Fraction, s
 /// <param name="Note">Updated time, stale marker or the state message (never empty).</param>
 /// <param name="IsProblem">True when the note is a warning (stale data, error, not installed, not logged in, unsupported).</param>
 /// <param name="ShortNote">A shorter form of the note that keeps the time of the data (used when the note does not fit the widget width).</param>
-internal sealed record UsageProviderView(string Name, string Plan, IReadOnlyList<UsageRow> Rows, string Note, bool IsProblem, string? ShortNote = null)
+/// <param name="Severity">The badge on the logo: error, stale data or a window near its limit.</param>
+/// <param name="Source">"Windows" or "WSL", or empty when nothing was read yet.</param>
+/// <param name="Tip">The logo tooltip: name, plan, source, time of the update and the state.</param>
+/// <param name="HasData">Whether any window was read (otherwise the widget shows N/A).</param>
+internal sealed record UsageProviderView(string Name, string Plan, IReadOnlyList<UsageRow> Rows, string Note, bool IsProblem, string? ShortNote = null, string Id = "", ProviderSeverity Severity = ProviderSeverity.None, string Source = "", string Tip = "")
 {
     /// <summary>The short form, or the note itself when there is none.</summary>
     public string Short => ShortNote ?? Note;
+
+    /// <summary>Whether any window was read; otherwise the widget shows N/A (never 0%).</summary>
+    public bool HasData => Rows.Count > 0;
 }
 
 /// <summary>Turns provider statuses into what the widget draws. Pure: time and time zone are passed in, so it is easy to test.</summary>
@@ -36,7 +54,7 @@ internal static class UsageViewBuilder
     {
         var shown = status.Shown;
         var latest = status.Latest;
-        var rows = shown is null ? [] : Rows(shown, settings, now);
+        var rows = shown is null ? [] : Rows(shown, settings, now, zone, status.Latest?.EffectiveState(now, settings.Interval) == UsageState.Stale);
         var plan = shown?.Source.PlanTier ?? "";
 
         var effective = latest?.EffectiveState(now, settings.Interval);
@@ -82,12 +100,21 @@ internal static class UsageViewBuilder
                 break;
         }
 
-        return new UsageProviderView(status.DisplayName, plan, rows, note, problem, shortNote);
-    }
+        var severity = effective switch
+        {
+            UsageState.Stale => ProviderSeverity.Stale,
+            UsageState.Ok or null or UsageState.Waiting or UsageState.NotSetUp or UsageState.NoPlanLimits => rows.Any(r => r.Level != UsageLevel.Normal) ? ProviderSeverity.NearLimit : ProviderSeverity.None,
+            _ => ProviderSeverity.Error,
+        };
+        var source = shown is null ? "" : shown.Source.Environment.ToString();
+        var tip = new List<string> { status.DisplayName + (plan.Length > 0 ? $" ({plan})" : "") };
+        if (source.Length > 0) tip.Add("Source: " + source);
+        tip.Add(note.Length > 0 ? char.ToUpperInvariant(note[0]) + note[1..] : note);
+        if (rows.Any(r => r.Level == UsageLevel.Critical)) tip.Add("A window is almost used up.");
+        else if (rows.Any(r => r.Level == UsageLevel.Warning)) tip.Add("A window is getting full.");
 
-    /// <summary>Lines the strip needs for these providers (the header and either the rows or one line for the note).</summary>
-    public static int LineCount(IReadOnlyList<UsageProviderView> views, UsageDisplayMode mode) =>
-        views.Sum(view => mode == UsageDisplayMode.Percent ? 1 : 1 + Math.Max(1, view.Rows.Count));
+        return new UsageProviderView(status.DisplayName, plan, rows, note, problem, shortNote, status.ProviderId, severity, source, string.Join("\n", tip));
+    }
 
     /// <summary>
     /// The note text that fits <paramref name="maxWidth"/>: the full note, else the short one, else the short one with the start
@@ -119,18 +146,42 @@ internal static class UsageViewBuilder
         while (text.Length > 1 && measure(text + "…") > maxWidth) text = text[..^1];
         return text.Length == 0 ? text : text + "…";
     }
-    private static List<UsageRow> Rows(UsageSnapshot snapshot, UsageSettings settings, DateTimeOffset now) =>
+    private static List<UsageRow> Rows(UsageSnapshot snapshot, UsageSettings settings, DateTimeOffset now, TimeZoneInfo zone, bool stale) =>
         snapshot.Windows
             .OrderBy(w => w.Kind)
-            .Select(w => new UsageRow(Label(w), $"{Math.Round(w.PercentUsed):0}%", Math.Clamp(w.PercentUsed / 100, 0, 1), ResetText(w, now), LevelFor(w.PercentUsed, settings.Thresholds)))
+            .Select(w => new UsageRow(Label(w), $"{Math.Round(w.PercentUsed):0}%", Math.Clamp(w.PercentUsed / 100, 0, 1), ResetText(w, now), LevelFor(w.PercentUsed, settings.Thresholds), stale, RowTip(w, now, zone, stale)))
             .ToList();
 
+    /// <summary>The window name as the data says it: "5h" and "Week" for those lengths, else the length itself ("3h", "2d") or the limit name; never forced into 5 hours or a week.</summary>
     internal static string Label(QuotaWindow window) => window.Kind switch
     {
         QuotaKind.FiveHour => "5h",
         QuotaKind.Weekly => "Week",
-        _ => window.Bucket.Length > 0 ? window.Bucket : window.DurationMinutes is { } m ? $"{m}m" : "Other",
+        _ => window.DurationMinutes is { } m && window.Bucket.Length == 0 ? Duration(m) : window.Bucket.Length > 0 ? window.Bucket : "Other",
     };
+
+    internal static string Duration(int minutes) => minutes % 10080 == 0 ? $"{minutes / 10080}w"
+        : minutes % 1440 == 0 ? $"{minutes / 1440}d"
+        : minutes % 60 == 0 ? $"{minutes / 60}h"
+        : $"{minutes}m";
+
+    /// <summary>"Used 42%, left 58%. Resets Fri 27 Nov 18:25 (in 3d 1h)." (the exact time in the user's zone).</summary>
+    internal static string RowTip(QuotaWindow window, DateTimeOffset now, TimeZoneInfo zone, bool stale)
+    {
+        var used = Math.Round(window.PercentUsed);
+        var text = $"{Label(window)}: used {used:0}%, left {100 - used:0}%.";
+        if (window.IsResetReal && window.ResetsAt is { } at)
+        {
+            var local = TimeZoneInfo.ConvertTime(at, zone);
+            text += at <= now ? $" Reset was due {local:ddd d MMM HH:mm}." : $" Resets {local:ddd d MMM HH:mm} (in {ResetText(window, now)}).";
+        }
+        else
+        {
+            text += " The reset time is not known.";
+        }
+
+        return stale ? text + " These numbers are old." : text;
+    }
 
     /// <summary>The reset as a countdown from the clock: "3h 12m", "2d 4h", "under 1m", "due" once past, "?" when unknown, empty when only a placeholder.</summary>
     internal static string ResetText(QuotaWindow window, DateTimeOffset now)
