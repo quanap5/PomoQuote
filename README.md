@@ -6,7 +6,7 @@
 [![.NET 9](https://img.shields.io/badge/.NET-9.0-512BD4.svg)](https://dotnet.microsoft.com/download/dotnet/9.0)
 [![Platform: Windows](https://img.shields.io/badge/platform-Windows-0078D6.svg)](#build-run-and-test)
 
-![PomoQuote: an English sentence with its Vietnamese translation, the weather, a Pomodoro timer and an analog clock, over a plain background and a wallpaper, then as a small widget](docs/intro.gif)
+![PomoQuote intro: the logo, an English sentence with its Vietnamese translation, the Pomodoro timer and weather over a wallpaper, and the small widget](docs/intro.gif)
 
 **PomoQuote** is a Windows desktop app for focused work and learning English. It keeps an English sentence with its Vietnamese translation in front of you, next to a Pomodoro timer, the weather and an analog clock, and a small pixel-art robot walks along your taskbar while you work.
 
