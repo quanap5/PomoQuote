@@ -46,7 +46,15 @@ internal static class UsageViewBuilder
         switch (effective)
         {
             case null or UsageState.Waiting:
-                (note, problem) = shown is null ? ("Reading...", false) : ($"updated {Clock(shown.ObservedAt, zone)}", false);
+                (note, problem) = shown is null ? (latest is { ErrorText.Length: > 0 } ? latest.ErrorText : "Reading...", false) : ($"updated {Clock(shown.ObservedAt, zone)}", false);
+                shortNote = note;
+                break;
+            case UsageState.NotSetUp:
+                (note, problem) = (shown is null ? "not set up" : $"not set up; data from {Clock(shown.ObservedAt, zone)}", false);
+                shortNote = shown is null ? note : $"not set up · {Clock(shown.ObservedAt, zone)}";
+                break;
+            case UsageState.NoPlanLimits:
+                (note, problem) = ("no plan limits", false);
                 shortNote = note;
                 break;
             case UsageState.Ok:

@@ -16,6 +16,9 @@ internal interface IUsageProvider
     /// <summary>Where this provider's numbers come from (also used for the snapshots the collector makes when a read fails).</summary>
     UsageDataSource DataSource { get; }
 
+    /// <summary>How often to read this provider, or null for the interval in the settings (a provider that only reads a local file can poll often).</summary>
+    TimeSpan? PollInterval => null;
+
     /// <summary>Reads the quota once. Must honour <paramref name="cancellationToken"/> and clean up any process it started.</summary>
     Task<UsageSnapshot> ReadAsync(CancellationToken cancellationToken);
 }

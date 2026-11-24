@@ -20,18 +20,20 @@ public enum UsageDisplayMode
 /// <param name="DisplayMode">Bars or percent only.</param>
 /// <param name="AlertsEnabled">Whether a balloon is shown when a threshold is crossed.</param>
 /// <param name="Thresholds">Percent-used levels that raise a warning, ascending.</param>
+/// <param name="ClaudeRefreshAcknowledged">Whether the user has seen the note that "Refresh Claude now" spends a very small amount of quota.</param>
 internal sealed record UsageSettings(
     IReadOnlyList<string> EnabledProviders,
     IReadOnlyList<string> Order,
     int IntervalMinutes,
     UsageDisplayMode DisplayMode,
     bool AlertsEnabled,
-    IReadOnlyList<int> Thresholds)
+    IReadOnlyList<int> Thresholds,
+    bool ClaudeRefreshAcknowledged = false)
 {
     public const int DefaultIntervalMinutes = 3;
     public const int MaxThresholds = 4;
 
-    public static UsageSettings Default { get; } = new([], [CodexUsageProvider.ProviderId], DefaultIntervalMinutes, UsageDisplayMode.Bars, true, [80, 95]);
+    public static UsageSettings Default { get; } = new([], [CodexUsageProvider.ProviderId, "claude"], DefaultIntervalMinutes, UsageDisplayMode.Bars, true, [80, 95]);
 
     public TimeSpan Interval => TimeSpan.FromMinutes(IntervalMinutes);
 
