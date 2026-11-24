@@ -35,6 +35,10 @@ internal sealed partial class WidgetView : Control
     private readonly WeatherPanel _weather;
     private readonly System.Windows.Forms.Timer _clockTick = new() { Interval = 500 };
     private string _shownTime = "";
+    private readonly DateLineCache _dateLines = new();
+    private string _solarLine = "";
+    private string _lunarLine = "";
+    private string _pomodoroName = "";
     private string _quoteEnglish = "";
     private string? _quoteVietnamese;
 
@@ -57,8 +61,10 @@ internal sealed partial class WidgetView : Control
             var now = TimeText();
             if (now == _shownTime) return;
             _shownTime = now;
+            RefreshDate(); // worked out again only when the local date changes (midnight, or a wake-up on another day)
             Invalidate();
         };
+        RefreshDate();
         Relayout();
     }
 
@@ -71,6 +77,12 @@ internal sealed partial class WidgetView : Control
     }
 
     private static string TimeText() => DateTime.Now.ToString("HH:mm:ss");
+
+    /// <summary>The two date lines after the clock; a cache keeps them for the whole day, so the clock tick allocates nothing for them.</summary>
+    private void RefreshDate()
+    {
+        if (_dateLines.Update(DateOnly.FromDateTime(DateTime.Now), out _solarLine, out _lunarLine)) UpdateAccessibleSummary();
+    }
 
     /// <summary>The device pixels of one logical pixel.</summary>
     private float Unit => Math.Max(0.5f, ClientSize.Width / (float)UsageGeometry.WidgetWidth);
@@ -183,6 +195,50 @@ internal sealed partial class WidgetView : Control
         }
     }
 
+    private static readonly float[] DateSizes = [11.5f, 11f, 10.5f, 10f];
+    private readonly float[] _datePixels = [11.5f, 11.5f];
+    private string? _measuredSolar;
+    private string? _measuredLunar;
+    private float _measuredRoom;
+    private float _measuredUnit;
+
+    /// <summary>
+    /// The solar date over the lunar date, left aligned after the clock. Each line keeps 11.5 px while it fits the room that is
+    /// left at 280 px, then goes down to 10 px, and only a line that still does not fit ends with an ellipsis. The sizes are
+    /// worked out when the text, the room or the display scale changes, not at every tick.
+    /// </summary>
+    private void DrawDate(Graphics graphics, float u, float x, float right, StringFormat typographic)
+    {
+        var room = right - x;
+        if (!ReferenceEquals(_measuredSolar, _solarLine) || !ReferenceEquals(_measuredLunar, _lunarLine) || _measuredRoom != room || _measuredUnit != u)
+        {
+            for (var i = 0; i < 2; i++)
+            {
+                var line = i == 0 ? _solarLine : _lunarLine;
+                _datePixels[i] = DateSizes[^1];
+                foreach (var size in DateSizes)
+                {
+                    using var candidate = new Font("Segoe UI", size * u, FontStyle.Regular, GraphicsUnit.Pixel);
+                    if (graphics.MeasureString(line, candidate, int.MaxValue, typographic).Width > room) continue;
+                    _datePixels[i] = size;
+                    break;
+                }
+            }
+
+            (_measuredSolar, _measuredLunar, _measuredRoom, _measuredUnit) = (_solarLine, _lunarLine, room, u);
+        }
+
+        using var brush = new SolidBrush(SecondaryText);
+        using var ellipsis = new StringFormat(StringFormatFlags.NoWrap) { Trimming = StringTrimming.EllipsisCharacter };
+        var y = 9 * u;
+        for (var i = 0; i < 2; i++)
+        {
+            using var font = new Font("Segoe UI", _datePixels[i] * u, FontStyle.Regular, GraphicsUnit.Pixel);
+            graphics.DrawString(i == 0 ? _solarLine : _lunarLine, font, brush, new RectangleF(x, y, room, 15 * u), ellipsis);
+            y += 15 * u;
+        }
+    }
+
     // ---------- height ----------
 
     /// <summary>Height of the widget without the quote card and the usage area, in logical px.</summary>
@@ -239,11 +295,15 @@ internal sealed partial class WidgetView : Control
             graphics.DrawRectangle(border, 0, 0, ClientSize.Width - 1, ClientSize.Height - 1);
         }
 
-        // Time
+        // Time, and after it the solar date and the Vietnamese lunar date on two lines
         using (var timeFont = new Font("Segoe UI Light", 30 * u, FontStyle.Regular, GraphicsUnit.Pixel))
         using (var primary = new SolidBrush(PrimaryText))
+        using (var typographic = new StringFormat(StringFormat.GenericTypographic) { FormatFlags = StringFormatFlags.NoWrap | StringFormatFlags.MeasureTrailingSpaces })
         {
-            graphics.DrawString(TimeText(), timeFont, primary, new RectangleF(left, 6 * u, width, 40 * u), near);
+            var time = TimeText();
+            graphics.DrawString(time, timeFont, primary, new RectangleF(left, 6 * u, width, 40 * u), near);
+            var dateLeft = left + graphics.MeasureString("88:88:88", timeFont, int.MaxValue, typographic).Width + 4 * u; // the widest the clock gets: the date never moves or overlaps
+            DrawDate(graphics, u, dateLeft, left + width, typographic);
         }
 
         // Weather: city on the left, temperature and conditions below
@@ -265,15 +325,24 @@ internal sealed partial class WidgetView : Control
         using (var small = new Font("Segoe UI", 12f * u, FontStyle.Regular, GraphicsUnit.Pixel))
         using (var primary = new SolidBrush(PrimaryText))
         using (var secondary = new SolidBrush(SecondaryText))
-        using (var dot = new SolidBrush(accent))
         {
-            graphics.FillEllipse(dot, left, 92 * u, 9 * u, 9 * u);
-            graphics.DrawString($"{phase}  {seconds / 60:00}:{seconds % 60:00}", bold, primary, new RectangleF(left + 15 * u, 87 * u, width - 15 * u, 20 * u), near);
+            // The state icon has the weather icons' left edge, size (14 px) and gap (5 px), and is centred on its row.
+            var iconSize = (int)Math.Round(14 * u);
+            var iconState = PomodoroIcon.StateOf(timer.Phase, timer.State);
+            var iconBox = new RectangleF((int)Math.Round(left), (int)Math.Round(87 * u + (bold.Height - iconSize) / 2f), iconSize, iconSize);
+            PomodoroIcon.Draw(graphics, iconBox, iconState, iconState == PomodoroIconState.Idle ? SecondaryText : accent, timer.State == PomodoroRunState.Paused, u);
+            graphics.DrawString($"{phase}  {seconds / 60:00}:{seconds % 60:00}", bold, primary, new RectangleF(left + iconSize + 5 * u, 87 * u, width - iconSize - 5 * u, 20 * u), near);
             graphics.DrawString($"Today {_pomodoro.CompletedToday}", small, secondary, new RectangleF(left, 89 * u, width, 17 * u), farFormat);
         }
 
         PillBar.Draw(graphics, new RectangleF(left, 116 * u, width, 7 * u), timer.Progress, TrackColor, accent);
         _hotSpots.Add((new RectangleF(left, 85 * u, width, 42 * u), "timer", TimerTooltip.Text(timer.Phase, timer.State, timer.PhaseDuration, timer.Remaining, DateTime.Now)));
+        var pomodoroName = PomodoroIcon.Name(timer.Phase, timer.State);
+        if (pomodoroName != _pomodoroName)
+        {
+            _pomodoroName = pomodoroName;
+            UpdateAccessibleSummary();
+        }
 
         DrawQuote(graphics, u);
         if (_views.Count > 0)

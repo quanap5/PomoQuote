@@ -43,7 +43,8 @@ public sealed class LogoVisibilityTests
             var minimum = (int)Math.Round(size * 0.9);
 
             Assert.True(Math.Max(width, height) >= minimum, $"{id} at {size}px: visible box {width}x{height} (want a side of at least {minimum})");
-            Assert.True(Math.Min(width, height) >= minimum * 0.75, $"{id} at {size}px: visible box {width}x{height} is too narrow");
+            // The Claude Code mark is a wide shape (24 by 15): its long side fills the box, its short side is at least half.
+            Assert.True(Math.Min(width, height) >= size * 0.5, $"{id} at {size}px: visible box {width}x{height} is too narrow");
             Assert.True(peak >= 230, $"{id} at {size}px: peak brightness {peak} (want 230 or more)");
             Assert.True(coverage > size * 1.2, $"{id} at {size}px: only {coverage:0.0} px of ink");
         }

@@ -28,6 +28,10 @@ internal sealed class ProviderIcons : IDisposable
 
     private static Stream? OpenEmbedded(string key) => typeof(ProviderIcons).Assembly.GetManifestResourceStream($"PomoQuote.providers.{key}.png");
 
+    /// <summary>The neutral icon a provider falls back to when its own file is missing or damaged, or null when it has none.</summary>
+    internal static string? FallbackKey(string providerId, IconBackground background) =>
+        providerId.Equals("claude", StringComparison.OrdinalIgnoreCase) ? $"claude-neutral-on-{(background == IconBackground.Dark ? "dark" : "light")}" : null;
+
     /// <summary>The file key for a provider and background, e.g. "codex-on-dark".</summary>
     public static string Key(string providerId, IconBackground background) => $"{providerId.ToLowerInvariant()}-on-{(background == IconBackground.Dark ? "dark" : "light")}";
 
@@ -40,7 +44,8 @@ internal sealed class ProviderIcons : IDisposable
         {
             if (_disposed) return null;
             if (_scaled.TryGetValue((key, pixels), out var cached)) return cached;
-            var original = Original(key);
+            // A provider whose own icon is missing or damaged falls back to its neutral one when it has one (Claude); the others show the name alone.
+            var original = Original(key) ?? (FallbackKey(providerId, background) is { } fallback ? Original(fallback) : null);
             var scaled = original is null ? null : Scale(original, pixels);
             _scaled[(key, pixels)] = scaled;
             return scaled;

@@ -345,6 +345,8 @@ internal sealed partial class WidgetView
     {
         // A text summary for screen readers: the quote without the decorative marks, and the usage numbers.
         var parts = new List<string>();
+        if (_pomodoroName.Length > 0) parts.Add(_pomodoroName + ".");
+        if (_solarLine.Length > 0) parts.Add($"{_solarLine}. {_lunarLine}.");
         if (_quoteEnglish.Length > 0) parts.Add(_quoteEnglish + (_quoteVietnamese is null ? "" : " " + _quoteVietnamese));
         foreach (var view in _views)
         {
