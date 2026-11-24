@@ -22,7 +22,12 @@ internal sealed record UsageRow(string Label, string Percent, double Fraction, s
 /// <param name="Rows">Window rows (empty when there is no data).</param>
 /// <param name="Note">Updated time, stale marker or the state message (never empty).</param>
 /// <param name="IsProblem">True when the note is a warning (stale data, error, not installed, not logged in, unsupported).</param>
-internal sealed record UsageProviderView(string Name, string Plan, IReadOnlyList<UsageRow> Rows, string Note, bool IsProblem);
+/// <param name="ShortNote">A shorter form of the note that keeps the time of the data (used when the note does not fit the widget width).</param>
+internal sealed record UsageProviderView(string Name, string Plan, IReadOnlyList<UsageRow> Rows, string Note, bool IsProblem, string? ShortNote = null)
+{
+    /// <summary>The short form, or the note itself when there is none.</summary>
+    public string Short => ShortNote ?? Note;
+}
 
 /// <summary>Turns provider statuses into what the widget draws. Pure: time and time zone are passed in, so it is easy to test.</summary>
 internal static class UsageViewBuilder
@@ -36,17 +41,21 @@ internal static class UsageViewBuilder
 
         var effective = latest?.EffectiveState(now, settings.Interval);
         string note;
+        string shortNote;
         bool problem;
         switch (effective)
         {
             case null or UsageState.Waiting:
                 (note, problem) = shown is null ? ("Reading...", false) : ($"updated {Clock(shown.ObservedAt, zone)}", false);
+                shortNote = note;
                 break;
             case UsageState.Ok:
                 (note, problem) = ($"updated {Clock(latest!.ObservedAt, zone)}", false);
+                shortNote = note;
                 break;
             case UsageState.Stale:
                 (note, problem) = ($"stale, from {Clock(latest!.ObservedAt, zone)}", true);
+                shortNote = $"stale · {Clock(latest.ObservedAt, zone)}";
                 break;
             default:
                 // A failed read: say why, and say when the numbers on screen are from.
@@ -58,17 +67,49 @@ internal static class UsageViewBuilder
                     _ => "read failed",
                 };
                 note = shown is null ? why : $"{why}; data from {Clock(shown.ObservedAt, zone)}";
+                var shortWhy = latest.State switch { UsageState.Unsupported => "unsupported", _ => why };
+                shortNote = shown is null ? shortWhy : $"{shortWhy} · {Clock(shown.ObservedAt, zone)}";
                 problem = true;
                 break;
         }
 
-        return new UsageProviderView(status.DisplayName, plan, rows, note, problem);
+        return new UsageProviderView(status.DisplayName, plan, rows, note, problem, shortNote);
     }
 
     /// <summary>Lines the strip needs for these providers (the header and either the rows or one line for the note).</summary>
     public static int LineCount(IReadOnlyList<UsageProviderView> views, UsageDisplayMode mode) =>
         views.Sum(view => mode == UsageDisplayMode.Percent ? 1 : 1 + Math.Max(1, view.Rows.Count));
 
+    /// <summary>
+    /// The note text that fits <paramref name="maxWidth"/>: the full note, else the short one, else the short one with the start
+    /// cut and an ellipsis so that the time at its end (" · hh:mm") is always kept. Last resort: the time alone.
+    /// </summary>
+    public static string FitNote(UsageProviderView view, float maxWidth, Func<string, float> measure)
+    {
+        if (measure(view.Note) <= maxWidth) return view.Note;
+        if (measure(view.Short) <= maxWidth) return view.Short;
+
+        var separator = view.Short.LastIndexOf(" · ", StringComparison.Ordinal);
+        if (separator < 0) return Truncate(view.Short, maxWidth, measure);
+
+        var head = view.Short[..separator];
+        var tail = view.Short[separator..];
+        while (head.Length > 0)
+        {
+            head = head[..^1];
+            var candidate = head.TrimEnd() + "…" + tail;
+            if (measure(candidate) <= maxWidth) return candidate;
+        }
+
+        var timeOnly = tail.TrimStart(' ', '·');
+        return measure(timeOnly) <= maxWidth ? timeOnly : Truncate(timeOnly, maxWidth, measure);
+    }
+
+    private static string Truncate(string text, float maxWidth, Func<string, float> measure)
+    {
+        while (text.Length > 1 && measure(text + "…") > maxWidth) text = text[..^1];
+        return text.Length == 0 ? text : text + "…";
+    }
     private static List<UsageRow> Rows(UsageSnapshot snapshot, UsageSettings settings, DateTimeOffset now) =>
         snapshot.Windows
             .OrderBy(w => w.Kind)
