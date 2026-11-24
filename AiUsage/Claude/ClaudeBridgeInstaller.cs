@@ -34,7 +34,8 @@ public enum BridgeResult
 /// <param name="BackupDirectory">Where the backup of the whole file will be kept.</param>
 /// <param name="ProgramPath">The copy of the bridge program the command will run (a stable folder, not the folder the app is started from).</param>
 /// <param name="NoFileYet">There is no settings file yet: it would be created with only the status line.</param>
-internal sealed record BridgePreview(StatusLineState State, string? CurrentCommand, string NewCommand, string BackupDirectory, string ProgramPath = "", bool NoFileYet = false);
+/// <param name="IsUpgrade">An old-style bridge (no fail-safe) would be rewritten to the new form; the original command inside it stays as it is.</param>
+internal sealed record BridgePreview(StatusLineState State, string? CurrentCommand, string NewCommand, string BackupDirectory, string ProgramPath = "", bool NoFileYet = false, bool IsUpgrade = false);
 
 /// <summary>What Settings shows about the bridge.</summary>
 /// <param name="State">The state of the user-level file.</param>
@@ -42,10 +43,11 @@ internal sealed record BridgePreview(StatusLineState State, string? CurrentComma
 /// <param name="Problems">Things the Check found (bridge program missing, damaged chain, wrong shell, project overrides, ...).</param>
 /// <param name="ProgramMissing">The set-up bridge program (or its saved original command) is gone or damaged: the strip says "bridge missing".</param>
 /// <param name="ShellMismatch">The command is written for a different shell than Claude Code would use now.</param>
-internal sealed record BridgeStatus(StatusLineState State, string Reason, IReadOnlyList<string> Problems, bool ProgramMissing = false, bool ShellMismatch = false)
+/// <param name="OldStyle">The bridge was written by PomoQuote 1.1: it runs the program by an absolute path with no fail-safe, so a moved or deleted program takes the status line down. Settings offers an upgrade.</param>
+internal sealed record BridgeStatus(StatusLineState State, string Reason, IReadOnlyList<string> Problems, bool ProgramMissing = false, bool ShellMismatch = false, bool OldStyle = false)
 {
     /// <summary>Whether the user should be told about the bridge now (not project overrides, which are only listed by a manual check).</summary>
-    public bool NeedsAttention => State == StatusLineState.Bridged && (ProgramMissing || ShellMismatch);
+    public bool NeedsAttention => State == StatusLineState.Bridged && (ProgramMissing || ShellMismatch || OldStyle);
 }
 
 /// <summary>
@@ -133,13 +135,21 @@ internal sealed class ClaudeBridgeInstaller
         var problems = new List<string>();
         var programMissing = false;
         var shellMismatch = false;
+        var oldStyle = false;
         if (info.State == StatusLineState.Bridged)
         {
+            oldStyle = ClaudeBridgeCommand.IsOldStyle(info.Command!);
             var exe = ClaudeBridgeCommand.ExecutableOf(info.Command!);
             if (exe is null || !File.Exists(exe))
             {
                 programMissing = true;
-                problems.Add("The bridge program is missing, so Claude Code now runs your original status line directly (if you had none, it shows nothing). Remove the bridge and set it up again.");
+                problems.Add(oldStyle
+                    ? "The bridge program is missing and this old-style bridge has no fail-safe, so Claude Code runs the missing program and shows no status line at all. Upgrade the bridge (it is then repaired) or remove it."
+                    : "The bridge program is missing, so Claude Code now runs your original status line directly (if you had none, it shows nothing). Remove the bridge and set it up again.");
+            }
+            else if (oldStyle)
+            {
+                problems.Add("This is an old-style bridge without a fail-safe: if PomoQuote.exe is ever moved or deleted, your status line disappears. Upgrade the bridge to the new form (your original command is kept).");
             }
 
             if (ClaudeBridge.ChainFrom(ClaudeBridgeCommand.Arguments(info.Command!)) is null && ClaudeBridgeCommand.HasChainArgument(info.Command!))
@@ -163,7 +173,7 @@ internal sealed class ClaudeBridgeInstaller
             if (ProjectOverrides(directory)) problems.Add($"The project \"{Path.GetFileName(directory.TrimEnd('\\', '/'))}\" has its own status line, which replaces this one there.");
         }
 
-        return new BridgeStatus(info.State, info.Reason, problems, programMissing, shellMismatch);
+        return new BridgeStatus(info.State, info.Reason, problems, programMissing, shellMismatch, oldStyle);
     }
 
     /// <summary>Whether a project folder's own settings define a `statusLine` (that overrides the user-level one inside that project).</summary>
@@ -215,6 +225,16 @@ internal sealed class ClaudeBridgeInstaller
         if (info.State is not (StatusLineState.None or StatusLineState.Custom)) return null;
         if (CannotInstallReason() is not null) return null;
         return new BridgePreview(info.State, info.Command, ClaudeBridgeCommand.Build(ProgramPath, info.Command, _gitBash() is not null), BackupDirectory, ProgramPath, NoFileYet());
+    }
+
+    /// <summary>The exact change an upgrade of an old-style bridge would make, or null when there is nothing to upgrade.</summary>
+    public BridgePreview? PreviewUpgrade()
+    {
+        var info = Detect();
+        if (info.State != StatusLineState.Bridged || !ClaudeBridgeCommand.IsOldStyle(info.Command!) || CannotInstallReason() is not null) return null;
+        var chain = ClaudeBridge.ChainFrom(ClaudeBridgeCommand.Arguments(info.Command!));
+        if (chain is null && ClaudeBridgeCommand.HasChainArgument(info.Command!)) return null; // a damaged chain is not guessed at
+        return new BridgePreview(StatusLineState.Bridged, info.Command, ClaudeBridgeCommand.Build(ProgramPath, chain, _gitBash() is not null), BackupDirectory, ProgramPath, false, IsUpgrade: true);
     }
 
     // ---------- the stable copy of the bridge program ----------
@@ -327,6 +347,45 @@ internal sealed class ClaudeBridgeInstaller
         }
 
         return BridgeResult.Done;
+    }
+
+    /// <summary>
+    /// Rewrites only the command of an old-style bridge to the new form: the program is copied to the stable folder, the same
+    /// original command (byte for byte) travels inside, the file is backed up first and left alone when it changed meanwhile.
+    /// </summary>
+    public BridgeResult Upgrade()
+    {
+        if (CannotInstallReason() is not null) return BridgeResult.WrongProgram;
+        var original = TryReadBytes();
+        if (original is null) return BridgeResult.Unreadable;
+        var (text, bom) = Decode(original);
+        var info = ClaudeSettingsPatcher.Inspect(text);
+        if (info.State == StatusLineState.Unreadable) return BridgeResult.Unreadable;
+        if (info.State != StatusLineState.Bridged) return BridgeResult.NotOurs;
+        if (!ClaudeBridgeCommand.IsOldStyle(info.Command!)) return BridgeResult.AlreadyBridged;
+
+        var chain = ClaudeBridge.ChainFrom(ClaudeBridgeCommand.Arguments(info.Command!));
+        if (chain is null && ClaudeBridgeCommand.HasChainArgument(info.Command!)) return BridgeResult.Unreadable;
+        if (!CopyProgram()) return BridgeResult.WrongProgram;
+
+        var patched = ClaudeSettingsPatcher.ReplaceBridgeCommand(text, ClaudeBridgeCommand.Build(ProgramPath, chain, _gitBash() is not null));
+        if (patched is null) return BridgeResult.Unreadable;
+
+        var hash = Sha256(original);
+        try
+        {
+            WriteBackup(original, hash, "before-upgrade-");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return BridgeResult.WriteFailed;
+        }
+
+        AfterBackup?.Invoke();
+        var again = TryReadBytes();
+        if (again is null || Sha256(again) != hash) return BridgeResult.ChangedMeanwhile;
+
+        return TryWrite(Encode(patched, bom), overwrite: true) ? BridgeResult.Done : BridgeResult.WriteFailed;
     }
 
     private const string NewFileText = "{\n}\n";
@@ -564,6 +623,16 @@ internal static class ClaudeBridgeCommand
 
     /// <summary>Quotes, dollar signs, backticks, semicolons and line breaks cannot be put safely inside the quoted program path of either shell.</summary>
     public static bool IsSafePath(string path) => path.IndexOfAny(['"', '\'', '$', '`', ';', '\r', '\n', '%']) < 0;
+
+    /// <summary>The fail-safe forms start with a test of the program file (Git Bash `if [ -f`, PowerShell `if (Test-Path`).</summary>
+    public static bool HasFailSafe(string command)
+    {
+        var text = command.TrimStart();
+        return text.StartsWith("if [ -f \"", StringComparison.Ordinal) || text.StartsWith("if (Test-Path ", StringComparison.Ordinal);
+    }
+
+    /// <summary>A bridge written by PomoQuote 1.1: the program by absolute path, no test, no fallback.</summary>
+    public static bool IsOldStyle(string command) => ClaudeSettingsPatcher.IsBridge(command) && !HasFailSafe(command);
 
     /// <summary>Whether the command is written for Git Bash (else PowerShell). The first form PomoQuote wrote began with a quote (bash) or `&amp;` (PowerShell).</summary>
     public static bool IsBashForm(string command)

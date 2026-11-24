@@ -156,6 +156,7 @@ internal sealed partial class MainForm : Form
         _weatherTimer.Start();
         _pomodoro.Start();
         _usage.Start();
+        _ = StartBridgeCheck();
         _ = RefreshWeatherAsync();
     }
 

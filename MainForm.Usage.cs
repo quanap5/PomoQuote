@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using PomoQuote.AiUsage;
 using PomoQuote.AiUsage.Claude;
 
@@ -22,10 +23,13 @@ internal sealed partial class MainForm
             new ClaudeBridgeInstaller(ClaudeBridgeInstaller.DefaultSettingsPath, ClaudeBridgeInstaller.DefaultStateDirectory, () => Environment.ProcessPath ?? Application.ExecutablePath),
             new ClaudeRefresher(new ClaudeProcessFactory(), store, TimeProvider.System),
             store);
+        // The provider asks for the bridge state and for a missing program on every poll: read the settings file once per few seconds.
+        var bridgeStatus = new CachedValue<BridgeStatus>(() => claude.Installer.Check(), TimeSpan.FromSeconds(5), TimeProvider.System);
+        _bridgeInstaller = claude.Installer;
         providers ??=
         [
             new CodexUsageProvider(new CodexAppServerSessionFactory(), TimeProvider.System),
-            new ClaudeSnapshotProvider(claude.Store, () => claude.Installer.Detect().State, TimeProvider.System, () => claude.Installer.Check().ProgramMissing),
+            new ClaudeSnapshotProvider(claude.Store, () => bridgeStatus.Get().State, TimeProvider.System, () => bridgeStatus.Get().ProgramMissing),
         ];
         _usage = new UsageController(
             this,
@@ -35,14 +39,50 @@ internal sealed partial class MainForm
             providers,
             TimeProvider.System,
             (title, message) => _tray.ShowBalloon(title, message));
-        _claude = new ClaudeActions(claude.Installer, claude.Refresher, _usage);
+        _claude = new ClaudeActions(claude.Installer, claude.Refresher, _usage, bridgeStatus.Invalidate);
         _claudeSettingsPath = claude.Installer.SettingsPath;
         _usage.Changed += (_, _) => ApplyUsageLayout();
         ApplyUsageLayout();
+    }
 
-        // Once, when AI Usage starts: a bridge that went missing is announced instead of silently losing the numbers.
-        var installer = claude.Installer;
-        _ = Task.Run(() => ClaudeActions.StartupCheck(installer, (title, message) => BeginInvoke(() => { if (!IsDisposed) _tray.ShowBalloon(title, message); })));
+    private ClaudeBridgeInstaller _bridgeInstaller = null!;
+
+    /// <summary>Test seam: receives the start-up notice instead of the tray balloon.</summary>
+    internal Action<string, string>? BridgeNoticeSink;
+
+    /// <summary>
+    /// Once, when the window is shown (its handle exists then): a bridge that went missing, is damaged, is written for another
+    /// shell or is the old style is announced instead of silently losing the numbers (or the user's status line).
+    /// </summary>
+    internal Task StartBridgeCheck()
+    {
+        var installer = _bridgeInstaller;
+        var check = Task.Run(() => ClaudeActions.StartupCheck(installer, ShowBridgeNotice));
+        _ = check.ContinueWith(
+            task => Trace.TraceError("The Claude bridge check failed: " + task.Exception?.GetBaseException().Message),
+            CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted,
+            TaskScheduler.Default);
+        return check;
+    }
+
+    private void ShowBridgeNotice(string title, string message)
+    {
+        // Called on a worker thread: hop to the UI thread, but only when it can take the call.
+        if (IsDisposed || !IsHandleCreated) return;
+        try
+        {
+            BeginInvoke(() =>
+            {
+                if (IsDisposed) return;
+                if (BridgeNoticeSink is { } sink) sink(title, message);
+                else _tray.ShowBalloon(title, message);
+            });
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or ObjectDisposedException)
+        {
+            Trace.TraceError("The Claude bridge notice could not be shown: " + ex.Message);
+        }
     }
 
     private string _claudeSettingsPath = "";
