@@ -99,6 +99,26 @@ internal sealed class UsageController : IDisposable
         Changed?.Invoke(this, EventArgs.Empty);
     }
 
+    /// <summary>
+    /// Remembers the Compact/Expanded choice and the provider Compact shows. Only the settings file and the widget change: no
+    /// timer is restarted and nothing is read (unlike <see cref="Apply"/>).
+    /// </summary>
+    public void SetLayout(bool expanded, string? selectedProvider)
+    {
+        if (Settings.Expanded == expanded && Settings.SelectedProvider == selectedProvider) return;
+        Settings = Settings with { Expanded = expanded, SelectedProvider = selectedProvider };
+        try
+        {
+            _settingsStore.Save(Settings);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Just not remembered for the next start.
+        }
+
+        Changed?.Invoke(this, EventArgs.Empty);
+    }
+
     /// <summary>Reads one provider now (for example after a bridge was installed or a manual refresh saved new numbers).</summary>
     public void RefreshProvider(string providerId) => _ = _collector.RefreshAsync(providerId);
 

@@ -7,7 +7,8 @@ namespace PomoQuote.AiUsage;
 /// <param name="DisplayName">Name to show.</param>
 /// <param name="Latest">The latest read (any state), or null before the first one.</param>
 /// <param name="LastGood">The last read that had numbers, or null. Shown (marked stale) while the latest read failed.</param>
-internal sealed record UsageStatus(string ProviderId, string DisplayName, UsageSnapshot? Latest, UsageSnapshot? LastGood)
+/// <param name="Refreshing">A read of this provider (and only this one) has been running for a moment; the widget keeps the last numbers and says it is updating.</param>
+internal sealed record UsageStatus(string ProviderId, string DisplayName, UsageSnapshot? Latest, UsageSnapshot? LastGood, bool Refreshing = false)
 {
     /// <summary>The snapshot whose numbers should be drawn: the latest if it is good, otherwise the last good one.</summary>
     public UsageSnapshot? Shown => Latest is { State: UsageState.Ok } ? Latest : LastGood;
@@ -28,6 +29,10 @@ internal sealed class UsageCollector : IDisposable
     private readonly ConcurrentDictionary<string, UsageStatus> _status = new();
     private readonly Dictionary<string, SemaphoreSlim> _gates;
     private readonly CancellationTokenSource _disposed = new();
+    private readonly object _refreshingLock = new();
+
+    /// <summary>A read faster than this never flashes an "updating" mark (the Claude snapshot read takes milliseconds, the Codex one about a second).</summary>
+    public TimeSpan RefreshIndicatorDelay { get; init; } = TimeSpan.FromMilliseconds(400);
 
     public UsageCollector(IReadOnlyList<IUsageProvider> providers, TimeProvider clock, UsageCacheStore? cache = null, TimeSpan? readLimit = null)
     {
@@ -65,6 +70,17 @@ internal sealed class UsageCollector : IDisposable
 
         var gate = _gates[providerId];
         if (!await gate.WaitAsync(0, CancellationToken.None).ConfigureAwait(false)) return;
+        var finished = false;
+        _ = Task.Delay(RefreshIndicatorDelay, _disposed.Token).ContinueWith(
+            delayed =>
+            {
+                if (delayed.IsCanceled) return;
+                lock (_refreshingLock)
+                {
+                    if (!finished) SetRefreshing(providerId, true);
+                }
+            },
+            TaskScheduler.Default);
         try
         {
             using var limit = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposed.Token);
@@ -90,20 +106,43 @@ internal sealed class UsageCollector : IDisposable
                 snapshot = Failure(provider, UsageState.Error, "The read failed unexpectedly.");
             }
 
-            var previous = _status[providerId];
-            var updated = previous with
+            UsageStatus updated;
+            lock (_refreshingLock)
             {
-                Latest = snapshot,
-                LastGood = snapshot.State == UsageState.Ok ? snapshot : previous.LastGood,
-            };
-            _status[providerId] = updated;
+                finished = true;
+                var previous = _status[providerId];
+                updated = previous with
+                {
+                    Latest = snapshot,
+                    LastGood = snapshot.State == UsageState.Ok ? snapshot : previous.LastGood,
+                    Refreshing = false,
+                };
+                _status[providerId] = updated;
+            }
+
             if (snapshot.State == UsageState.Ok) SaveCache();
             StatusChanged?.Invoke(this, updated);
         }
         finally
         {
+            lock (_refreshingLock) finished = true;
+            ClearRefreshing(providerId);
             gate.Release();
         }
+    }
+
+    private void SetRefreshing(string providerId, bool on)
+    {
+        if (!_status.TryGetValue(providerId, out var current) || current.Refreshing == on) return;
+        var updated = current with { Refreshing = on };
+        _status[providerId] = updated;
+        StatusChanged?.Invoke(this, updated);
+    }
+
+    /// <summary>A read that ended without a result (stopped, or cancelled) must not leave the mark behind.</summary>
+    private void ClearRefreshing(string providerId)
+    {
+        lock (_refreshingLock) SetRefreshing(providerId, false);
     }
 
     /// <summary>Reads the given providers at the same time; each is isolated from the others.</summary>

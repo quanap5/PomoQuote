@@ -25,6 +25,7 @@
     <None Include="Assets\Mascot\robot-sprites.png" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Assets\Mascot\*.wav" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Assets\Mascot\*.json" CopyToOutputDirectory="PreserveNewest" />
+    <EmbeddedResource Include="Assets\Providers\*.png" LogicalName="PomoQuote.providers.%(Filename)%(Extension)" />
     <EmbeddedResource Include="Assets\Quotes\quotes.json" LogicalName="PomoQuote.quotes.json" />
     <EmbeddedResource Include="Assets\Logo\pomoquote.ico" LogicalName="PomoQuote.pomoquote.ico" />
   </ItemGroup>

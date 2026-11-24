@@ -35,6 +35,7 @@ internal sealed partial class MainForm
     private void BuildWidget(ToolStripMenuItem viewMenu)
     {
         _widgetView = new WidgetView(_pomodoro, _weather) { Dock = DockStyle.Fill, Visible = false };
+        _widgetView.UsageUiChanged += (_, e) => _usage.SetLayout(e.Expanded, e.SelectedProvider);
         Controls.Add(_widgetView);
 
         _widgetModeItem = new ToolStripMenuItem("&Widget mode", null, (_, _) => SetWidgetMode(!_widgetMode))

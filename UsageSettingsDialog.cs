@@ -16,6 +16,7 @@ internal sealed class UsageSettingsDialog : Form
     private readonly Func<string, CancellationToken, Task<UsageStatus?>> _test;
     private readonly IReadOnlyList<(string Id, string Name)> _providers;
     private readonly CancellationTokenSource _closing = new();
+    private readonly ProviderIcons _icons = new();
     private readonly CheckBox _codex;
     private readonly Label _codexStatus;
     private readonly Label _testResult;
@@ -111,9 +112,9 @@ internal sealed class UsageSettingsDialog : Form
         orderRow.Controls.Add(down);
         if (_order.Items.Count > 0) _order.SelectedIndex = 0;
 
-        _mode = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 320 };
-        _mode.Items.AddRange(["Bars: percent, bar and reset time per window", "Percent only: one short line per provider"]);
-        _mode.SelectedIndex = current.DisplayMode == UsageDisplayMode.Percent ? 1 : 0;
+        _mode = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 360 };
+        _mode.Items.AddRange(["Compact: one provider at a time (scroll over its logo to switch)", "Expanded: every provider as a card"]);
+        _mode.SelectedIndex = current.Expanded ? 1 : 0;
 
         _interval = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 120 };
         foreach (var minutes in IntervalChoices) _interval.Items.Add(minutes == 1 ? "every minute" : $"every {minutes} minutes");
@@ -146,16 +147,16 @@ internal sealed class UsageSettingsDialog : Form
 
         var layout = new TableLayoutPanel { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, ColumnCount = 1, Dock = DockStyle.Fill };
         layout.Controls.Add(intro);
-        layout.Controls.Add(_codex);
+        layout.Controls.Add(ProviderRow(CodexUsageProvider.ProviderId, _codex));
         layout.Controls.Add(_codexStatus);
         layout.Controls.Add(testRow);
-        layout.Controls.Add(_claudeEnabled);
+        layout.Controls.Add(ProviderRow(ClaudeSnapshotProvider.ProviderId, _claudeEnabled));
         layout.Controls.Add(_claudeStatus);
         layout.Controls.Add(claudeButtons);
         layout.Controls.Add(_claudeResult);
         layout.Controls.Add(new Label { Text = "Display order:", AutoSize = true, Margin = new Padding(0, 10, 0, 2) });
         layout.Controls.Add(orderRow);
-        layout.Controls.Add(new Label { Text = "Display mode:", AutoSize = true, Margin = new Padding(0, 10, 0, 2) });
+        layout.Controls.Add(new Label { Text = "Layout of the usage area (also the arrow button on the widget):", AutoSize = true, Margin = new Padding(0, 10, 0, 2) });
         layout.Controls.Add(_mode);
         layout.Controls.Add(new Label { Text = "Read the quota:", AutoSize = true, Margin = new Padding(0, 10, 0, 2) });
         layout.Controls.Add(_interval);
@@ -182,7 +183,7 @@ internal sealed class UsageSettingsDialog : Form
         return current.WithEnabled(CodexUsageProvider.ProviderId, _codex.Checked).WithEnabled(ClaudeSnapshotProvider.ProviderId, _claudeEnabled.Checked) with
         {
             Order = order,
-            DisplayMode = _mode.SelectedIndex == 1 ? UsageDisplayMode.Percent : UsageDisplayMode.Bars,
+            Expanded = _mode.SelectedIndex == 1,
             IntervalMinutes = IntervalChoices[Math.Max(0, _interval.SelectedIndex)],
             AlertsEnabled = _alerts.Checked,
             Thresholds = thresholds.OrderBy(t => t).ToList(),
@@ -376,9 +377,25 @@ internal sealed class UsageSettingsDialog : Form
         }
     }
 
+    /// <summary>A provider's checkbox with its logo in front (the logo is decoration: the checkbox text names the provider).</summary>
+    private FlowLayoutPanel ProviderRow(string providerId, CheckBox box)
+    {
+        var margin = box.Margin;
+        box.Margin = new Padding(0, 0, 0, 0);
+        var row = new FlowLayoutPanel { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, WrapContents = false, Margin = new Padding(0, margin.Top, 0, 0) };
+        row.Controls.Add(new ProviderIconBox(_icons, providerId));
+        row.Controls.Add(box);
+        return row;
+    }
+
     protected override void Dispose(bool disposing)
     {
-        if (disposing) _closing.Dispose();
+        if (disposing)
+        {
+            _closing.Dispose();
+            _icons.Dispose();
+        }
+
         base.Dispose(disposing);
     }
 }

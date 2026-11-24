@@ -28,6 +28,9 @@ internal static class WidgetPlacement
         return new Point(x, y);
     }
 
+    /// <summary>The work area the widget is on (the one it overlaps most, else the nearest).</summary>
+    public static Rectangle AreaFor(Rectangle widget, IReadOnlyList<Rectangle> workAreas) => workAreas.Count == 0 ? widget : PickArea(widget, workAreas);
+
     private static Rectangle PickArea(Rectangle widget, IReadOnlyList<Rectangle> workAreas)
     {
         var best = workAreas[0];
