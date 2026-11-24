@@ -187,40 +187,74 @@ public sealed class WidgetIconsAndDateTests
         Assert.NotEqual(own.GetPixel(10, 10), fallbackMissing!.GetPixel(10, 10)); // it really is the other image
     }
 
+    /// <summary>SHA-256 of "Claude Spark - Clay.png" in Anthropic's press kit (zip SHA-256 C68AC92D...7151, retrieved 2026-11-24).</summary>
+    private const string SparkSha256 = "C7D8415B1EDBA67E5337D3684B480B563826F07BE9E28E10CCC14BF92037EF6D";
+
+    [Theory]
+    [InlineData("claude-on-dark.png")]
+    [InlineData("claude-on-light.png")]
+    public void The_claude_files_are_byte_for_byte_the_press_kit_file(string name)
+    {
+        var path = Path.Combine(RepositoryRoot(), "Assets", "Providers", name);
+
+        var hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(path)));
+
+        Assert.Equal(SparkSha256, hash);
+    }
+
     [Fact]
-    public void The_claude_icon_is_credited_as_a_lobe_icons_drawing_and_not_as_an_anthropic_asset()
+    public void The_lobe_icons_files_and_references_are_gone_and_the_official_source_is_recorded()
     {
         var root = RepositoryRoot();
-        if (!File.Exists(Path.Combine(root, "Assets", "Providers", "claude-on-dark.png"))) return; // the owner removed the icon: the neutral glyph is used (see the fallback test)
-        var svg = File.ReadAllText(Path.Combine(root, "Assets", "Providers", "source", "lobe-icons-claudecode-color.svg"));
         var credits = File.ReadAllText(Path.Combine(root, "THIRD_PARTY_ASSETS.md"));
+        var readme = File.ReadAllText(Path.Combine(root, "README.md"));
+        var changelog = File.ReadAllText(Path.Combine(root, "CHANGELOG.md"));
+
+        Assert.False(Directory.Exists(Path.Combine(root, "Assets", "Providers", "source")));
+        foreach (var text in new[] { credits, readme, changelog })
+        {
+            Assert.DoesNotContain("lobe-icons", text, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("LobeHub", text, StringComparison.OrdinalIgnoreCase);
+        }
+
+        Assert.Contains("https://assets.claude.com/ae59ca4ca194dac9c9dc3bc78c5829468cb0e8af.zip", credits);
+        Assert.Contains("C68AC92DF86C825F95177E24016FCC9A8863A3FD4CA344FE6F0700B2C1E07151", credits); // the zip
+        Assert.Contains(SparkSha256, credits); // the file
+        Assert.Contains("Claude Spark - Clay.png", credits);
+        Assert.Contains("no written permission", credits, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("marketing@anthropic.com", credits);
+        // The three guideline quotes are word for word (anthropic.com/legal/trademark-guidelines, checked 2026-11-24).
+        Assert.Contains("You may only use our trademarks as specifically permitted by us and only in materials we approve beforehand.", credits);
+        Assert.Contains("No alterations of our trademarks (changes to color, font, proportion, or otherwise) are permitted.", credits);
+        Assert.Contains("You may not use our trademarks in a manner that implies Anthropic\u2019s sponsorship or endorsement, or a relationship or affiliation with Anthropic, except as we expressly authorize.", credits);
+        Assert.Contains("If you have an existing business relationship with Anthropic", credits); // the contact is published for that case only
+        Assert.DoesNotContain("only as specifically permitted by us", credits.Replace("You may only use our trademarks as specifically permitted by us", "")); // no paraphrased version left
+
+        Assert.Contains("accepts", credits, StringComparison.OrdinalIgnoreCase); // the owner's acceptance of the risk
+        Assert.Contains("claude-neutral-on-dark.png", credits);
+        Assert.Contains("not affiliated", readme, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void The_claude_spark_keeps_the_official_colour_and_is_not_recoloured_by_the_loader()
+    {
         using var icons = new ProviderIcons();
         var icon = icons.Get("claude", IconBackground.Dark, 40)!;
-
-        Assert.Contains("<title>Claude Code</title>", svg);
-        Assert.Contains("#D97757", svg);
-        Assert.Contains("lobehub/lobe-icons", credits);
-        Assert.Contains("MIT", credits);
-        Assert.Contains("not an Anthropic asset", credits);
-        Assert.Contains("not an official Anthropic asset", credits);
-        Assert.DoesNotContain("real Claude Code mark", credits);
-        Assert.DoesNotContain("the Claude Code mark itself", credits);
-        var readme = File.ReadAllText(Path.Combine(root, "README.md"));
-        Assert.Contains("not an official Anthropic asset", readme);
-        Assert.DoesNotContain("the **Claude Code mark**", readme);
-        Assert.Contains("claude-neutral-on-dark.png", credits);
-        // The visible mark is the library's own orange, not recoloured.
-        var orange = 0;
+        var official = 0;
+        var other = 0;
         for (var y = 0; y < icon.Height; y++)
         {
             for (var x = 0; x < icon.Width; x++)
             {
                 var pixel = icon.GetPixel(x, y);
-                if (pixel.A > 240 && Math.Abs(pixel.R - 217) < 12 && Math.Abs(pixel.G - 119) < 12 && Math.Abs(pixel.B - 87) < 12) orange++;
+                if (pixel.A < 240) continue;
+                if (Math.Abs(pixel.R - 217) < 12 && Math.Abs(pixel.G - 119) < 12 && Math.Abs(pixel.B - 87) < 12) official++;
+                else other++;
             }
         }
 
-        Assert.True(orange > 200, $"only {orange} px of the library's orange");
+        Assert.True(official > 150, $"only {official} px of Anthropic's clay colour");
+        Assert.True(other <= official * 2, $"{other} edge pixels against {official} exact ones");
     }
 
     [Fact]
@@ -229,7 +263,7 @@ public sealed class WidgetIconsAndDateTests
         var names = typeof(ProviderIcons).Assembly.GetManifestResourceNames().Where(n => n.StartsWith("PomoQuote.providers.", StringComparison.Ordinal)).ToList();
 
         var keys = new List<string> { "codex-on-dark", "codex-on-light", "claude-neutral-on-dark", "claude-neutral-on-light", "antigravity-on-dark", "antigravity-on-light" };
-        if (File.Exists(Path.Combine(RepositoryRoot(), "Assets", "Providers", "claude-on-dark.png"))) keys.AddRange(["claude-on-dark", "claude-on-light"]); // the two files the owner may delete
+        if (File.Exists(Path.Combine(RepositoryRoot(), "Assets", "Providers", "claude-on-dark.png"))) keys.AddRange(["claude-on-dark", "claude-on-light"]); // the two files that may be deleted to revert
         foreach (var key in keys)
         {
             Assert.Contains($"PomoQuote.providers.{key}.png", names);

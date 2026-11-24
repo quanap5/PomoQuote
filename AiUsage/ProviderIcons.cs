@@ -132,7 +132,8 @@ internal sealed class ProviderIcons : IDisposable
         var scale = Math.Min((double)box / source.Width, (double)box / source.Height);
         var width = Math.Max(1, (int)Math.Round(source.Width * scale));
         var height = Math.Max(1, (int)Math.Round(source.Height * scale));
-        var bitmap = new Bitmap(box, box, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+        // Premultiplied alpha, so the soft edge of a mark is averaged with its own colour and not with the black of the transparent pixels (no dark fringe).
+        var bitmap = new Bitmap(box, box, System.Drawing.Imaging.PixelFormat.Format32bppPArgb);
         using var graphics = Graphics.FromImage(bitmap);
         graphics.Clear(Color.Transparent);
         graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
