@@ -24,7 +24,7 @@ internal sealed class WeatherEffectField : IDisposable
     public const int PeakAlpha = 48;
 
     /// <summary>The opacity of a streak or a flake, which can cross another one: two of them stacked still keep the text readable (the contrast test measures it).</summary>
-    public const int CrossingAlpha = 28;
+    public const int CrossingAlpha = 33;
 
     /// <summary>The opacity of the whole-widget flash of a thunderstorm at its brightest.</summary>
     public const int FlashAlpha = 20;
@@ -326,7 +326,7 @@ internal sealed class WeatherEffectField : IDisposable
             case WeatherEffectKind.Rain:
             {
                 var (r, gr, b) = layer.Effect.Icy ? (196, 228, 255) : day ? (160, 196, 238) : (130, 168, 220);
-                _pen.Width = Math.Max(1f, 0.9f * u);
+                _pen.Width = Math.Max(1.2f, 1.1f * u);
                 for (var i = 0; i < layer.Count; i++)
                 {
                     ref var p = ref layer.Particles[i];
@@ -356,7 +356,7 @@ internal sealed class WeatherEffectField : IDisposable
             case WeatherEffectKind.Clouds:
             {
                 var (r, gr, b) = day ? (206, 220, 240) : (150, 166, 198);
-                _brush.Color = Color.FromArgb(A(11, o), r, gr, b);
+                _brush.Color = Color.FromArgb(A(14, o), r, gr, b);
                 for (var i = 0; i < layer.Count; i++)
                 {
                     ref var p = ref layer.Particles[i];
@@ -374,7 +374,7 @@ internal sealed class WeatherEffectField : IDisposable
             case WeatherEffectKind.Haze:
             {
                 var (r, gr, b) = day ? (214, 222, 232) : (160, 172, 192);
-                _brush.Color = Color.FromArgb(A(10, o), r, gr, b);
+                _brush.Color = Color.FromArgb(A(13, o), r, gr, b);
                 for (var i = 0; i < layer.Count; i++)
                 {
                     ref var p = ref layer.Particles[i];

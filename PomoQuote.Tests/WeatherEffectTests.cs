@@ -184,7 +184,7 @@ public sealed class WeatherEffectTests : IDisposable
         field.Set(heavyRain, WeatherEffectIntensity.Low, instant: true);
 
         Assert.True(field.ParticleCount < normal);
-        Assert.True(WeatherEffectPolicy.IntervalMilliseconds(WeatherEffectIntensity.Low) > WeatherEffectPolicy.IntervalMilliseconds(WeatherEffectIntensity.Normal));
+        Assert.InRange(WeatherEffectPolicy.IntervalMilliseconds(WeatherEffectIntensity.Low), 50, 70); // about 15 to 20 frames a second
     }
 
     [Fact]

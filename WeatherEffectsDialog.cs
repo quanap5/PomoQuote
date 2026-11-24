@@ -23,8 +23,8 @@ internal sealed class WeatherEffectsDialog : Form
         Padding = new Padding(16);
 
         _enabled = new CheckBox { Text = "Show the weather behind the widget (clouds, rain, snow, stars...)", Checked = current.Enabled, AutoSize = true, Margin = new Padding(0, 0, 0, 8) };
-        _low = new RadioButton { Text = "Low: fewer particles, 15 frames a second (default)", Checked = current.Intensity == WeatherEffectIntensity.Low, AutoSize = true, Margin = new Padding(16, 0, 0, 2) };
-        _normal = new RadioButton { Text = "Normal: the full effect, about 18 frames a second", Checked = current.Intensity == WeatherEffectIntensity.Normal, AutoSize = true, Margin = new Padding(16, 0, 0, 8) };
+        _low = new RadioButton { Text = "Low: about half the particles (default)", Checked = current.Intensity == WeatherEffectIntensity.Low, AutoSize = true, Margin = new Padding(16, 0, 0, 2) };
+        _normal = new RadioButton { Text = "Normal: the full effect", Checked = current.Intensity == WeatherEffectIntensity.Normal, AutoSize = true, Margin = new Padding(16, 0, 0, 8) };
         _reduceMotion = new CheckBox { Text = "Reduce motion: show one still picture instead of an animation", Checked = current.ReduceMotion, AutoSize = true, Margin = new Padding(0, 0, 0, 2) };
         var note = new Label
         {

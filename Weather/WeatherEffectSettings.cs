@@ -5,10 +5,10 @@ namespace PomoQuote.Weather;
 /// <summary>How many clouds, streaks and flakes are drawn, and how often the picture updates.</summary>
 public enum WeatherEffectIntensity
 {
-    /// <summary>About half the particles, 15 frames a second: the default, the lightest on the CPU.</summary>
+    /// <summary>About half the particles: the default, the lightest on the CPU.</summary>
     Low,
 
-    /// <summary>The full number of particles, about 18 frames a second.</summary>
+    /// <summary>The full number of particles.</summary>
     Normal,
 }
 
@@ -69,6 +69,6 @@ internal static class WeatherEffectPolicy
         return settings.ReduceMotion || !systemAnimations ? EffectRunState.Still : EffectRunState.Animating;
     }
 
-    /// <summary>The effect timer's interval: 15 frames a second at Low (67 ms), about 18 at Normal (55 ms).</summary>
-    public static int IntervalMilliseconds(WeatherEffectIntensity intensity) => intensity == WeatherEffectIntensity.Normal ? 55 : 67;
+    /// <summary>The effect timer's interval: 62 ms, which the Windows timer (steps of about 15.6 ms) runs at about 16 frames a second, for either intensity (Low just has fewer particles to draw).</summary>
+    public static int IntervalMilliseconds(WeatherEffectIntensity intensity) => 62;
 }
