@@ -203,7 +203,7 @@ internal sealed partial class WidgetView
         var icon = _icons.Get(view.Id, IconBackground.Dark, (int)Math.Round(UsageGeometry.LogoSize * u));
         var tip = view.Tip + (otherWarning ? "\n" + string.Join("; ", others.Where(v => v.Severity != ProviderSeverity.None).Select(v => $"{v.Name}: {v.Note}")) : "")
             + (_views.Count > 1 ? "\nScroll over the logo to switch provider; click to choose." : "");
-        _selector.SetState(icon, view.Name, view.Severity, otherWarning, $"AI usage provider: {position}. {view.Name} {(view.HasData ? string.Join(", ", view.Rows.Select(r => $"{r.Label} {r.Percent} used")) : "no data")}. Use the arrow keys to switch, Enter to choose from a list.");
+        _selector.SetState(icon, view.Name, view.Severity, otherWarning, $"AI usage provider: {position}. {view.Name} {(view.HasData ? string.Join(", ", view.Rows.Select(r => $"{r.Label} {r.Percent} used")) : "no data")}{(view.Refreshing ? ", updating" : "")}. Use the arrow keys to switch, Enter to choose from a list.", view.Refreshing);
         _tip.SetToolTip(_selector, tip);
         _ = areaHeight;
     }
@@ -331,7 +331,8 @@ internal sealed partial class WidgetView
             var right = card.Right - UsageGeometry.CardPadding * u;
             var rowTop = card.Y + (UsageGeometry.CardPadding + UsageGeometry.HeaderHeight) * u;
             var header = view.Plan.Length > 0 ? $"{view.Name}  ·  {view.Plan}" : view.Name;
-            graphics.DrawString(header, name, primary, new RectangleF(left, card.Y + UsageGeometry.CardPadding * u, right - left, UsageGeometry.HeaderHeight * u), near);
+            graphics.DrawString(header, name, primary, new RectangleF(left, card.Y + UsageGeometry.CardPadding * u, right - left - (view.Refreshing ? 14 * u : 0), UsageGeometry.HeaderHeight * u), near);
+            if (view.Refreshing) WidgetGlyphs.DrawUpdating(graphics, new RectangleF(right - 11 * u, card.Y + (UsageGeometry.CardPadding + 3) * u, 10 * u, 10 * u), u);
             _hotSpots.Add((new RectangleF(left, card.Y + UsageGeometry.CardPadding * u, right - left, UsageGeometry.HeaderHeight * u), view.Tip));
 
             var columns = ScaledColumns(left, (right - left) / u, u);

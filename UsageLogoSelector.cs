@@ -17,6 +17,7 @@ internal sealed class UsageLogoSelector : Control
     private ProviderSeverity _severity;
     private bool _otherWarning;
     private bool _hot;
+    private bool _refreshing;
 
     public UsageLogoSelector()
     {
@@ -38,8 +39,9 @@ internal sealed class UsageLogoSelector : Control
     public event EventHandler? OpenList;
 
     /// <summary>What to draw now. <paramref name="icon"/> is owned by the icon cache; null draws a neutral letter tile.</summary>
-    public void SetState(Bitmap? icon, string name, ProviderSeverity severity, bool otherWarning, string accessibleName)
+    public void SetState(Bitmap? icon, string name, ProviderSeverity severity, bool otherWarning, string accessibleName, bool refreshing = false)
     {
+        _refreshing = refreshing;
         _icon = icon;
         _letter = name.Length > 0 ? char.ToUpperInvariant(name[0]).ToString() : "?";
         _severity = severity;
@@ -146,6 +148,7 @@ internal sealed class UsageLogoSelector : Control
         }
 
         DrawBadge(g, box, u);
+        if (_refreshing) WidgetGlyphs.DrawUpdating(g, new RectangleF(box.X - 7 * u, box.Y - 3 * u, 9 * u, 9 * u), u);
         if (_otherWarning)
         {
             // Another provider needs attention: a small ring at the lower right of the logo.

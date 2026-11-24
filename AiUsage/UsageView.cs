@@ -38,7 +38,8 @@ public enum ProviderSeverity
 /// <param name="Source">"Windows" or "WSL", or empty when nothing was read yet.</param>
 /// <param name="Tip">The logo tooltip: name, plan, source, time of the update and the state.</param>
 /// <param name="HasData">Whether any window was read (otherwise the widget shows N/A).</param>
-internal sealed record UsageProviderView(string Name, string Plan, IReadOnlyList<UsageRow> Rows, string Note, bool IsProblem, string? ShortNote = null, string Id = "", ProviderSeverity Severity = ProviderSeverity.None, string Source = "", string Tip = "")
+/// <param name="Refreshing">This provider is being read right now (its last numbers stay on screen; only its own mark shows it).</param>
+internal sealed record UsageProviderView(string Name, string Plan, IReadOnlyList<UsageRow> Rows, string Note, bool IsProblem, string? ShortNote = null, string Id = "", ProviderSeverity Severity = ProviderSeverity.None, string Source = "", string Tip = "", bool Refreshing = false)
 {
     /// <summary>The short form, or the note itself when there is none.</summary>
     public string Short => ShortNote ?? Note;
@@ -110,10 +111,11 @@ internal static class UsageViewBuilder
         var tip = new List<string> { status.DisplayName + (plan.Length > 0 ? $" ({plan})" : "") };
         if (source.Length > 0) tip.Add("Source: " + source);
         tip.Add(note.Length > 0 ? char.ToUpperInvariant(note[0]) + note[1..] : note);
+        if (status.Refreshing) tip.Add("Updating...");
         if (rows.Any(r => r.Level == UsageLevel.Critical)) tip.Add("A window is almost used up.");
         else if (rows.Any(r => r.Level == UsageLevel.Warning)) tip.Add("A window is getting full.");
 
-        return new UsageProviderView(status.DisplayName, plan, rows, note, problem, shortNote, status.ProviderId, severity, source, string.Join("\n", tip));
+        return new UsageProviderView(status.DisplayName, plan, rows, note, problem, shortNote, status.ProviderId, severity, source, string.Join("\n", tip), status.Refreshing);
     }
 
     /// <summary>
