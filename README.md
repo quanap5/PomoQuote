@@ -1,5 +1,7 @@
 # PomoQuote
 
+<img src="Assets/Logo/pomoquote-logo-1024.png" alt="PomoQuote logo: a clock ring split into focus and rest halves around a quotation mark" width="96" align="right">
+
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![.NET 9](https://img.shields.io/badge/.NET-9.0-512BD4.svg)](https://dotnet.microsoft.com/download/dotnet/9.0)
 [![Platform: Windows](https://img.shields.io/badge/platform-Windows-0078D6.svg)](#build-run-and-test)
@@ -49,6 +51,7 @@ PomoQuote is released under the [MIT License](LICENSE). The bundled assets have 
 | Pomodoro alert sounds | CC0 1.0 | [Assets/Sounds/CREDITS.md](Assets/Sounds/CREDITS.md) |
 | Wallpaper photos | CC0 1.0 | [Assets/Wallpapers/CREDITS.md](Assets/Wallpapers/CREDITS.md) |
 | Weather icons (original vector drawings) | CC0 1.0 | [Assets/Weather/CREDITS.md](Assets/Weather/CREDITS.md) |
+| PomoQuote logo and icon (original work) | MIT, like the code | [Assets/Logo/CREDITS.md](Assets/Logo/CREDITS.md) |
 
 Weather and city search data come from [Open-Meteo](https://open-meteo.com/) under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) ([terms](https://open-meteo.com/en/terms)); the free API is for non-commercial use and requires attribution. The intro GIF is made from screenshots of the app itself.
 

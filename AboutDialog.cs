@@ -7,6 +7,8 @@ internal sealed class AboutDialog : Form
 {
     public const string AppName = "PomoQuote";
 
+    private readonly Bitmap _logo;
+
     public AboutDialog()
     {
         Text = $"About {AppName}";
@@ -18,6 +20,7 @@ internal sealed class AboutDialog : Form
         AutoSize = true;
         AutoSizeMode = AutoSizeMode.GrowAndShrink;
         Padding = new Padding(16);
+        Icon = AppIcon.Load();
 
         var okButton = new Button
         {
@@ -37,10 +40,19 @@ internal sealed class AboutDialog : Form
             Dock = DockStyle.Fill,
             MinimumSize = new Size(260, 0),
         };
-        layout.Controls.Add(new Label { Text = AppName, AutoSize = true, Font = new Font(Font, FontStyle.Bold), Margin = new Padding(0, 0, 0, 4) });
-        layout.Controls.Add(new Label { Text = $"Version {GetAppVersion()}", AutoSize = true, Margin = new Padding(0, 0, 0, 16) });
+        // The logo, drawn from the icon image closest to 64 px (scaled with the display).
+        _logo = AppIcon.LoadBitmap(LogicalToDeviceUnits(64));
+        layout.Controls.Add(new PictureBox { Image = _logo, SizeMode = PictureBoxSizeMode.CenterImage, Size = _logo.Size, Anchor = AnchorStyles.None, Margin = new Padding(0, 0, 0, 8) });
+        layout.Controls.Add(new Label { Text = AppName, Anchor = AnchorStyles.None, AutoSize = true, Font = new Font(Font, FontStyle.Bold), Margin = new Padding(0, 0, 0, 4) });
+        layout.Controls.Add(new Label { Text = $"Version {GetAppVersion()}", Anchor = AnchorStyles.None, AutoSize = true, Margin = new Padding(0, 0, 0, 16) });
         layout.Controls.Add(okButton);
         Controls.Add(layout);
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing) _logo.Dispose();
+        base.Dispose(disposing);
     }
 
     /// <summary>

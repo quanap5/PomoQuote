@@ -1,5 +1,3 @@
-using System.Drawing.Drawing2D;
-using System.Runtime.InteropServices;
 
 using PomoQuote.Mascot;
 
@@ -16,13 +14,14 @@ internal sealed class TrayIconHost : IDisposable
 
     private readonly NotifyIcon _icon = new() { Text = "PomoQuote" };
     private readonly System.Windows.Forms.Timer _balloonTimer = new() { Interval = BalloonVisibleMilliseconds };
-    private readonly Icon _robotIcon;
+    private readonly Icon _logoIcon;
     private bool _persistent;
 
     public TrayIconHost()
     {
-        _robotIcon = CreateRobotIcon();
-        _icon.Icon = _robotIcon;
+        // The PomoQuote logo at the size the notification area uses at the current display scale.
+        _logoIcon = AppIcon.Load(SystemInformation.SmallIconSize);
+        _icon.Icon = _logoIcon;
         _icon.MouseClick += (_, e) =>
         {
             if (e.Button == MouseButtons.Left) Clicked?.Invoke(this, EventArgs.Empty);
@@ -63,50 +62,12 @@ internal sealed class TrayIconHost : IDisposable
 
     private void UpdateVisibility() => _icon.Visible = _persistent || _balloonTimer.Enabled;
 
-    /// <summary>A 32 px icon of the robot, cut from the sprite sheet when it is there, otherwise the stock icon.</summary>
-    private static Icon CreateRobotIcon()
-    {
-        var path = Path.Combine(AppContext.BaseDirectory, "Assets", "Mascot", "robot-sprites.png");
-        if (!File.Exists(path)) return (Icon)SystemIcons.Application.Clone();
-
-        try
-        {
-            using var sheet = new Bitmap(path);
-            const int frame = 24; // the first idle frame, enlarged 2x with no blur
-            using var bitmap = new Bitmap(frame * 2, frame * 2);
-            using (var graphics = Graphics.FromImage(bitmap))
-            {
-                graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
-                graphics.PixelOffsetMode = PixelOffsetMode.Half;
-                graphics.DrawImage(sheet, new Rectangle(0, 0, frame * 2, frame * 2), new Rectangle(0, 0, frame, frame), GraphicsUnit.Pixel);
-            }
-
-            var handle = bitmap.GetHicon();
-            try
-            {
-                using var fromHandle = Icon.FromHandle(handle);
-                return (Icon)fromHandle.Clone(); // the clone owns a copy, so the handle can be destroyed
-            }
-            finally
-            {
-                DestroyIcon(handle);
-            }
-        }
-        catch (Exception ex) when (ex is IOException or ArgumentException or ExternalException)
-        {
-            return (Icon)SystemIcons.Application.Clone();
-        }
-    }
-
     public void Dispose()
     {
         _balloonTimer.Stop();
         _balloonTimer.Dispose();
         _icon.Visible = false;
         _icon.Dispose();
-        _robotIcon.Dispose();
+        _logoIcon.Dispose();
     }
-
-    [DllImport("user32.dll")]
-    private static extern bool DestroyIcon(IntPtr handle);
 }

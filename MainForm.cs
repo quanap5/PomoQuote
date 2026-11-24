@@ -65,6 +65,7 @@ internal sealed partial class MainForm : Form
         _settings = settingsStore.Load();
 
         Text = DisplayText;
+        Icon = AppIcon.Load(); // title bar, taskbar button and Alt+Tab (the form keeps and disposes it)
         StartPosition = FormStartPosition.CenterScreen;
         DoubleBuffered = true;
         ResizeRedraw = true;
