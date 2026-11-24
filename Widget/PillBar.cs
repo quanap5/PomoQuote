@@ -40,8 +40,18 @@ internal static class PillBar
         }
 
         var d = radius * 2;
-        path.AddArc(bounds.X, bounds.Y, d, d, 90, 180);
-        path.AddArc(bounds.Right - d, bounds.Y, d, d, 270, 180);
+        if (bounds.Height > bounds.Width)
+        {
+            // A tall pill (the scrollbar): round ends at the top and the bottom.
+            path.AddArc(bounds.X, bounds.Y, d, d, 180, 180);
+            path.AddArc(bounds.X, bounds.Bottom - d, d, d, 0, 180);
+        }
+        else
+        {
+            path.AddArc(bounds.X, bounds.Y, d, d, 90, 180);
+            path.AddArc(bounds.Right - d, bounds.Y, d, d, 270, 180);
+        }
+
         path.CloseFigure();
         return path;
     }

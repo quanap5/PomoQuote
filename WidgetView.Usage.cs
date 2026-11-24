@@ -28,14 +28,23 @@ internal sealed partial class WidgetView
 
     private readonly ProviderIcons _icons = new();
     private readonly ToolTip _tip = new() { InitialDelay = 350, ReshowDelay = 100, AutoPopDelay = 9000, ShowAlways = true };
-    private readonly List<(RectangleF Bounds, string Text)> _hotSpots = [];
+    private readonly List<(RectangleF Bounds, string Key, string Text)> _hotSpots = [];
     private UsageLogoSelector _selector = null!;
     private UsageExpandToggle _toggle = null!;
     private IReadOnlyList<UsageProviderView> _views = [];
     private bool _expanded;
     private string? _selected;
     private int _scroll;
-    private string? _tipText;
+    private string? _tipKey;
+    private int _focusedCard = -1;
+    private bool _listFocused;
+    private bool _keyboardUsed;
+
+    /// <summary>The card that has the keyboard focus in Expanded (-1 when none); for the tests.</summary>
+    internal int FocusedCard => _focusedCard;
+
+    /// <summary>How far the Expanded area is scrolled, in logical px; for the tests.</summary>
+    internal int ScrollOffset => _scroll;
 
     /// <summary>Raised when the user switches the layout or the provider; the owner remembers it.</summary>
     public event EventHandler<UsageUiEventArgs>? UsageUiChanged;
@@ -48,6 +57,8 @@ internal sealed partial class WidgetView
         _toggle = new UsageExpandToggle { BackColor = PanelColor, Visible = false };
         _toggle.Toggled += (_, _) => SetExpanded(!_expanded);
         _toggle.ScrollRequested += (_, direction) => ScrollBy(direction * UsageGeometry.RowHeight);
+        SetStyle(ControlStyles.Selectable, true);
+        TabStop = false; // a tab stop only in Expanded (see PositionUsageControls)
         Controls.Add(_selector);
         Controls.Add(_toggle);
         _tip.SetToolTip(_toggle, _toggle.TipText);
@@ -132,6 +143,119 @@ internal sealed partial class WidgetView
         Invalidate();
     }
 
+    // ---------- Expanded as a keyboard-operable list ----------
+
+    protected override bool IsInputKey(Keys keyData) =>
+        (_expanded && _views.Count > 0 && keyData is Keys.Up or Keys.Down or Keys.Home or Keys.End or Keys.PageUp or Keys.PageDown) || base.IsInputKey(keyData);
+
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        base.OnKeyDown(e);
+        if (!_expanded || _views.Count == 0) return;
+        var last = _views.Count - 1;
+        var current = Math.Clamp(_focusedCard, 0, last);
+        var next = e.KeyCode switch
+        {
+            Keys.Down or Keys.PageDown => Math.Min(last, current + 1),
+            Keys.Up or Keys.PageUp => Math.Max(0, current - 1),
+            Keys.Home => 0,
+            Keys.End => last,
+            _ => -1,
+        };
+        if (next < 0) return;
+        e.Handled = true;
+        _keyboardUsed = true; // the focus ring shows once the keyboard has been used, as Windows does
+        FocusCard(next);
+    }
+
+    private void FocusCard(int index)
+    {
+        _focusedCard = index;
+        EnsureCardVisible(index);
+        Invalidate();
+        AccessibilityNotifyClients(AccessibleEvents.Focus, index + (_selector is null ? 0 : Controls.Count));
+    }
+
+    /// <summary>Scrolls the Expanded area just enough to show the whole card.</summary>
+    private void EnsureCardVisible(int index)
+    {
+        var top = _views.Take(index).Sum(v => UsageGeometry.CardHeight(v) + UsageGeometry.CardGap);
+        var bottom = top + UsageGeometry.CardHeight(_views[index]);
+        var visible = UsageGeometry.AreaHeight(_views, true);
+        var wanted = _scroll;
+        if (top < wanted) wanted = top;
+        else if (bottom > wanted + visible) wanted = bottom - visible;
+        _scroll = Math.Clamp(wanted, 0, UsageGeometry.MaxScroll(_views));
+    }
+
+    protected override void OnGotFocus(EventArgs e)
+    {
+        base.OnGotFocus(e);
+        _listFocused = true;
+        if (_expanded && _views.Count > 0 && _focusedCard < 0) _focusedCard = 0;
+        Invalidate();
+    }
+
+    protected override void OnLostFocus(EventArgs e)
+    {
+        base.OnLostFocus(e);
+        _listFocused = false;
+        Invalidate();
+    }
+
+    protected override AccessibleObject CreateAccessibilityInstance() => new WidgetAccessibleObject(this);
+
+    /// <summary>The widget's accessible tree: its two controls and, in Expanded, one list item per provider card with a name and a description.</summary>
+    private sealed class WidgetAccessibleObject(WidgetView owner) : ControlAccessibleObject(owner)
+    {
+        private int CardCount => owner._expanded ? owner._views.Count : 0;
+
+        // WinForms answers -1 ("use the window's own children") for a control, so the children are listed here: the visible
+        // controls (the logo selector or the arrow button) first, then, in Expanded, one list item per provider card.
+        private List<Control> VisibleControls => owner.Controls.Cast<Control>().Where(c => c.Visible).ToList();
+
+        public override int GetChildCount() => VisibleControls.Count + CardCount;
+
+        public override AccessibleObject? GetChild(int index)
+        {
+            var controls = VisibleControls;
+            return index < controls.Count ? controls[index].AccessibilityObject : index - controls.Count < CardCount ? new CardAccessibleObject(this, owner, index - controls.Count) : null;
+        }
+    }
+    private sealed class CardAccessibleObject(WidgetAccessibleObject parent, WidgetView owner, int index) : AccessibleObject
+    {
+        private UsageProviderView View => owner._views[index];
+
+        public override AccessibleObject Parent => parent;
+
+        public override string Name => View.Plan.Length > 0 ? $"{View.Name}, {View.Plan}" : View.Name;
+
+        public override string Description =>
+            (View.HasData ? string.Join("; ", View.Rows.Select(r => $"{r.Label} {r.Percent} used, resets in {(r.Reset.Length > 0 ? r.Reset : "unknown")}")) : "N/A")
+            + $". {(View.Source.Length > 0 ? View.Source + ", " : "")}{View.Note}.";
+
+        public override AccessibleRole Role => AccessibleRole.ListItem;
+
+        public override AccessibleStates State =>
+            AccessibleStates.Focusable | AccessibleStates.Selectable | (owner._listFocused && owner._focusedCard == index ? AccessibleStates.Focused | AccessibleStates.Selected : AccessibleStates.None);
+
+        public override Rectangle Bounds
+        {
+            get
+            {
+                var u = owner.Unit;
+                var top = owner._views.Take(index).Sum(v => UsageGeometry.CardHeight(v) + UsageGeometry.CardGap);
+                var rect = new Rectangle((int)Math.Round(UsageGeometry.Margin * u), (int)Math.Round((owner._usageTop + top - owner._scroll) * u),
+                    (int)Math.Round((UsageGeometry.WidgetWidth - 2 * UsageGeometry.Margin - UsageGeometry.ToggleColumn) * u), (int)Math.Round(UsageGeometry.CardHeight(View) * u));
+                return owner.RectangleToScreen(rect);
+            }
+        }
+
+        public override void DoDefaultAction() => owner.FocusCard(index);
+
+        public override string DefaultAction => "Focus";
+    }
+
     protected override void OnMouseWheel(MouseEventArgs e)
     {
         base.OnMouseWheel(e);
@@ -145,18 +269,21 @@ internal sealed partial class WidgetView
     protected override void OnMouseMove(MouseEventArgs e)
     {
         base.OnMouseMove(e);
+        string? key = null;
         string? text = null;
-        foreach (var (bounds, spotText) in _hotSpots)
+        foreach (var (bounds, spotKey, spotText) in _hotSpots)
         {
             if (bounds.Contains(e.Location))
             {
+                key = spotKey;
                 text = spotText;
                 break;
             }
         }
 
-        if (text == _tipText) return;
-        _tipText = text;
+        // The timer's text changes every second: it is shown once per visit, not re-shown at each tick.
+        if (key == _tipKey) return;
+        _tipKey = key;
         if (text is null) _tip.Hide(this);
         else _tip.Show(text, this, e.X + 12, e.Y + 18, 7000);
     }
@@ -164,7 +291,7 @@ internal sealed partial class WidgetView
     protected override void OnMouseLeave(EventArgs e)
     {
         base.OnMouseLeave(e);
-        _tipText = null;
+        _tipKey = null;
         _tip.Hide(this);
     }
 
@@ -179,6 +306,9 @@ internal sealed partial class WidgetView
         _toggle.PixelsPerUnit = u;
         _toggle.Expanded = _expanded;
         _toggle.Visible = show;
+        TabStop = show && _expanded;
+        if (!_expanded) _focusedCard = -1;
+        else if (show) _focusedCard = Math.Min(_focusedCard, _views.Count - 1);
         _selector.Visible = show && !_expanded;
 
         var areaHeight = UsageGeometry.AreaHeight(_views, _expanded);
@@ -225,7 +355,6 @@ internal sealed partial class WidgetView
 
     private void DrawUsage(Graphics graphics, float u)
     {
-        _hotSpots.Clear();
         if (_views.Count == 0) return;
 
         var area = new RectangleF(UsageGeometry.Margin * u, _usageTop * u, (UsageGeometry.WidgetWidth - 2 * UsageGeometry.Margin) * u, UsageGeometry.AreaHeight(_views, _expanded) * u);
@@ -252,7 +381,7 @@ internal sealed partial class WidgetView
             var note = UsageViewBuilder.FitNote(view, room, s => graphics.MeasureString(s, text, int.MaxValue, near).Width);
             using var noteBrush = new SolidBrush(view.IsProblem ? WarningColor : SecondaryText);
             graphics.DrawString(note, text, noteBrush, new RectangleF(rowsLeft, y + rowHeight, room, rowHeight), near);
-            _hotSpots.Add((new RectangleF(rowsLeft, area.Y, room, area.Height), view.Tip));
+            _hotSpots.Add((new RectangleF(rowsLeft, area.Y, room, area.Height), "na:" + view.Id, view.Tip));
             return;
         }
 
@@ -277,7 +406,7 @@ internal sealed partial class WidgetView
         graphics.DrawString(row.Percent, semibold, primary, new RectangleF(c.PercentX, y, c.PercentWidth, rowHeight), far);
         if (row.Stale) DrawClock(graphics, new RectangleF(c.PercentX - 1 * u, y + (rowHeight - 9 * u) / 2f, 9 * u, 9 * u), u);
         graphics.DrawString(row.Reset.Length > 0 ? row.Reset : "–", text, secondary, new RectangleF(c.ResetX, y, c.ResetWidth, rowHeight), far);
-        _hotSpots.Add((new RectangleF(c.LabelX, y, c.Right - c.LabelX, rowHeight), row.Tip));
+        _hotSpots.Add((new RectangleF(c.LabelX, y, c.Right - c.LabelX, rowHeight), "row:" + row.Label + ":" + y, row.Tip));
     }
 
     /// <summary>The row columns (designed in logical px) for this scale: every position and width multiplied by the display unit, from the device left edge.</summary>
@@ -321,11 +450,18 @@ internal sealed partial class WidgetView
                 graphics.FillPath(fill, path);
             }
 
+            if (Focused && (ShowFocusCues || _keyboardUsed) && _focusedCard >= 0 && _focusedCard < _views.Count && ReferenceEquals(_views[_focusedCard], view))
+            {
+                using var ring = new Pen(Color.FromArgb(150, 190, 240), Math.Max(1.5f, 1.6f * u));
+                using var ringPath = PillBar.Rounded(RectangleF.Inflate(card, -0.5f * u, -0.5f * u), 8 * u);
+                graphics.DrawPath(ring, ringPath);
+            }
+
             // The logo: far left, centred on the card.
             var logo = UsageGeometry.LogoSize * u;
             var logoBox = new RectangleF(card.X + UsageGeometry.CardPadding * u + (UsageGeometry.LogoColumn - UsageGeometry.LogoSize) * u / 2f - 3 * u, card.Y + (card.Height - logo) / 2f, logo, logo);
             DrawLogo(graphics, view, logoBox, u);
-            _hotSpots.Add((new RectangleF(card.X, card.Y, UsageGeometry.CardPadding * u + UsageGeometry.LogoColumn * u, card.Height), view.Tip));
+            _hotSpots.Add((new RectangleF(card.X, card.Y, UsageGeometry.CardPadding * u + UsageGeometry.LogoColumn * u, card.Height), "logo:" + view.Id, view.Tip));
 
             var left = card.X + (UsageGeometry.CardPadding + UsageGeometry.LogoColumn) * u;
             var right = card.Right - UsageGeometry.CardPadding * u;
@@ -333,7 +469,7 @@ internal sealed partial class WidgetView
             var header = view.Plan.Length > 0 ? $"{view.Name}  ·  {view.Plan}" : view.Name;
             graphics.DrawString(header, name, primary, new RectangleF(left, card.Y + UsageGeometry.CardPadding * u, right - left - (view.Refreshing ? 14 * u : 0), UsageGeometry.HeaderHeight * u), near);
             if (view.Refreshing) WidgetGlyphs.DrawUpdating(graphics, new RectangleF(right - 11 * u, card.Y + (UsageGeometry.CardPadding + 3) * u, 10 * u, 10 * u), u);
-            _hotSpots.Add((new RectangleF(left, card.Y + UsageGeometry.CardPadding * u, right - left, UsageGeometry.HeaderHeight * u), view.Tip));
+            _hotSpots.Add((new RectangleF(left, card.Y + UsageGeometry.CardPadding * u, right - left, UsageGeometry.HeaderHeight * u), "head:" + view.Id, view.Tip));
 
             var columns = ScaledColumns(left, (right - left) / u, u);
             if (view.HasData)
@@ -346,7 +482,8 @@ internal sealed partial class WidgetView
             }
             else
             {
-                graphics.DrawString("N/A", name, primary, new RectangleF(left, rowTop, right - left, UsageGeometry.RowHeight * u), new StringFormat(near) { LineAlignment = StringAlignment.Center });
+                using var centred = new StringFormat(near) { LineAlignment = StringAlignment.Center };
+                graphics.DrawString("N/A", name, primary, new RectangleF(left, rowTop, right - left, UsageGeometry.RowHeight * u), centred);
                 rowTop += UsageGeometry.RowHeight * u;
             }
 

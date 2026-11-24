@@ -7,6 +7,12 @@ internal sealed class AboutDialog : Form
 {
     public const string AppName = "PomoQuote";
 
+    /// <summary>The notice about the marks shown in the widget (the details and sources are in THIRD_PARTY_ASSETS.md).</summary>
+    public const string MarksNotice =
+        "Third-party marks: OpenAI and the OpenAI Blossom logo belong to OpenAI; Claude and Anthropic belong to Anthropic; " +
+        "Antigravity and Google belong to Google. PomoQuote is not affiliated with or endorsed by any of them. " +
+        "Sources and terms: THIRD_PARTY_ASSETS.md in the PomoQuote repository."; 
+
     private readonly Bitmap _logo;
 
     public AboutDialog()
@@ -44,7 +50,8 @@ internal sealed class AboutDialog : Form
         _logo = AppIcon.LoadBitmap(LogicalToDeviceUnits(64));
         layout.Controls.Add(new PictureBox { Image = _logo, SizeMode = PictureBoxSizeMode.CenterImage, Size = _logo.Size, Anchor = AnchorStyles.None, Margin = new Padding(0, 0, 0, 8) });
         layout.Controls.Add(new Label { Text = AppName, Anchor = AnchorStyles.None, AutoSize = true, Font = new Font(Font, FontStyle.Bold), Margin = new Padding(0, 0, 0, 4) });
-        layout.Controls.Add(new Label { Text = $"Version {GetAppVersion()}", Anchor = AnchorStyles.None, AutoSize = true, Margin = new Padding(0, 0, 0, 16) });
+        layout.Controls.Add(new Label { Text = $"Version {GetAppVersion()}", Anchor = AnchorStyles.None, AutoSize = true, Margin = new Padding(0, 0, 0, 12) });
+        layout.Controls.Add(new Label { Text = MarksNotice, AutoSize = true, MaximumSize = new Size(300, 0), ForeColor = SystemColors.GrayText, Margin = new Padding(0, 0, 0, 14), AccessibleName = "Third-party marks" });
         layout.Controls.Add(okButton);
         Controls.Add(layout);
     }

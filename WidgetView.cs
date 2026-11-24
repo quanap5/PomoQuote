@@ -78,6 +78,7 @@ internal sealed partial class WidgetView : Control
     protected override void OnMouseDown(MouseEventArgs e)
     {
         base.OnMouseDown(e);
+        if (_expanded && TabStop && e.Button == MouseButtons.Left) Focus(); // a click in Expanded gives the list the keyboard focus
         if (e.Button != MouseButtons.Left || FindForm() is not { } form) return;
 
         // Hands the drag to Windows as if the title bar had been pressed: the whole widget is a handle.
@@ -94,16 +95,11 @@ internal sealed partial class WidgetView : Control
     // ---------- the quote card ----------
 
     private const int QuoteTop = 134;
-    private const int QuotePaddingTop = 16;
-    private const int QuotePaddingBottom = 14;
     private const int QuoteInsetLeft = 14;
     private const int QuoteInsetRight = 12;
     private const int QuoteTail = 6;
 
-    private sealed record QuotePlan(IReadOnlyList<string> English, IReadOnlyList<string>? Vietnamese, float EnglishPixels, float VietnamesePixels, float CardHeight);
-
-    private QuotePlan? _quotePlan;
-
+    private QuoteGeometry.Plan? _quotePlan;
     /// <summary>Sets the sentence and its translation; returns true when the widget height changed (the card grows with the text).</summary>
     public bool SetQuote(string english, string? vietnamese)
     {
@@ -116,40 +112,27 @@ internal sealed partial class WidgetView : Control
     }
 
     /// <summary>
-    /// Breaks the text into lines for the card's width, at the largest font size that keeps it to a few lines. Nothing is cut
-    /// off unless it still does not fit at the smallest size (then the last line ends with an ellipsis).
+    /// Breaks the text into lines for the card's width. The text keeps 12 px or more while the card can grow (up to a clamp); only
+    /// past the clamp does it go smaller, and only past the smallest size is the last line ended with an ellipsis (see QuoteGeometry).
     /// </summary>
-    private QuotePlan? PlanQuote()
+    private QuoteGeometry.Plan? PlanQuote()
     {
         if (_quoteEnglish.Length == 0) return null;
         var inner = UsageGeometry.WidgetWidth - 2 * UsageGeometry.Margin - QuoteInsetLeft - QuoteInsetRight - 4;
         using var graphics = Graphics.FromHwnd(IntPtr.Zero);
         using var typographic = new StringFormat(StringFormat.GenericTypographic) { FormatFlags = StringFormatFlags.MeasureTrailingSpaces };
 
-        (IReadOnlyList<string> Lines, float Pixels) Fit(string text, string family, float[] sizes, int maxLines)
+        IReadOnlyList<string> Wrap(string text, string family, float pixels, int maxLines)
         {
-            IReadOnlyList<string> lines = [];
-            var px = sizes[^1];
-            foreach (var size in sizes)
-            {
-                px = size;
-                using var font = new Font(family, size, FontStyle.Regular, GraphicsUnit.Pixel);
-                lines = TextWrap.Lines(text, inner, s => graphics.MeasureString(s, font, int.MaxValue, typographic).Width);
-                if (lines.Count <= maxLines) return (lines, px);
-            }
-
-            using var smallest = new Font(family, sizes[^1], FontStyle.Regular, GraphicsUnit.Pixel);
-            return (TextWrap.Lines(text, inner, s => graphics.MeasureString(s, smallest, int.MaxValue, typographic).Width, maxLines), px);
+            using var font = new Font(family, pixels, FontStyle.Regular, GraphicsUnit.Pixel);
+            return TextWrap.Lines(text, inner, s => graphics.MeasureString(s, font, int.MaxValue, typographic).Width, maxLines);
         }
 
-        var english = Fit(_quoteEnglish, QuoteLayout.EnglishFamily, [12.5f, 12f, 11.5f, 11f], 4);
-        (IReadOnlyList<string> Lines, float Pixels)? vietnamese = _quoteVietnamese is null ? null : Fit(_quoteVietnamese, QuoteLayout.VietnameseFamily, [11.5f, 11f, 10.5f, 10f], 3);
-        var height = QuotePaddingTop + english.Lines.Count * english.Pixels * 1.36f
-            + (vietnamese is { } v ? 5 + v.Lines.Count * v.Pixels * 1.36f : 0)
-            + QuotePaddingBottom;
-        return new QuotePlan(english.Lines, vietnamese?.Lines, english.Pixels, vietnamese?.Pixels ?? 0, (float)Math.Ceiling(height));
+        var vietnamese = _quoteVietnamese;
+        return QuoteGeometry.Choose(
+            (pixels, maxLines) => Wrap(_quoteEnglish, QuoteLayout.EnglishFamily, pixels, maxLines),
+            vietnamese is null ? null : (pixels, maxLines) => Wrap(vietnamese, QuoteLayout.VietnameseFamily, pixels, maxLines));
     }
-
     private void DrawQuote(Graphics graphics, float u)
     {
         if (_quotePlan is not { } plan) return;
@@ -175,28 +158,28 @@ internal sealed partial class WidgetView : Control
         {
             graphics.DrawString("“", marks, markBrush, card.X + 6 * u, card.Y - 5 * u, typographic);
             var closing = graphics.MeasureString("”", marks, int.MaxValue, typographic);
-            graphics.DrawString("”", marks, markBrush, card.Right - closing.Width - 6 * u, card.Bottom - 26 * u, typographic);
+            graphics.DrawString("”", marks, markBrush, card.Right - closing.Width - 6 * u, card.Bottom - (QuoteGeometry.ClosingMarkVisibleHeight + 4) * u, typographic);
         }
 
         using var typo = new StringFormat(StringFormat.GenericTypographic) { FormatFlags = StringFormatFlags.NoWrap | StringFormatFlags.MeasureTrailingSpaces };
         using var english = new Font(QuoteLayout.EnglishFamily, plan.EnglishPixels * u, FontStyle.Regular, GraphicsUnit.Pixel);
         using var englishBrush = new SolidBrush(Color.FromArgb(150, 236, 160));
         var x0 = card.X + QuoteInsetLeft * u;
-        var y = card.Y + QuotePaddingTop * u;
+        var y = card.Y + QuoteGeometry.PaddingTop * u;
         foreach (var line in plan.English)
         {
             graphics.DrawString(line, english, englishBrush, x0, y, typo);
-            y += plan.EnglishPixels * 1.36f * u;
+            y += plan.EnglishPixels * QuoteGeometry.LineHeightFactor * u;
         }
 
         if (plan.Vietnamese is null) return;
-        y += 5 * u;
+        y += QuoteGeometry.GapBetweenTexts * u;
         using var vietnamese = new Font(QuoteLayout.VietnameseFamily, plan.VietnamesePixels * u, FontStyle.Regular, GraphicsUnit.Pixel);
         using var vietnameseBrush = new SolidBrush(Color.FromArgb(206, 216, 228));
         foreach (var line in plan.Vietnamese)
         {
             graphics.DrawString(line, vietnamese, vietnameseBrush, x0, y, typo);
-            y += plan.VietnamesePixels * 1.36f * u;
+            y += plan.VietnamesePixels * QuoteGeometry.LineHeightFactor * u;
         }
     }
 
@@ -235,6 +218,7 @@ internal sealed partial class WidgetView : Control
         graphics.Clear(PanelColor);
 
         var u = Unit;
+        _hotSpots.Clear();
         var left = UsageGeometry.Margin * u;
         var width = ClientSize.Width - 2 * UsageGeometry.Margin * u;
         using var near = new StringFormat(StringFormatFlags.NoWrap) { Trimming = StringTrimming.EllipsisCharacter };
@@ -279,6 +263,7 @@ internal sealed partial class WidgetView : Control
         }
 
         PillBar.Draw(graphics, new RectangleF(left, 116 * u, width, 7 * u), timer.Progress, TrackColor, accent);
+        _hotSpots.Add((new RectangleF(left, 85 * u, width, 42 * u), "timer", TimerTooltip.Text(timer.Phase, timer.State, timer.PhaseDuration, timer.Remaining, DateTime.Now)));
 
         DrawQuote(graphics, u);
         DrawUsage(graphics, u);
