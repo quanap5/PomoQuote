@@ -229,7 +229,8 @@ internal sealed class WidgetView : Control
             var noteColor = view.IsProblem ? Color.FromArgb(240, 180, 80) : SecondaryText;
             if (_usageMode == UsageDisplayMode.Percent)
             {
-                var text = view.Rows.Count == 0 ? view.Note : string.Join("  ", view.Rows.Select(r => $"{r.Label} {r.Percent}"));
+                var noteRoom = width - 54 * u;
+                var text = view.Rows.Count == 0 ? UsageViewBuilder.FitNote(view, noteRoom, s => graphics.MeasureString(s, small, int.MaxValue, near).Width) : string.Join("  ", view.Rows.Select(r => $"{r.Label} {r.Percent}"));
                 using var noteBrush = new SolidBrush(view.Rows.Count == 0 || view.IsProblem ? noteColor : PrimaryText);
                 graphics.DrawString(view.Name, name, primary, new RectangleF(left, y, 52 * u, line), near);
                 graphics.DrawString(text, small, noteBrush, new RectangleF(left + 54 * u, y, width - 54 * u, line), near);
@@ -240,8 +241,12 @@ internal sealed class WidgetView : Control
             var header = view.Plan.Length > 0 ? $"{view.Name}  {view.Plan}" : view.Name;
             using (var noteBrush = new SolidBrush(noteColor))
             {
-                graphics.DrawString(header, name, primary, new RectangleF(left, y, width * 0.45f, line), near);
-                graphics.DrawString(view.Note, small, noteBrush, new RectangleF(left + width * 0.4f, y + 0.5f * u, width * 0.6f, line), far);
+                // The note gets everything right of the name; if it still does not fit it is shortened, always keeping the time.
+                var nameWidth = Math.Min(width * 0.5f, graphics.MeasureString(header, name, int.MaxValue, near).Width);
+                var noteRoom = width - nameWidth - 6 * u;
+                var noteText = UsageViewBuilder.FitNote(view, noteRoom, s => graphics.MeasureString(s, small, int.MaxValue, near).Width);
+                graphics.DrawString(header, name, primary, new RectangleF(left, y, nameWidth + 2 * u, line), near);
+                graphics.DrawString(noteText, small, noteBrush, new RectangleF(left + nameWidth + 6 * u, y + 0.5f * u, noteRoom, line), far);
             }
 
             y += line;
