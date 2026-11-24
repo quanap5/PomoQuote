@@ -83,6 +83,15 @@ internal static class ClaudeSettingsPatcher
         }
     }
 
+    /// <summary>Upgrade: replaces only the `command` string of a bridged status line with <paramref name="newCommand"/>. Null when the file is not bridged.</summary>
+    public static string? ReplaceBridgeCommand(string json, string newCommand)
+    {
+        if (Inspect(json).State != StatusLineState.Bridged) return null;
+        TryParseRoot(json, out var members, out _, out _);
+        var command = FindCommand(json, members.First(m => m.Key == "statusLine"))!;
+        return json[..command.ValueStart] + Literal(newCommand) + json[command.ValueEnd..];
+    }
+
     /// <summary>
     /// Undo: for a bridged file, puts <paramref name="originalCommand"/> back, or removes the whole `statusLine` member when
     /// it is null (the user had none). Everything else in the file is left as it is now. Null when the file is not bridged.

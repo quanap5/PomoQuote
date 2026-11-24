@@ -35,6 +35,7 @@ internal sealed class UsageSettingsDialog : Form
     private readonly Label _claudeResult;
     private readonly Button _setup;
     private readonly Button _remove;
+    private readonly Button _upgrade;
     private readonly Button _checkBridge;
     private readonly Button _checkProject;
     private readonly Button _refreshClaude;
@@ -81,17 +82,19 @@ internal sealed class UsageSettingsDialog : Form
         _claudeStatus = new Label { Text = "Checking your Claude settings...", AutoSize = true, MaximumSize = new Size(440, 0), Margin = new Padding(20, 2, 0, 2) };
         _setup = new Button { Text = "Set up status line bridge...", AutoSize = true, Enabled = false };
         _remove = new Button { Text = "Remove bridge", AutoSize = true, Enabled = false };
+        _upgrade = new Button { Text = "Upgrade bridge...", AutoSize = true, Visible = false };
         _checkBridge = new Button { Text = "Check", AutoSize = true };
         _checkProject = new Button { Text = "Check a project folder...", AutoSize = true };
         _refreshClaude = new Button { Text = "Refresh Claude now", AutoSize = true };
         _claudeResult = new Label { Text = "", AutoSize = true, MaximumSize = new Size(440, 0), Margin = new Padding(20, 2, 0, 2) };
         _setup.Click += (_, _) => SetUpBridge();
         _remove.Click += (_, _) => RemoveBridge();
+        _upgrade.Click += (_, _) => UpgradeBridge();
         _checkBridge.Click += async (_, _) => await ShowClaudeStateAsync(check: true);
         _checkProject.Click += (_, _) => CheckProject();
         _refreshClaude.Click += async (_, _) => await RefreshClaudeAsync();
         var claudeButtons = new FlowLayoutPanel { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, WrapContents = true, MaximumSize = new Size(460, 0), Margin = new Padding(20, 2, 0, 2) };
-        claudeButtons.Controls.AddRange([_setup, _remove, _checkBridge, _checkProject, _refreshClaude]);
+        claudeButtons.Controls.AddRange([_setup, _upgrade, _remove, _checkBridge, _checkProject, _refreshClaude]);
         _order = new ListBox { Height = 40, Width = 200, IntegralHeight = false };
         foreach (var id in current.Order.Where(id => providers.Any(p => p.Id == id)).Concat(providers.Select(p => p.Id)).Distinct())
         {
@@ -214,11 +217,13 @@ internal sealed class UsageSettingsDialog : Form
             {
                 StatusLineState.None => "You have no status line. The bridge would add one (a short usage line).",
                 StatusLineState.Custom => "You have your own status line. The bridge would wrap it: yours keeps running exactly as before.",
+                StatusLineState.Bridged when status.OldStyle => "The status line bridge is set up in the old style, without a fail-safe: if PomoQuote.exe is moved or deleted your status line disappears. Choose Upgrade bridge (your original command is kept).",
                 StatusLineState.Bridged => "The status line bridge is set up. Numbers appear after the first reply in a Claude Code session.",
                 _ => $"Your Claude settings cannot be used: {status.Reason}.",
             };
             _setup.Enabled = status.State is StatusLineState.None or StatusLineState.Custom;
             _remove.Enabled = status.State == StatusLineState.Bridged;
+            _upgrade.Visible = status.State == StatusLineState.Bridged && status.OldStyle;
             if (check)
             {
                 _claudeResult.Text = status.Problems.Count == 0 ? "Check: no problem found." : "Check: " + string.Join(" ", status.Problems);
@@ -235,7 +240,7 @@ internal sealed class UsageSettingsDialog : Form
         var preview = _claude.Preview();
         if (preview is null)
         {
-            _claudeResult.Text = "Nothing to set up (already set up, or the settings file cannot be used).";
+            _claudeResult.Text = _claude.CannotInstallReason() ?? "Nothing to set up (already set up, or the settings file cannot be used).";
             return;
         }
 
@@ -249,6 +254,32 @@ internal sealed class UsageSettingsDialog : Form
             BridgeResult.AlreadyBridged => "Already set up.",
             BridgeResult.ChangedMeanwhile => "The settings file changed while it was being backed up (Claude Code may be using it). Nothing was changed; try again.",
             BridgeResult.WriteFailed => "The settings file could not be written (it may be locked). Nothing was changed; try again.",
+            BridgeResult.WrongProgram => _claude.CannotInstallReason() ?? "The bridge program could not be copied to its folder. Your Claude settings were not changed.",
+            _ => "The settings file cannot be used. Nothing was changed.",
+        };
+        await ShowClaudeStateAsync(check: false);
+    }
+
+    /// <summary>Rewrites an old-style bridge to the new form: same confirmation dialog, nothing is written before "Upgrade bridge" is clicked.</summary>
+    private async void UpgradeBridge()
+    {
+        var preview = _claude.PreviewUpgrade();
+        if (preview is null)
+        {
+            _claudeResult.Text = _claude.CannotInstallReason() ?? "Nothing to upgrade (the bridge is already the new form, or its saved command is damaged: use Remove bridge).";
+            return;
+        }
+
+        if (!_confirmBridge(this, preview)) return;
+
+        var result = _claude.Upgrade();
+        _claudeResult.Text = result switch
+        {
+            BridgeResult.Done => $"Upgraded. A backup of the file is in {preview.BackupDirectory}. Your original status line command is unchanged inside it.",
+            BridgeResult.AlreadyBridged => "The bridge is already the new form.",
+            BridgeResult.ChangedMeanwhile => "The settings file changed while it was being backed up (Claude Code may be using it). Nothing was changed; try again.",
+            BridgeResult.WriteFailed => "The settings file could not be written (it may be locked). Nothing was changed; try again.",
+            BridgeResult.WrongProgram => _claude.CannotInstallReason() ?? "The bridge program could not be copied to its folder. Your Claude settings were not changed.",
             _ => "The settings file cannot be used. Nothing was changed.",
         };
         await ShowClaudeStateAsync(check: false);

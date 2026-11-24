@@ -71,6 +71,7 @@ internal static class UsageViewBuilder
                 {
                     UsageState.NotInstalled => "not installed",
                     UsageState.NotLoggedIn => "not logged in",
+                    UsageState.BridgeMissing => "bridge missing",
                     UsageState.Unsupported => "unsupported version",
                     _ => "read failed",
                 };
