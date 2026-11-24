@@ -21,7 +21,7 @@ public enum UsageDisplayMode
 /// <param name="AlertsEnabled">Whether a balloon is shown when a threshold is crossed.</param>
 /// <param name="Thresholds">Percent-used levels that raise a warning, ascending.</param>
 /// <param name="ClaudeRefreshAcknowledged">Whether the user has seen the note that "Refresh Claude now" spends a very small amount of quota.</param>
-/// <param name="Expanded">True for the Expanded layout (every provider as a card), false for Compact (one provider at a time).</param>
+/// <param name="Expanded">True for the Expanded layout (every provider as a block), false for Compact (one provider at a time).</param>
 /// <param name="SelectedProvider">The provider Compact shows (null: the first one).</param>
 internal sealed record UsageSettings(
     IReadOnlyList<string> EnabledProviders,

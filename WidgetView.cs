@@ -207,9 +207,9 @@ internal sealed partial class WidgetView : Control
     /// left at 280 px, then goes down to 10 px, and only a line that still does not fit ends with an ellipsis. The sizes are
     /// worked out when the text, the room or the display scale changes, not at every tick.
     /// </summary>
-    private void DrawDate(Graphics graphics, float u, float x, float right, StringFormat typographic)
+    private void DrawDate(Graphics graphics, float u, float widestClockLogical, StringFormat typographic)
     {
-        var room = right - x;
+        var room = DateBlockLayout.Room(widestClockLogical) * u;
         if (!ReferenceEquals(_measuredSolar, _solarLine) || !ReferenceEquals(_measuredLunar, _lunarLine) || _measuredRoom != room || _measuredUnit != u)
         {
             for (var i = 0; i < 2; i++)
@@ -229,13 +229,13 @@ internal sealed partial class WidgetView : Control
         }
 
         using var brush = new SolidBrush(SecondaryText);
-        using var ellipsis = new StringFormat(StringFormatFlags.NoWrap) { Trimming = StringTrimming.EllipsisCharacter };
-        var y = 9 * u;
+        // Right-aligned: every line ends flush at the right content margin, whatever size it was shrunk to.
+        using var ellipsis = new StringFormat(StringFormatFlags.NoWrap) { Trimming = StringTrimming.EllipsisCharacter, Alignment = StringAlignment.Far };
         for (var i = 0; i < 2; i++)
         {
             using var font = new Font("Segoe UI", _datePixels[i] * u, FontStyle.Regular, GraphicsUnit.Pixel);
-            graphics.DrawString(i == 0 ? _solarLine : _lunarLine, font, brush, new RectangleF(x, y, room, 15 * u), ellipsis);
-            y += 15 * u;
+            var line = DateBlockLayout.Line(i, widestClockLogical);
+            graphics.DrawString(i == 0 ? _solarLine : _lunarLine, font, brush, new RectangleF(line.X * u, line.Y * u, line.Width * u, line.Height * u), ellipsis);
         }
     }
 
@@ -302,8 +302,8 @@ internal sealed partial class WidgetView : Control
         {
             var time = TimeText();
             graphics.DrawString(time, timeFont, primary, new RectangleF(left, 6 * u, width, 40 * u), near);
-            var dateLeft = left + graphics.MeasureString("88:88:88", timeFont, int.MaxValue, typographic).Width + 4 * u; // the widest the clock gets: the date never moves or overlaps
-            DrawDate(graphics, u, dateLeft, left + width, typographic);
+            var widestClock = graphics.MeasureString("88:88:88", timeFont, int.MaxValue, typographic).Width / u; // the widest the clock gets: the date never moves or overlaps
+            DrawDate(graphics, u, widestClock, typographic);
         }
 
         // Weather: city on the left, temperature and conditions below

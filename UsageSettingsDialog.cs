@@ -113,7 +113,7 @@ internal sealed class UsageSettingsDialog : Form
         if (_order.Items.Count > 0) _order.SelectedIndex = 0;
 
         _mode = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 360 };
-        _mode.Items.AddRange(["Compact: one provider at a time (scroll over its logo to switch)", "Expanded: every provider as a card"]);
+        _mode.Items.AddRange(["Compact: one provider at a time (scroll over its logo to switch)", "Expanded: every provider as a block"]);
         _mode.SelectedIndex = current.Expanded ? 1 : 0;
 
         _interval = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 120 };
