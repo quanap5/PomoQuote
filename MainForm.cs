@@ -53,7 +53,8 @@ internal sealed partial class MainForm : Form
     public MainForm(
         WeatherService weatherService, SettingsStore settingsStore, PomodoroStore pomodoroStore, TimeProvider clock,
         WidgetStore widgetStore, MascotStore mascotStore, QuoteSettingsStore? quoteStore = null, IQuoteProvider? quoteProvider = null, Random? random = null,
-        UsageSettingsStore? usageSettings = null, UsageCacheStore? usageCache = null, UsageAlertStore? usageAlerts = null, IReadOnlyList<IUsageProvider>? usageProviders = null, ClaudeSetup? claudeSetup = null)
+        UsageSettingsStore? usageSettings = null, UsageCacheStore? usageCache = null, UsageAlertStore? usageAlerts = null, IReadOnlyList<IUsageProvider>? usageProviders = null, ClaudeSetup? claudeSetup = null,
+        WeatherEffectSettingsStore? weatherEffects = null)
     {
         _mascotStore = mascotStore;
         _mascotSettings = mascotStore.Load();
@@ -104,11 +105,14 @@ internal sealed partial class MainForm : Form
         settingsMenu.DropDownItems.Add(new ToolStripMenuItem("&Mascot...", null, (_, _) => ShowMascotSettings()));
         settingsMenu.DropDownItems.Add(new ToolStripMenuItem("&Quotes...", null, (_, _) => ShowQuoteSettings()));
         settingsMenu.DropDownItems.Add(new ToolStripMenuItem("&AI Usage...", null, (_, _) => ShowUsageSettings()));
+        settingsMenu.DropDownItems.Add(new ToolStripMenuItem("Weather &effects...", null, (_, _) => ShowWeatherEffectsSettings()));
 
         var viewMenu = new ToolStripMenuItem("&View");
         viewMenu.DropDownItems.Add(wallpaperMenu);
         BuildQuotes(viewMenu, quoteStore ?? new QuoteSettingsStore(QuoteSettingsStore.DefaultPath), quoteProvider ?? new BundledQuoteProvider(), random ?? Random.Shared);
         BuildWidget(viewMenu);
+        _weatherEffectsStore = weatherEffects ?? new WeatherEffectSettingsStore(WeatherEffectSettingsStore.DefaultPath);
+        _widgetView.ApplyEffectSettings(_weatherEffectsStore.Load());
         BuildUsage(usageSettings, usageCache, usageAlerts, usageProviders, claudeSetup);
         BuildMascot(clock);
         _menu = new MenuStrip { Dock = DockStyle.Top };

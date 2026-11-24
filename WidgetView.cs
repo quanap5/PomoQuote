@@ -56,8 +56,10 @@ internal sealed partial class WidgetView : Control
 
         _pomodoro.ViewChanged += (_, _) => Invalidate();
         _weather.Updated += (_, _) => Invalidate();
+        InitializeEffects();
         _clockTick.Tick += (_, _) =>
         {
+            EvaluateEffects(); // picks up a minimised, covered or restored window within half a second
             var now = TimeText();
             if (now == _shownTime) return;
             _shownTime = now;
@@ -73,6 +75,7 @@ internal sealed partial class WidgetView : Control
     {
         base.OnVisibleChanged(e);
         _clockTick.Enabled = Visible;
+        EvaluateEffects();
         if (Visible) Invalidate();
     }
 
@@ -101,6 +104,7 @@ internal sealed partial class WidgetView : Control
     protected override void OnResize(EventArgs e)
     {
         base.OnResize(e);
+        ResizeEffects();
         PositionUsageControls();
     }
 
@@ -272,16 +276,23 @@ internal sealed partial class WidgetView : Control
         LogicalHeight = Math.Max(150, hasUsage ? _usageTop + area + 12 : y + 8);
         PositionUsageControls();
         UpdateAccessibleSummary();
+        _effects.SetSize(UsageGeometry.WidgetWidth, LogicalHeight);
     }
 
     // ---------- painting ----------
 
     protected override void OnPaint(PaintEventArgs e)
     {
-        var graphics = e.Graphics;
+        if (PaintWithEffects(e.Graphics)) return;
+        e.Graphics.Clear(PanelColor);
+        PaintContent(e.Graphics);
+    }
+
+    /// <summary>Everything the widget shows except the panel colour: drawn straight on the panel, or into the cached layer that sits over a weather effect.</summary>
+    private void PaintContent(Graphics graphics)
+    {
         graphics.SmoothingMode = SmoothingMode.AntiAlias;
         graphics.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
-        graphics.Clear(PanelColor);
 
         var u = Unit;
         _hotSpots.Clear();
@@ -368,6 +379,7 @@ internal sealed partial class WidgetView : Control
         {
             _clockTick.Stop();
             _clockTick.Dispose();
+            DisposeEffects();
             DisposeUsage();
         }
 

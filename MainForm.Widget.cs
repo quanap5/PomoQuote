@@ -1,3 +1,4 @@
+using PomoQuote.Weather;
 using PomoQuote.Pomodoro;
 using PomoQuote.Widget;
 
@@ -32,6 +33,29 @@ internal sealed partial class MainForm
 
     internal bool IsWidgetMode => _widgetMode;
 
+    private WeatherEffectSettingsStore _weatherEffectsStore = null!;
+
+    /// <summary>The widget and the weather panel it reads, for tests.</summary>
+    internal WidgetView WidgetViewForTests => _widgetView;
+
+    internal WeatherPanel WeatherPanelForTests => _weather;
+
+    /// <summary>The weather effect settings as applied to the widget.</summary>
+    internal WeatherEffectSettings WeatherEffectSettings => _widgetView.EffectSettings;
+
+    /// <summary>Saves and applies new weather effect settings (the dialog calls this; tests call it directly).</summary>
+    internal void ApplyWeatherEffectSettings(WeatherEffectSettings settings)
+    {
+        _weatherEffectsStore.Save(settings);
+        _widgetView.ApplyEffectSettings(settings);
+    }
+
+    private void ShowWeatherEffectsSettings()
+    {
+        using var dialog = new WeatherEffectsDialog(_widgetView.EffectSettings);
+        if (dialog.ShowDialog(this) == DialogResult.OK) ApplyWeatherEffectSettings(dialog.Value);
+    }
+
     private void BuildWidget(ToolStripMenuItem viewMenu)
     {
         _widgetView = new WidgetView(_pomodoro, _weather) { Dock = DockStyle.Fill, Visible = false };
@@ -53,6 +77,7 @@ internal sealed partial class MainForm
         settings.DropDownItems.Add(new ToolStripMenuItem("&Mascot...", null, (_, _) => ShowMascotSettings()));
         settings.DropDownItems.Add(new ToolStripMenuItem("&Quotes...", null, (_, _) => ShowQuoteSettings()));
         settings.DropDownItems.Add(new ToolStripMenuItem("&AI Usage...", null, (_, _) => ShowUsageSettings()));
+        settings.DropDownItems.Add(new ToolStripMenuItem("Weather &effects...", null, (_, _) => ShowWeatherEffectsSettings()));
 
         _widgetPomodoroToggleItem = new ToolStripMenuItem("Start Pomodoro", null, (_, _) => TogglePomodoro());
         _widgetMenu = new ContextMenuStrip();
