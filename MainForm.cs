@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using PomoQuote.AiUsage;
 using PomoQuote.Mascot;
 using PomoQuote.Pomodoro;
 using PomoQuote.Quotes;
@@ -50,7 +51,8 @@ internal sealed partial class MainForm : Form
 
     public MainForm(
         WeatherService weatherService, SettingsStore settingsStore, PomodoroStore pomodoroStore, TimeProvider clock,
-        WidgetStore widgetStore, MascotStore mascotStore, QuoteSettingsStore? quoteStore = null, IQuoteProvider? quoteProvider = null, Random? random = null)
+        WidgetStore widgetStore, MascotStore mascotStore, QuoteSettingsStore? quoteStore = null, IQuoteProvider? quoteProvider = null, Random? random = null,
+        UsageSettingsStore? usageSettings = null, UsageCacheStore? usageCache = null, UsageAlertStore? usageAlerts = null, IReadOnlyList<IUsageProvider>? usageProviders = null)
     {
         _mascotStore = mascotStore;
         _mascotSettings = mascotStore.Load();
@@ -100,11 +102,13 @@ internal sealed partial class MainForm : Form
         settingsMenu.DropDownItems.Add(pomodoroItem);
         settingsMenu.DropDownItems.Add(new ToolStripMenuItem("&Mascot...", null, (_, _) => ShowMascotSettings()));
         settingsMenu.DropDownItems.Add(new ToolStripMenuItem("&Quotes...", null, (_, _) => ShowQuoteSettings()));
+        settingsMenu.DropDownItems.Add(new ToolStripMenuItem("&AI Usage...", null, (_, _) => ShowUsageSettings()));
 
         var viewMenu = new ToolStripMenuItem("&View");
         viewMenu.DropDownItems.Add(wallpaperMenu);
         BuildQuotes(viewMenu, quoteStore ?? new QuoteSettingsStore(QuoteSettingsStore.DefaultPath), quoteProvider ?? new BundledQuoteProvider(), random ?? Random.Shared);
         BuildWidget(viewMenu);
+        BuildUsage(usageSettings, usageCache, usageAlerts, usageProviders);
         BuildMascot(clock);
         _menu = new MenuStrip { Dock = DockStyle.Top };
         _menu.Items.Add(viewMenu);
@@ -150,6 +154,7 @@ internal sealed partial class MainForm : Form
         base.OnShown(e);
         _weatherTimer.Start();
         _pomodoro.Start();
+        _usage.Start();
         _ = RefreshWeatherAsync();
     }
 
@@ -288,6 +293,7 @@ internal sealed partial class MainForm : Form
         {
             _weatherTimer.Dispose();
             DisposeQuotes();
+            DisposeUsage();
             DisposeWidget();
             DisposeMascot();
             _pomodoro.Dispose();

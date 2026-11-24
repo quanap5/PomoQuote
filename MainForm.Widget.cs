@@ -50,6 +50,7 @@ internal sealed partial class MainForm
         settings.DropDownItems.Add(new ToolStripMenuItem("&Pomodoro...", null, (_, _) => ShowPomodoroSettings()));
         settings.DropDownItems.Add(new ToolStripMenuItem("&Mascot...", null, (_, _) => ShowMascotSettings()));
         settings.DropDownItems.Add(new ToolStripMenuItem("&Quotes...", null, (_, _) => ShowQuoteSettings()));
+        settings.DropDownItems.Add(new ToolStripMenuItem("&AI Usage...", null, (_, _) => ShowUsageSettings()));
 
         _widgetPomodoroToggleItem = new ToolStripMenuItem("Start Pomodoro", null, (_, _) => TogglePomodoro());
         _widgetMenu = new ContextMenuStrip();
@@ -124,7 +125,7 @@ internal sealed partial class MainForm
             MainMenuStrip = null;
             MinimumSize = Size.Empty;
             FormBorderStyle = FormBorderStyle.None;
-            ClientSize = LogicalToDeviceUnits(WidgetView.LogicalSize);
+            ClientSize = LogicalToDeviceUnits(_widgetView.LogicalClientSize);
             Location = WidgetPlacement.Clamp(_widgetSettings.Position, Size, WorkAreaProvider());
             TopMost = true;
             Opacity = _widgetSettings.Opacity;

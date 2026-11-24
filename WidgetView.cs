@@ -1,6 +1,7 @@
 using System.Drawing.Drawing2D;
 using System.Drawing.Text;
 using System.Runtime.InteropServices;
+using PomoQuote.AiUsage;
 using PomoQuote.Pomodoro;
 using PomoQuote.Quotes;
 using PomoQuote.Weather;
@@ -31,6 +32,8 @@ internal sealed class WidgetView : Control
     private readonly WeatherPanel _weather;
     private readonly System.Windows.Forms.Timer _clockTick = new() { Interval = 500 };
     private string _shownTime = "";
+    private Func<IReadOnlyList<UsageProviderView>> _usageViews = () => [];
+    private UsageDisplayMode _usageMode;
     private string _quoteEnglish = "";
     private string? _quoteVietnamese;
 
@@ -82,7 +85,7 @@ internal sealed class WidgetView : Control
         graphics.Clear(PanelColor);
 
         // One unit = 1/210 of the height: 1 px at 100% scale, 2 px at 200%.
-        var u = Math.Max(0.5f, ClientSize.Height / (float)LogicalSize.Height);
+        var u = Math.Max(0.5f, ClientSize.Height / (float)LogicalHeight);
         var left = 14 * u;
         var width = ClientSize.Width - 28 * u;
         using var near = new StringFormat(StringFormatFlags.NoWrap) { Trimming = StringTrimming.EllipsisCharacter };
@@ -135,6 +138,7 @@ internal sealed class WidgetView : Control
         }
 
         DrawQuote(graphics, u, left, width);
+        DrawUsage(graphics, u, left, width);
     }
 
     /// <summary>
@@ -170,6 +174,111 @@ internal sealed class WidgetView : Control
         }
     }
 
+    /// <summary>Height of the base layout in logical px (time, weather, Pomodoro, sentence).</summary>
+    public const int BaseLogicalHeight = 210;
+
+    private const int UsageLineHeight = 15;
+    private const int UsageStripPadding = 10;
+
+    /// <summary>The widget's current height at 100% scale: the base layout plus one line per usage line.</summary>
+    public int LogicalHeight { get; private set; } = BaseLogicalHeight;
+
+    /// <summary>The widget's size at 100% scale with the usage strip it currently shows.</summary>
+    public Size LogicalClientSize => new(LogicalSize.Width, LogicalHeight);
+
+    /// <summary>Sets where the usage strip gets its content and how it is drawn; returns true when the widget height changed.</summary>
+    public bool SetUsage(Func<IReadOnlyList<UsageProviderView>> views, UsageDisplayMode mode)
+    {
+        _usageViews = views;
+        _usageMode = mode;
+        var lines = UsageViewBuilder.LineCount(views(), mode);
+        var height = lines > 0 ? BaseLogicalHeight + UsageStripPadding + lines * UsageLineHeight : BaseLogicalHeight;
+        var changed = height != LogicalHeight;
+        LogicalHeight = height;
+        Invalidate();
+        return changed;
+    }
+
+    /// <summary>
+    /// The AI usage strip under the sentence: per provider a header (name, plan, note) and one bar row per quota
+    /// window, or a single line in percent-only mode. Colours follow the warning thresholds; a note in amber means
+    /// stale data or a problem.
+    /// </summary>
+    private void DrawUsage(Graphics graphics, float u, float left, float width)
+    {
+        var views = _usageViews();
+        if (views.Count == 0) return;
+
+        using (var divider = new Pen(BorderColor, Math.Max(1f, u)))
+        {
+            graphics.DrawLine(divider, left, (BaseLogicalHeight - 1) * u, left + width, (BaseLogicalHeight - 1) * u);
+        }
+
+        using var name = new Font("Segoe UI Semibold", 11f * u, FontStyle.Regular, GraphicsUnit.Pixel);
+        using var small = new Font("Segoe UI", 10.5f * u, FontStyle.Regular, GraphicsUnit.Pixel);
+        using var primary = new SolidBrush(PrimaryText);
+        using var secondary = new SolidBrush(SecondaryText);
+        using var trackBrush = new SolidBrush(Color.FromArgb(70, 78, 92));
+        using var near = new StringFormat(StringFormatFlags.NoWrap) { Trimming = StringTrimming.EllipsisCharacter };
+        using var far = new StringFormat(StringFormatFlags.NoWrap) { Alignment = StringAlignment.Far };
+
+        var y = (BaseLogicalHeight + 4) * u;
+        var line = UsageLineHeight * u;
+        foreach (var view in views)
+        {
+            var noteColor = view.IsProblem ? Color.FromArgb(240, 180, 80) : SecondaryText;
+            if (_usageMode == UsageDisplayMode.Percent)
+            {
+                var text = view.Rows.Count == 0 ? view.Note : string.Join("  ", view.Rows.Select(r => $"{r.Label} {r.Percent}"));
+                using var noteBrush = new SolidBrush(view.Rows.Count == 0 || view.IsProblem ? noteColor : PrimaryText);
+                graphics.DrawString(view.Name, name, primary, new RectangleF(left, y, 52 * u, line), near);
+                graphics.DrawString(text, small, noteBrush, new RectangleF(left + 54 * u, y, width - 54 * u, line), near);
+                y += line;
+                continue;
+            }
+
+            var header = view.Plan.Length > 0 ? $"{view.Name}  {view.Plan}" : view.Name;
+            using (var noteBrush = new SolidBrush(noteColor))
+            {
+                graphics.DrawString(header, name, primary, new RectangleF(left, y, width * 0.45f, line), near);
+                graphics.DrawString(view.Note, small, noteBrush, new RectangleF(left + width * 0.4f, y + 0.5f * u, width * 0.6f, line), far);
+            }
+
+            y += line;
+            if (view.Rows.Count == 0)
+            {
+                y += line; // keeps the height the layout reserved for a provider without numbers
+                continue;
+            }
+
+            foreach (var row in view.Rows)
+            {
+                var barLeft = left + 34 * u;
+                var barWidth = 96 * u;
+                graphics.DrawString(row.Label, small, secondary, new RectangleF(left, y, 34 * u, line), near);
+                graphics.FillRectangle(trackBrush, barLeft, y + 4 * u, barWidth, 7 * u);
+                using (var fill = new SolidBrush(LevelColor(row.Level)))
+                {
+                    graphics.FillRectangle(fill, barLeft, y + 4 * u, (float)(barWidth * row.Fraction), 7 * u);
+                }
+
+                graphics.DrawString(row.Percent, small, primary, new RectangleF(barLeft + barWidth + 4 * u, y, 32 * u, line), far);
+                if (row.Reset.Length > 0)
+                {
+                    graphics.DrawString(row.Reset, small, secondary, new RectangleF(barLeft + barWidth + 40 * u, y, width - (34 + 96 + 40) * u, line), far);
+                }
+
+                y += line;
+            }
+        }
+    }
+
+    private static Color LevelColor(UsageLevel level) => level switch
+    {
+        UsageLevel.Critical => Color.FromArgb(240, 98, 82),
+        UsageLevel.Warning => Color.FromArgb(240, 180, 80),
+        _ => Color.FromArgb(70, 190, 120),
+    };
     /// <summary>Sets the sentence shown in the widget (empty text hides the strip's content).</summary>
     public void SetQuote(string english, string? vietnamese)
     {
