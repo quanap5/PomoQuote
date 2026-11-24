@@ -11,12 +11,14 @@ Proposed version for this release: **1.1.0** (the rename is a visible change, an
 
 ### Changed
 
+- The tray icon is now the PomoQuote logo (it was the robot's first frame); the robot stays the taskbar mascot.
 - **The app is now called PomoQuote** (was HelloWorldBot): window title (and the Pomodoro title, now "mm:ss Work - PomoQuote"), About dialog, tray icon, exe name (`PomoQuote.exe`), project, namespaces and test project (`PomoQuote.Tests`), single-instance name, settings folder and documentation. The GitHub repository keeps the name HelloWorldBot.
 - The big "Hello World" text is replaced by an English sentence with its Vietnamese translation (see below); the bundled digital font is no longer used and was removed.
 - The widget is taller (about 260x210) to make room for the sentence strip.
 
 ### Added
 
+- **PomoQuote logo and icon**: a clock ring split into focus (warm) and rest (cool) halves around a quotation mark, on a dark rounded square. Original work under the repository's MIT license (`Assets/Logo/`). The multi-size `pomoquote.ico` (16 to 256 px) is the executable's icon and is used for the window title bar and taskbar button, the tray icon and the About dialog, which now shows the logo. Unit tests check the icon file and its embedded copy.
 - **Sentences**: 357 English sentences (motivation, idioms and proverbs, conversation) with natural Vietnamese translations, bundled offline in `Assets/Quotes/quotes.json` with sources and licenses in `Assets/Quotes/CREDITS.md`. The sentence is shown as large as fits (English at most three lines, translation below), over the plain background and every wallpaper, and compactly in the widget.
 - A new sentence at start, at each Pomodoro phase and optionally every 5/10/30/60 minutes, or on demand with **View > Next sentence (Ctrl+N)**; a shuffled pass through all sentences before repeats, never the same one twice in a row, and the last one is remembered across restarts.
 - **Settings > Quotes...** (categories, Vietnamese translation on/off, interval) and **View > Vietnamese translation**; saved in `%AppData%\PomoQuote\quotes.json`.
