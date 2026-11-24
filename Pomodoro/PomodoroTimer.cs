@@ -72,6 +72,12 @@ internal sealed class PomodoroTimer
     /// <summary>Raised after any change of phase, state or settings.</summary>
     public event EventHandler? Changed;
 
+    /// <summary>Raised after the user skipped the current phase (not when a phase simply ended).</summary>
+    public event EventHandler? PhaseSkipped;
+
+    /// <summary>Raised after the timer was reset to a fresh work phase.</summary>
+    public event EventHandler? ResetPerformed;
+
     /// <summary>Starts an idle phase, or resumes a paused one.</summary>
     public void Start()
     {
@@ -107,6 +113,7 @@ internal sealed class PomodoroTimer
         State = PomodoroRunState.Idle;
         SessionsInCycle = 0;
         Changed?.Invoke(this, EventArgs.Empty);
+        ResetPerformed?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>
@@ -117,6 +124,7 @@ internal sealed class PomodoroTimer
     {
         var wasActive = State != PomodoroRunState.Idle;
         AdvanceFrom(Phase, workCounts: false, startNext: wasActive && _settings.AutoStartNext);
+        PhaseSkipped?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>Ends the phase if its time is up. Returns true when a phase just completed.</summary>

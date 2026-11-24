@@ -10,13 +10,15 @@ internal sealed class MascotSettingsDialog : Form
     private readonly TrackBar _volume;
     private readonly TrackBar _speed;
     private readonly ComboBox _size;
+    private readonly ComboBox _randomActions;
     private readonly CheckedListBox _monitors;
     private readonly IReadOnlyList<MonitorInfo> _monitorInfos;
     private readonly Button _okButton;
     private readonly Label _volumeLabel = new() { AutoSize = true, Anchor = AnchorStyles.Left };
     private readonly Label _speedLabel = new() { AutoSize = true, Anchor = AnchorStyles.Left };
 
-    public MascotSettingsDialog(MascotSettings current, IReadOnlyList<MonitorInfo> monitors)
+    /// <param name="reloadConfig">Reads the animation config files again and returns the warnings; null hides the button.</param>
+    public MascotSettingsDialog(MascotSettings current, IReadOnlyList<MonitorInfo> monitors, Func<IReadOnlyList<string>>? reloadConfig = null)
     {
         Text = "Settings - Mascot";
         FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -36,10 +38,14 @@ internal sealed class MascotSettingsDialog : Form
         _size = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 200 };
         foreach (var scale in MascotSettings.SizeChoices)
         {
-            _size.Items.Add($"{(scale == 2 ? "Small" : scale == 3 ? "Medium" : "Large")} ({MascotSprites.CellSize * scale} px)");
+            _size.Items.Add($"{(scale == 2 ? "Small" : scale == 3 ? "Medium" : "Large")} ({MascotConfig.Default.FrameSize * scale} px)");
         }
 
         _size.SelectedIndex = Math.Max(0, MascotSettings.SizeChoices.ToList().IndexOf(current.SizeScale));
+
+        _randomActions = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 200 };
+        _randomActions.Items.AddRange(["Off (just walks)", "Few", "Normal"]);
+        _randomActions.SelectedIndex = Math.Clamp(current.RandomActions, 0, MascotSettings.MaxRandomActions);
 
         _monitors = new CheckedListBox { CheckOnClick = true, Width = 320, Height = 80, IntegralHeight = false };
         for (var i = 0; i < monitors.Count; i++)
@@ -60,6 +66,7 @@ internal sealed class MascotSettingsDialog : Form
         AddRow(grid, "Volume:", _volume, _volumeLabel);
         AddRow(grid, "Walking speed:", _speed, _speedLabel);
         AddRow(grid, "Robot size:", _size, null);
+        AddRow(grid, "Random actions:", _randomActions, null);
 
         _okButton = new Button { Text = "OK", DialogResult = DialogResult.OK, AutoSize = true, Margin = new Padding(0, 0, 8, 0) };
         var cancelButton = new Button { Text = "Cancel", DialogResult = DialogResult.Cancel, AutoSize = true, Margin = new Padding(0) };
@@ -69,12 +76,23 @@ internal sealed class MascotSettingsDialog : Form
         buttons.Controls.Add(_okButton);
         buttons.Controls.Add(cancelButton);
 
+        var reloadButton = new Button { Text = "Reload animations", AutoSize = true, Margin = new Padding(0, 8, 0, 0), Visible = reloadConfig is not null };
+        reloadButton.Click += (_, _) =>
+        {
+            var warnings = reloadConfig!();
+            MessageBox.Show(this, warnings.Count == 0
+                ? "The animation settings were reloaded."
+                : "The animation settings were reloaded, but some values were ignored:\n\n" + string.Join("\n", warnings.Take(8)),
+                Text, MessageBoxButtons.OK, warnings.Count == 0 ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
+        };
+
         var layout = new TableLayoutPanel { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, ColumnCount = 1, Dock = DockStyle.Fill };
         layout.Controls.Add(_enabled);
         layout.Controls.Add(_sound);
         layout.Controls.Add(grid);
         layout.Controls.Add(new Label { Text = "Walk on these monitors:", AutoSize = true, Margin = new Padding(0, 0, 0, 4) });
         layout.Controls.Add(_monitors);
+        layout.Controls.Add(reloadButton);
         layout.Controls.Add(buttons);
         Controls.Add(layout);
         UpdateOkEnabled();
@@ -92,7 +110,8 @@ internal sealed class MascotSettingsDialog : Form
                 _volume.Value,
                 _speed.Value,
                 MascotSettings.SizeChoices[Math.Max(0, _size.SelectedIndex)],
-                ticked.Length == _monitorInfos.Count ? null : ticked).Normalized();
+                ticked.Length == _monitorInfos.Count ? null : ticked,
+                _randomActions.SelectedIndex).Normalized();
         }
     }
 

@@ -41,11 +41,13 @@ internal sealed partial class MainForm
 
     private void BuildMascot(TimeProvider clock)
     {
-        _mascot = new MascotController(_pomodoro, _mascotSettings, Path.Combine(AppContext.BaseDirectory, "Assets", "Mascot"), clock)
+        _mascot = new MascotController(_pomodoro, _mascotSettings, Path.Combine(AppContext.BaseDirectory, "Assets", "Mascot"), clock, MascotStore.UserConfigPath)
         {
             MonitorProvider = () => MonitorProvider(),
         };
-        _mascot.RobotClicked += (_, _) => RestoreFromTray();
+
+        // A single click only makes the character react; the window comes back on a double click (or from the tray).
+        _mascot.RestoreRequested += (_, _) => RestoreFromTray();
         _tray.Clicked += (_, _) => RestoreFromTray();
 
         _trayPomodoroToggleItem = new ToolStripMenuItem("Start Pomodoro", null, (_, _) => TogglePomodoro());
@@ -72,7 +74,7 @@ internal sealed partial class MainForm
 
     private void ShowMascotSettings()
     {
-        using var dialog = new MascotSettingsDialog(_mascotSettings, MonitorProvider());
+        using var dialog = new MascotSettingsDialog(_mascotSettings, MonitorProvider(), _mascot.ReloadConfig);
         if (dialog.ShowDialog(this) != DialogResult.OK) return;
 
         _mascotSettings = dialog.Value;

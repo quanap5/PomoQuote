@@ -72,12 +72,13 @@ internal sealed class TrayIconHost : IDisposable
         try
         {
             using var sheet = new Bitmap(path);
-            using var bitmap = new Bitmap(32, 32);
+            const int frame = 24; // the first idle frame, enlarged 2x with no blur
+            using var bitmap = new Bitmap(frame * 2, frame * 2);
             using (var graphics = Graphics.FromImage(bitmap))
             {
                 graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
                 graphics.PixelOffsetMode = PixelOffsetMode.Half;
-                graphics.DrawImage(sheet, new Rectangle(0, 0, 32, 32), new Rectangle(MascotSprites.CellSize, 0, MascotSprites.CellSize, MascotSprites.CellSize), GraphicsUnit.Pixel);
+                graphics.DrawImage(sheet, new Rectangle(0, 0, frame * 2, frame * 2), new Rectangle(0, 0, frame, frame), GraphicsUnit.Pixel);
             }
 
             var handle = bitmap.GetHicon();

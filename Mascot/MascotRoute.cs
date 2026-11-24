@@ -7,9 +7,10 @@ internal sealed record MonitorInfo(string Id, Rectangle Bounds, Rectangle WorkAr
 
 /// <summary>
 /// The strip of one monitor the robot walks on: x from <see cref="Left"/> to <see cref="Right"/>, with its
-/// feet on <see cref="GroundY"/> (the top edge of a bottom taskbar, or the bottom of the screen).
+/// feet on <see cref="GroundY"/> (the top edge of a bottom taskbar, or the bottom of the screen). <see cref="Top"/>
+/// and <see cref="Bottom"/> are the monitor's own top and bottom, the limits for dragging.
 /// </summary>
-internal sealed record Walkway(string MonitorId, int Left, int Right, int GroundY, int Dpi);
+internal sealed record Walkway(string MonitorId, int Left, int Right, int GroundY, int Dpi, int Top = int.MinValue, int Bottom = int.MaxValue);
 
 /// <summary>Turns the monitor layout into the walkways the mascot travels over, left to right.</summary>
 internal static class MascotRoute
@@ -30,7 +31,7 @@ internal static class MascotRoute
         return chosen
             .OrderBy(m => m.Bounds.Left)
             .ThenBy(m => m.Bounds.Top)
-            .Select(m => new Walkway(m.Id, m.WorkArea.Left, m.WorkArea.Right, m.WorkArea.Bottom, m.Dpi))
+            .Select(m => new Walkway(m.Id, m.WorkArea.Left, m.WorkArea.Right, m.WorkArea.Bottom, m.Dpi, m.Bounds.Top, m.Bounds.Bottom))
             .ToList();
     }
 }
