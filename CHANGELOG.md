@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **AI usage on the widget (Codex)**: **Settings > AI Usage...** turns on a strip under the sentence that shows the Codex quota for the five-hour and the weekly window: percent used, a bar, the time left until the reset, the plan and the time of the last read, with a stale marker. It reads `codex app-server` (a short-lived process every 3 minutes by default, 10 s limit) of the Codex CLI already on the PC; **PomoQuote never reads or stores a token or password**, never opens credential files and never changes your login. Windows only; WSL is not supported yet. Off by default.
+- Settings for it: enable, detected install and login state (read only), test connection, display order and mode (bars or percent only), refresh interval, warning levels (default 80% and 95%, one balloon per window and level, remembered across restarts). Saved in `%AppData%\PomoQuote\usage.json`; the last good numbers are cached in `usage-cache.json` and shown again after a restart.
+- A multi-provider core (normalised model, per-provider timer, time limit and error isolation, immutable snapshots, alert de-duplication) so Claude Code and Antigravity can be added later; Codex is the first provider. It reads again at once after sleep/resume and when the network returns, and shows clear states for not installed, not logged in, unsupported version and read failed, keeping the last good numbers.
+- Unit tests for the Codex answer parser, the provider against a fake `app-server` (including real child processes that hang, crash or answer in pieces), the collector, the caches and settings files, alerts, the widget text, and a privacy test that scans the code and the files it writes for credential names.
+
+### Changed
+
+- The widget grows by a few lines when AI usage is on (about 260x264 with Codex); without it the widget is unchanged.
+
 ## [1.1.0] - 2026-11-24
 
 ### Changed
