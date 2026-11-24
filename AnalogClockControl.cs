@@ -1,6 +1,6 @@
 using System.Drawing.Drawing2D;
 
-namespace HelloWorldBot;
+namespace PomoQuote;
 
 /// <summary>
 /// A round analog clock showing the computer's local time. It fits the largest circle

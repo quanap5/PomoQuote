@@ -1,9 +1,9 @@
 using System.Drawing.Drawing2D;
 using System.Runtime.InteropServices;
 
-using HelloWorldBot.Mascot;
+using PomoQuote.Mascot;
 
-namespace HelloWorldBot;
+namespace PomoQuote;
 
 /// <summary>
 /// The app's one notification-area icon. It stays visible while the window is hidden in the tray, and
@@ -14,7 +14,7 @@ internal sealed class TrayIconHost : IDisposable
 {
     private const int BalloonVisibleMilliseconds = 6000;
 
-    private readonly NotifyIcon _icon = new() { Text = "HelloWorldBot" };
+    private readonly NotifyIcon _icon = new() { Text = "PomoQuote" };
     private readonly System.Windows.Forms.Timer _balloonTimer = new() { Interval = BalloonVisibleMilliseconds };
     private readonly Icon _robotIcon;
     private bool _persistent;

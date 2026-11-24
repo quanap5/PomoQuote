@@ -1,33 +1,25 @@
-using System.Drawing.Text;
 using System.Runtime.InteropServices;
-using HelloWorldBot.Mascot;
-using HelloWorldBot.Pomodoro;
-using HelloWorldBot.Weather;
-using HelloWorldBot.Widget;
+using PomoQuote.Mascot;
+using PomoQuote.Pomodoro;
+using PomoQuote.Quotes;
+using PomoQuote.Weather;
+using PomoQuote.Widget;
 
-namespace HelloWorldBot;
+namespace PomoQuote;
 
-/// <summary>Shows "Hello World" in a bundled digital font with a real-time analog clock below it.</summary>
+/// <summary>The main window: an English sentence with its Vietnamese translation, the weather, a Pomodoro timer and a real-time analog clock.</summary>
 internal sealed partial class MainForm : Form
 {
-    private const string DisplayText = "Hello World";
-
-    // DSEG's space glyph is very narrow; its "!" glyph is a blank, full-width digit cell.
-    private const string DigitalFontDrawnText = "Hello!World";
-
-    private const float FontSizePoints = 36f;
-    private const string FallbackFontFamily = "Consolas";
+    private const string DisplayText = AboutDialog.AppName;
 
     private static readonly Size LogicalClientSize = new(800, 520);
-    private static readonly Size LogicalTextPadding = new(48, 48);
     private const int LogicalMinimumClockSize = 120;
+    private const int LogicalMinimumWidth = 440;
     private const int LogicalPomodoroWidth = 250;
+    private const double QuoteBandShare = 0.34;
     private static readonly TimeSpan WeatherRefreshInterval = TimeSpan.FromMinutes(10);
 
-    // The collection must outlive any Font created from it.
-    private readonly PrivateFontCollection _fonts = new();
-    private readonly Font _displayFont;
-    private readonly CenteredTextLabel _label;
+    private readonly QuoteLabel _quote;
     private readonly AnalogClockControl _clock;
     private readonly MenuStrip _menu;
     private readonly WeatherPanel _weather = new() { Dock = DockStyle.Top };
@@ -56,7 +48,9 @@ internal sealed partial class MainForm : Form
     {
     }
 
-    public MainForm(WeatherService weatherService, SettingsStore settingsStore, PomodoroStore pomodoroStore, TimeProvider clock, WidgetStore widgetStore, MascotStore mascotStore)
+    public MainForm(
+        WeatherService weatherService, SettingsStore settingsStore, PomodoroStore pomodoroStore, TimeProvider clock,
+        WidgetStore widgetStore, MascotStore mascotStore, QuoteSettingsStore? quoteStore = null, IQuoteProvider? quoteProvider = null, Random? random = null)
     {
         _mascotStore = mascotStore;
         _mascotSettings = mascotStore.Load();
@@ -70,29 +64,19 @@ internal sealed partial class MainForm : Form
         _settingsStore = settingsStore;
         _settings = settingsStore.Load();
 
-        var digitalFont = LoadDigitalFont();
-        _displayFont = digitalFont ?? new Font(FallbackFontFamily, FontSizePoints, FontStyle.Regular, GraphicsUnit.Point);
-
         Text = DisplayText;
         StartPosition = FormStartPosition.CenterScreen;
         DoubleBuffered = true;
         ResizeRedraw = true;
 
-        _label = new CenteredTextLabel(digitalFont is null ? DisplayText : DigitalFontDrawnText)
-        {
-            Text = DisplayText,
-            Font = _displayFont,
-            ForeColor = Color.Green,
-            BackColor = Color.Transparent,
-            Dock = DockStyle.Top,
-        };
+        _quote = new QuoteLabel { Dock = DockStyle.Top };
         _clock = new AnalogClockControl { Dock = DockStyle.Fill };
 
-        // The clock fills what remains below the text band, so the two never overlap.
+        // The clock fills what remains below the sentence band, so the two never overlap.
         Controls.Add(_clock);
         Controls.Add(_pomodoroPanel);
         Controls.Add(_weather);
-        Controls.Add(_label);
+        Controls.Add(_quote);
 
         // Added last so it docks first, at the very top, above the text band.
         var aboutItem = new ToolStripMenuItem("&About", null, (_, _) => ShowAboutDialog());
@@ -114,9 +98,11 @@ internal sealed partial class MainForm : Form
         settingsMenu.DropDownItems.Add(_cityItem);
         settingsMenu.DropDownItems.Add(pomodoroItem);
         settingsMenu.DropDownItems.Add(new ToolStripMenuItem("&Mascot...", null, (_, _) => ShowMascotSettings()));
+        settingsMenu.DropDownItems.Add(new ToolStripMenuItem("&Quotes...", null, (_, _) => ShowQuoteSettings()));
 
         var viewMenu = new ToolStripMenuItem("&View");
         viewMenu.DropDownItems.Add(wallpaperMenu);
+        BuildQuotes(viewMenu, quoteStore ?? new QuoteSettingsStore(QuoteSettingsStore.DefaultPath), quoteProvider ?? new BundledQuoteProvider(), random ?? Random.Shared);
         BuildWidget(viewMenu);
         BuildMascot(clock);
         _menu = new MenuStrip { Dock = DockStyle.Top };
@@ -128,6 +114,7 @@ internal sealed partial class MainForm : Form
 
         _weather.SetCity(_settings.City.DisplayName);
         _weatherTimer.Tick += (_, _) => _ = RefreshWeatherAsync();
+        ShowNextQuote();
     }
 
     protected override void OnLoad(EventArgs e)
@@ -135,19 +122,26 @@ internal sealed partial class MainForm : Form
         base.OnLoad(e);
 
         // Sizes depend on the display scale, so they are applied once the window has a DPI.
-        var textBand = _label.MeasureDrawnText() + LogicalToDeviceUnits(LogicalTextPadding);
-        _label.Height = textBand.Height;
         _weather.Height = _weather.MeasureHeight();
         _pomodoroPanel.Width = LogicalToDeviceUnits(LogicalPomodoroWidth);
         var belowWeather = Math.Max(LogicalToDeviceUnits(LogicalMinimumClockSize), _pomodoroPanel.MeasureMinimumHeight());
+        var minimumBand = LogicalToDeviceUnits(QuoteLabel.LogicalMinimumHeight);
         var minimumClientSize = new Size(
-            Math.Max(textBand.Width, _pomodoroPanel.Width + LogicalToDeviceUnits(LogicalMinimumClockSize)),
-            _menu.Height + textBand.Height + _weather.Height + belowWeather);
+            Math.Max(LogicalToDeviceUnits(LogicalMinimumWidth), _pomodoroPanel.Width + LogicalToDeviceUnits(LogicalMinimumClockSize)),
+            _menu.Height + minimumBand + _weather.Height + belowWeather);
         MinimumSize = SizeFromClientSize(minimumClientSize);
         ClientSize = LogicalToDeviceUnits(LogicalClientSize);
+        UpdateQuoteBand();
         CenterToScreen();
         _normalBounds = Bounds;
         if (_widgetSettings.Enabled) SetWidgetMode(true);
+    }
+
+    /// <summary>The sentence band takes about a third of the height, never less than its minimum, so it grows with the window.</summary>
+    private void UpdateQuoteBand()
+    {
+        if (_quote is null || _widgetMode) return;
+        _quote.Height = Math.Max(LogicalToDeviceUnits(QuoteLabel.LogicalMinimumHeight), (int)(ClientSize.Height * QuoteBandShare));
     }
 
     protected override void OnShown(EventArgs e)
@@ -274,6 +268,7 @@ internal sealed partial class MainForm : Form
 
         _clock.FaceColor = wallpaper is null ? Color.Transparent : WallpaperClockFace;
         _weather.OnWallpaper = wallpaper is not null;
+        _quote.OnWallpaper = wallpaper is not null;
         _pomodoroPanel.OnWallpaper = wallpaper is not null;
         Invalidate(true);
     }
@@ -284,21 +279,6 @@ internal sealed partial class MainForm : Form
         dialog.ShowDialog(this);
     }
 
-    private Font? LoadDigitalFont()
-    {
-        try
-        {
-            _fonts.AddFontFile(Path.Combine(AppContext.BaseDirectory, "Assets", "Fonts", "DSEG14Classic-Regular.ttf"));
-            return _fonts.Families.Length > 0
-                ? new Font(_fonts.Families[0], FontSizePoints, FontStyle.Regular, GraphicsUnit.Point)
-                : null;
-        }
-        catch (Exception ex) when (ex is IOException or ArgumentException or ExternalException)
-        {
-            return null;
-        }
-    }
-
     protected override void Dispose(bool disposing)
     {
         base.Dispose(disposing);
@@ -306,14 +286,13 @@ internal sealed partial class MainForm : Form
         if (disposing)
         {
             _weatherTimer.Dispose();
+            DisposeQuotes();
             DisposeWidget();
             DisposeMascot();
             _pomodoro.Dispose();
             _tray.Dispose();
             _weatherRefresh?.Cancel();
             _wallpaper.Dispose();
-            _displayFont.Dispose();
-            _fonts.Dispose();
         }
     }
 }

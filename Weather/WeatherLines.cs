@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace HelloWorldBot.Weather;
+namespace PomoQuote.Weather;
 
 /// <summary>What the weather UI currently knows: the city, the last report (if any) and whether the latest refresh failed.</summary>
 internal sealed record WeatherSnapshot(string CityName, WeatherReport? Report, DateTime ReportTime, bool Failed)

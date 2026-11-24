@@ -7,7 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Proposed version for this release: **1.1.0** (the rename is a visible change, and the sentences are a new feature). The version in `PomoQuote.csproj` is left at 1.0.0 until the owner decides.
+
+### Changed
+
+- **The app is now called PomoQuote** (was HelloWorldBot): window title (and the Pomodoro title, now "mm:ss Work - PomoQuote"), About dialog, tray icon, exe name (`PomoQuote.exe`), project, namespaces and test project (`PomoQuote.Tests`), single-instance name, settings folder and documentation. The GitHub repository keeps the name HelloWorldBot.
+- The big "Hello World" text is replaced by an English sentence with its Vietnamese translation (see below); the bundled digital font is no longer used and was removed.
+- The widget is taller (about 260x210) to make room for the sentence strip.
+
 ### Added
+
+- **Sentences**: 357 English sentences (motivation, idioms and proverbs, conversation) with natural Vietnamese translations, bundled offline in `Assets/Quotes/quotes.json` with sources and licenses in `Assets/Quotes/CREDITS.md`. The sentence is shown as large as fits (English at most three lines, translation below), over the plain background and every wallpaper, and compactly in the widget.
+- A new sentence at start, at each Pomodoro phase and optionally every 5/10/30/60 minutes, or on demand with **View > Next sentence (Ctrl+N)**; a shuffled pass through all sentences before repeats, never the same one twice in a row, and the last one is remembered across restarts.
+- **Settings > Quotes...** (categories, Vietnamese translation on/off, interval) and **View > Vietnamese translation**; saved in `%AppData%\PomoQuote\quotes.json`.
+- **Settings migration**: on first start the files in `%AppData%\HelloWorldBot` are copied to `%AppData%\PomoQuote` once, without overwriting or deleting anything; a failure is logged and the app starts with the defaults.
+- Unit tests for the data file, the rotation, the quote settings, the migration and the text layout.
+
+### Added (earlier, not yet released)
 
 - **Taskbar mascot**: minimizing the window hides it to the system tray (tray menu: Open, Start/Pause Pomodoro, Settings, Exit) and a pixel-art robot walks along the top edge of the taskbar (the bottom of the screen if the taskbar is hidden or on another edge). Click the robot or the tray icon to bring the window back. The robot follows the Pomodoro: brisk walk while working, a jump and shout when a work session ends, asleep during a break, a slow stroll when idle.
 - The robot walks across every monitor and jumps with a shout onto the next one. It copes with different resolutions, monitors above/below each other and monitors plugged or unplugged while it walks. Its click-through window never takes focus, it stops while the screen is locked or the PC sleeps, and hides while a full-screen app is in front.

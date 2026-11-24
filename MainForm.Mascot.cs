@@ -1,7 +1,7 @@
-using HelloWorldBot.Mascot;
-using HelloWorldBot.Pomodoro;
+using PomoQuote.Mascot;
+using PomoQuote.Pomodoro;
 
-namespace HelloWorldBot;
+namespace PomoQuote;
 
 /// <summary>
 /// The taskbar mascot: minimizing hides the window to the tray and sends the robot walking along the
@@ -93,6 +93,7 @@ internal sealed partial class MainForm
     protected override void OnResize(EventArgs e)
     {
         base.OnResize(e);
+        UpdateQuoteBand();
         if (WindowState == FormWindowState.Minimized && _mascot is not null && !_inTray && IsHandleCreated)
         {
             // Not from inside the resize itself: hiding a window while it is being minimized is asking for trouble.

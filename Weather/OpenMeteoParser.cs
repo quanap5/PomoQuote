@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace HelloWorldBot.Weather;
+namespace PomoQuote.Weather;
 
 /// <summary>Turns Open-Meteo geocoding and forecast JSON into models. Pure, so it is unit tested.</summary>
 internal static class OpenMeteoParser

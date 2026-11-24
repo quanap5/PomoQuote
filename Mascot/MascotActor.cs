@@ -1,6 +1,6 @@
 using System.Drawing;
 
-namespace HelloWorldBot.Mascot;
+namespace PomoQuote.Mascot;
 
 /// <summary>Things that happened during an update that the caller reacts to (e.g. by playing a sound).</summary>
 [Flags]

@@ -1,11 +1,11 @@
 using System.Reflection;
 
-namespace HelloWorldBot;
+namespace PomoQuote;
 
 /// <summary>Modal dialog showing the app name and its version. Enter/OK and Esc both close it.</summary>
 internal sealed class AboutDialog : Form
 {
-    public const string AppName = "HelloWorldBot";
+    public const string AppName = "PomoQuote";
 
     public AboutDialog()
     {
@@ -44,7 +44,7 @@ internal sealed class AboutDialog : Form
     }
 
     /// <summary>
-    /// The version comes from &lt;Version&gt; in HelloWorldBot.csproj, via the assembly's informational
+    /// The version comes from &lt;Version&gt; in PomoQuote.csproj, via the assembly's informational
     /// version. The SDK may append "+&lt;commit&gt;" build metadata, which is dropped for display.
     /// </summary>
     internal static string GetAppVersion()

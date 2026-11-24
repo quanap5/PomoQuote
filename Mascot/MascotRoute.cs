@@ -1,6 +1,6 @@
 using System.Drawing;
 
-namespace HelloWorldBot.Mascot;
+namespace PomoQuote.Mascot;
 
 /// <summary>One monitor as the mascot needs to know it. <see cref="Id"/> is the Windows device name.</summary>
 internal sealed record MonitorInfo(string Id, Rectangle Bounds, Rectangle WorkArea, int Dpi = 96, bool Primary = false);

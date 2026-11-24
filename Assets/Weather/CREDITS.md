@@ -7,7 +7,7 @@ Style: flat colour, one dark outline (about 3% of the icon size, thicker on tiny
 Files here:
 
 - `contact-sheet.png`: every icon at 64 px, then at 16, 20, 24 and 32 px on a light and on a dark background. Regenerate it with
-  `$env:HELLOWORLDBOT_ICON_SHEET = "Assets/Weather/contact-sheet.png"; dotnet test HelloWorldBot.Tests --filter ContactSheet`
+  `$env:POMOQUOTE_ICON_SHEET = "Assets/Weather/contact-sheet.png"; dotnet test PomoQuote.Tests --filter ContactSheet`
 - `preview-*.png/jpg`: screenshots of the real panel and widget (all conditions by day and night, the offline/stale/loading states, the three wallpapers, the widget at 100/80/60% opacity over three backgrounds, and the text line at 100-200% scale). They are documentation only and are not part of the app.
 
 The weather data itself comes from Open-Meteo; see the README.

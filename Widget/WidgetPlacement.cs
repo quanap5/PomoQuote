@@ -1,6 +1,6 @@
 using System.Drawing;
 
-namespace HelloWorldBot.Widget;
+namespace PomoQuote.Widget;
 
 /// <summary>Keeps the widget on a screen you can actually see. Pure maths on rectangles, so it is unit tested.</summary>
 internal static class WidgetPlacement

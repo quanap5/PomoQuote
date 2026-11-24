@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 
-namespace HelloWorldBot.Pomodoro;
+namespace PomoQuote.Pomodoro;
 
 /// <summary>Counts finished work sessions for one calendar day; the count starts again on a new day.</summary>
 internal sealed class DailyCounter
@@ -44,7 +44,7 @@ internal sealed record PomodoroData(PomodoroSettings Settings, string? Day = nul
 }
 
 /// <summary>
-/// Reads and writes <see cref="PomodoroData"/> as JSON, by default in %AppData%\HelloWorldBot\pomodoro.json.
+/// Reads and writes <see cref="PomodoroData"/> as JSON, by default in %AppData%\PomoQuote\pomodoro.json.
 /// A missing, unreadable or invalid file yields the defaults, never an exception.
 /// </summary>
 internal sealed class PomodoroStore
@@ -56,7 +56,7 @@ internal sealed class PomodoroStore
     public PomodoroStore(string path) => _path = path;
 
     public static string DefaultPath { get; } = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "HelloWorldBot", "pomodoro.json");
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "PomoQuote", "pomodoro.json");
 
     public PomodoroData Load()
     {

@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 
-namespace HelloWorldBot.Mascot;
+namespace PomoQuote.Mascot;
 
 /// <summary>
 /// The window the robot is drawn in: borderless, always on top and a per-pixel-alpha "layered" window sized

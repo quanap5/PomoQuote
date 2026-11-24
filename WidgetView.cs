@@ -1,13 +1,14 @@
 using System.Drawing.Drawing2D;
 using System.Drawing.Text;
 using System.Runtime.InteropServices;
-using HelloWorldBot.Pomodoro;
-using HelloWorldBot.Weather;
+using PomoQuote.Pomodoro;
+using PomoQuote.Quotes;
+using PomoQuote.Weather;
 
-namespace HelloWorldBot;
+namespace PomoQuote;
 
 /// <summary>
-/// The compact content of widget mode (about 260x140 logical px): the time, the weather on one line, and
+/// The compact content of widget mode (about 260x210 logical px): the time, the weather on one line,
 /// the Pomodoro phase, remaining time and progress bar, on a solid dark panel so it stays legible over any
 /// desktop. Everything is laid out in proportion to the control's height, so it scales with the display.
 /// Dragging it anywhere moves the window. It shares the app's controller and weather panel; it has no
@@ -16,7 +17,7 @@ namespace HelloWorldBot;
 internal sealed class WidgetView : Control
 {
     /// <summary>The widget's size at 100% display scale; the layout is designed on this grid.</summary>
-    public static readonly Size LogicalSize = new(260, 140);
+    public static readonly Size LogicalSize = new(260, 210);
 
     private const int WM_NCLBUTTONDOWN = 0x00A1;
     private const int HTCAPTION = 2;
@@ -30,6 +31,8 @@ internal sealed class WidgetView : Control
     private readonly WeatherPanel _weather;
     private readonly System.Windows.Forms.Timer _clockTick = new() { Interval = 500 };
     private string _shownTime = "";
+    private string _quoteEnglish = "";
+    private string? _quoteVietnamese;
 
     public WidgetView(PomodoroController pomodoro, WeatherPanel weather)
     {
@@ -78,7 +81,7 @@ internal sealed class WidgetView : Control
         graphics.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
         graphics.Clear(PanelColor);
 
-        // One unit = 1/140 of the height: 1 px at 100% scale, 2 px at 200%.
+        // One unit = 1/210 of the height: 1 px at 100% scale, 2 px at 200%.
         var u = Math.Max(0.5f, ClientSize.Height / (float)LogicalSize.Height);
         var left = 14 * u;
         var width = ClientSize.Width - 28 * u;
@@ -130,6 +133,49 @@ internal sealed class WidgetView : Control
             graphics.FillRectangle(track, bar);
             graphics.FillRectangle(fill, bar.X, bar.Y, (float)(bar.Width * timer.Progress), bar.Height);
         }
+
+        DrawQuote(graphics, u, left, width);
+    }
+
+    /// <summary>
+    /// The sentence and its translation in the bottom strip. Each is limited to the lines that fit and ends
+    /// with an ellipsis when cut, so a long sentence never spills over the Pomodoro rows above it.
+    /// </summary>
+    private void DrawQuote(Graphics graphics, float u, float left, float width)
+    {
+        if (_quoteEnglish.Length == 0) return;
+
+        using (var divider = new Pen(BorderColor, Math.Max(1f, u)))
+        {
+            graphics.DrawLine(divider, left, 134 * u, left + width, 134 * u);
+        }
+
+        using var format = new StringFormat { Trimming = StringTrimming.EllipsisWord, FormatFlags = StringFormatFlags.LineLimit };
+        var englishPixels = 11.5f * u;
+        var vietnamesePixels = 10.5f * u;
+        using var english = new Font(QuoteLayout.EnglishFamily, englishPixels, FontStyle.Regular, GraphicsUnit.Pixel);
+        using var vietnamese = new Font(QuoteLayout.VietnameseFamily, vietnamesePixels, FontStyle.Regular, GraphicsUnit.Pixel);
+        using var primary = new SolidBrush(Color.FromArgb(120, 230, 120));
+        using var secondary = new SolidBrush(SecondaryText);
+
+        // Two lines of English; the translation gets what is left, which is two lines when it is shown.
+        var top = 139 * u;
+        var bottom = 205 * u;
+        var englishHeight = englishPixels * 1.35f * 2;
+        graphics.DrawString(_quoteEnglish, english, primary, new RectangleF(left, top, width, englishHeight), format);
+        if (_quoteVietnamese is not null)
+        {
+            var translationTop = top + englishHeight + 2 * u;
+            graphics.DrawString(_quoteVietnamese, vietnamese, secondary, new RectangleF(left, translationTop, width, bottom - translationTop), format);
+        }
+    }
+
+    /// <summary>Sets the sentence shown in the widget (empty text hides the strip's content).</summary>
+    public void SetQuote(string english, string? vietnamese)
+    {
+        _quoteEnglish = english;
+        _quoteVietnamese = string.IsNullOrWhiteSpace(vietnamese) ? null : vietnamese;
+        Invalidate();
     }
 
     private static Color PhaseColor(PomodoroPhase phase) => phase switch

@@ -1,6 +1,6 @@
 using System.Drawing.Drawing2D;
 
-namespace HelloWorldBot;
+namespace PomoQuote;
 
 /// <summary>A bundled wallpaper: the menu caption and the file name inside Assets/Wallpapers.</summary>
 internal sealed record Wallpaper(string Name, string FileName);

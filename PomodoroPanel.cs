@@ -1,8 +1,8 @@
 using System.Drawing.Drawing2D;
 using System.Drawing.Text;
-using HelloWorldBot.Pomodoro;
+using PomoQuote.Pomodoro;
 
-namespace HelloWorldBot;
+namespace PomoQuote;
 
 /// <summary>
 /// The Pomodoro panel: phase name, a progress ring around the remaining mm:ss, today's session count,

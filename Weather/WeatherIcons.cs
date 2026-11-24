@@ -1,7 +1,7 @@
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 
-namespace HelloWorldBot.Weather;
+namespace PomoQuote.Weather;
 
 /// <summary>Every icon the weather UI can show: one per kind of weather (with day and night variants) and one per datum.</summary>
 public enum WeatherIconId
