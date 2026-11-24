@@ -48,6 +48,7 @@ internal sealed partial class MainForm
         var settings = new ToolStripMenuItem("&Settings");
         settings.DropDownItems.Add(_widgetCityItem);
         settings.DropDownItems.Add(new ToolStripMenuItem("&Pomodoro...", null, (_, _) => ShowPomodoroSettings()));
+        settings.DropDownItems.Add(new ToolStripMenuItem("&Mascot...", null, (_, _) => ShowMascotSettings()));
 
         _widgetPomodoroToggleItem = new ToolStripMenuItem("Start Pomodoro", null, (_, _) => TogglePomodoro());
         _widgetMenu = new ContextMenuStrip();

@@ -1,5 +1,6 @@
 using System.Drawing.Text;
 using System.Runtime.InteropServices;
+using HelloWorldBot.Mascot;
 using HelloWorldBot.Pomodoro;
 using HelloWorldBot.Weather;
 using HelloWorldBot.Widget;
@@ -50,15 +51,19 @@ internal sealed partial class MainForm : Form
         new SettingsStore(SettingsStore.DefaultPath),
         new PomodoroStore(PomodoroStore.DefaultPath),
         TimeProvider.System,
-        new WidgetStore(WidgetStore.DefaultPath))
+        new WidgetStore(WidgetStore.DefaultPath),
+        new MascotStore(MascotStore.DefaultPath))
     {
     }
 
-    public MainForm(WeatherService weatherService, SettingsStore settingsStore, PomodoroStore pomodoroStore, TimeProvider clock, WidgetStore widgetStore)
+    public MainForm(WeatherService weatherService, SettingsStore settingsStore, PomodoroStore pomodoroStore, TimeProvider clock, WidgetStore widgetStore, MascotStore mascotStore)
     {
+        _mascotStore = mascotStore;
+        _mascotSettings = mascotStore.Load();
+        _tray = new TrayIconHost();
         _widgetStore = widgetStore;
         _widgetSettings = widgetStore.Load();
-        _pomodoro = new PomodoroController(clock, pomodoroStore, Path.Combine(AppContext.BaseDirectory, "Assets", "Sounds"));
+        _pomodoro = new PomodoroController(clock, pomodoroStore, Path.Combine(AppContext.BaseDirectory, "Assets", "Sounds"), _tray);
         _pomodoroPanel = new PomodoroPanel(_pomodoro) { Dock = DockStyle.Right };
         _pomodoro.TitleChanged += (_, title) => Text = title is null ? DisplayText : $"{title} - {DisplayText}";
         _weatherService = weatherService;
@@ -108,10 +113,12 @@ internal sealed partial class MainForm : Form
         var settingsMenu = new ToolStripMenuItem("&Settings");
         settingsMenu.DropDownItems.Add(_cityItem);
         settingsMenu.DropDownItems.Add(pomodoroItem);
+        settingsMenu.DropDownItems.Add(new ToolStripMenuItem("&Mascot...", null, (_, _) => ShowMascotSettings()));
 
         var viewMenu = new ToolStripMenuItem("&View");
         viewMenu.DropDownItems.Add(wallpaperMenu);
         BuildWidget(viewMenu);
+        BuildMascot(clock);
         _menu = new MenuStrip { Dock = DockStyle.Top };
         _menu.Items.Add(viewMenu);
         _menu.Items.Add(settingsMenu);
@@ -300,7 +307,9 @@ internal sealed partial class MainForm : Form
         {
             _weatherTimer.Dispose();
             DisposeWidget();
+            DisposeMascot();
             _pomodoro.Dispose();
+            _tray.Dispose();
             _weatherRefresh?.Cancel();
             _wallpaper.Dispose();
             _displayFont.Dispose();

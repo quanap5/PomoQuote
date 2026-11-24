@@ -4,28 +4,27 @@ namespace HelloWorldBot.Pomodoro;
 
 /// <summary>
 /// Connects the <see cref="PomodoroTimer"/> to the desktop: a UI timer that ticks it, the alert
-/// sounds, the balloon notification, the window-title text and the saved settings and daily count.
+/// sounds, the balloon notification (through the shared <see cref="TrayIconHost"/>), the window-title text and the saved settings and daily count.
 /// Everything it owns is released by <see cref="Dispose"/>.
 /// </summary>
 internal sealed class PomodoroController : IDisposable
 {
     private const int PollIntervalMilliseconds = 250;
-    private const int BalloonVisibleMilliseconds = 6000;
 
     private readonly TimeProvider _clock;
     private readonly PomodoroStore _store;
     private readonly DailyCounter _counter;
     private readonly System.Windows.Forms.Timer _poll = new() { Interval = PollIntervalMilliseconds };
-    private readonly System.Windows.Forms.Timer _hideBalloonIcon = new() { Interval = BalloonVisibleMilliseconds };
-    private readonly NotifyIcon _notifyIcon = new() { Icon = SystemIcons.Application, Text = "HelloWorldBot Pomodoro" };
+    private readonly TrayIconHost _tray;
     private readonly SoundPlayer? _workEndSound;
     private readonly SoundPlayer? _breakEndSound;
     private int _shownSeconds = -1;
 
-    public PomodoroController(TimeProvider clock, PomodoroStore store, string soundsDirectory)
+    public PomodoroController(TimeProvider clock, PomodoroStore store, string soundsDirectory, TrayIconHost tray)
     {
         _clock = clock;
         _store = store;
+        _tray = tray;
 
         var data = store.Load();
         _counter = new DailyCounter(data.Day, data.CompletedToday);
@@ -37,11 +36,6 @@ internal sealed class PomodoroController : IDisposable
         _breakEndSound = TryCreateSound(Path.Combine(soundsDirectory, "break-end.wav"));
 
         _poll.Tick += (_, _) => PollTimer();
-        _hideBalloonIcon.Tick += (_, _) =>
-        {
-            _hideBalloonIcon.Stop();
-            _notifyIcon.Visible = false;
-        };
     }
 
     public PomodoroTimer Timer { get; }
@@ -120,13 +114,7 @@ internal sealed class PomodoroController : IDisposable
         ShowBalloon(message);
     }
 
-    private void ShowBalloon(string message)
-    {
-        _notifyIcon.Visible = true;
-        _notifyIcon.ShowBalloonTip(BalloonVisibleMilliseconds, "Pomodoro", message, ToolTipIcon.Info);
-        _hideBalloonIcon.Stop();
-        _hideBalloonIcon.Start();
-    }
+    private void ShowBalloon(string message) => _tray.ShowBalloon("Pomodoro", message);
 
     private void Save()
     {
@@ -161,10 +149,6 @@ internal sealed class PomodoroController : IDisposable
     {
         _poll.Stop();
         _poll.Dispose();
-        _hideBalloonIcon.Stop();
-        _hideBalloonIcon.Dispose();
-        _notifyIcon.Visible = false;
-        _notifyIcon.Dispose();
         _workEndSound?.Dispose();
         _breakEndSound?.Dispose();
     }
