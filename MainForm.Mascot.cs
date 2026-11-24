@@ -55,6 +55,7 @@ internal sealed partial class MainForm
         settings.DropDownItems.Add(new ToolStripMenuItem("&City...", null, (_, _) => { RestoreFromTray(); ChangeCity(); }));
         settings.DropDownItems.Add(new ToolStripMenuItem("&Pomodoro...", null, (_, _) => { RestoreFromTray(); ShowPomodoroSettings(); }));
         settings.DropDownItems.Add(new ToolStripMenuItem("&Mascot...", null, (_, _) => { RestoreFromTray(); ShowMascotSettings(); }));
+        settings.DropDownItems.Add(new ToolStripMenuItem("Weather &effects...", null, (_, _) => { RestoreFromTray(); ShowWeatherEffectsSettings(); }));
 
         _trayMenu = new ContextMenuStrip();
         _trayOpenFont = new Font(Font, FontStyle.Bold);

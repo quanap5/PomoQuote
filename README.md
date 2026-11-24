@@ -18,6 +18,7 @@
 - **Wallpapers.** **View > Wallpaper** switches between three bundled photos and the plain background.
 - **Taskbar mascot.** Minimize the window and it hides to the system tray while a pixel-art robot walks along the top of the taskbar, across all monitors. It reacts to the Pomodoro (brisk walk while working, shout and jump when a session ends, sleeps during breaks), can be clicked and dragged, and never takes focus. **Settings > Mascot...** sets sound, volume, speed, size, random actions and monitors.
 - **Widget mode.** **View > Widget mode** (or **Ctrl+W**) turns the window into a small always-on-top widget (280 px wide) with the time, the date, weather, Pomodoro and the current sentence, plus your Codex and Claude Code quota if you turn on **Settings > AI Usage...**. Drag it anywhere, right-click for options, set its opacity to 100%, 80% or 60%.
+- **Weather effects on the widget.** A faint animation behind the widget's text follows the weather it already shows (no extra network use): sun glints or twinkling stars for clear sky, slowly drifting clouds (denser when cloudier), haze for fog, falling streaks for drizzle and rain (more for heavier rain; icy-tinted for freezing rain), slow flakes for snow, and heavy rain with a rare, soft, brief flash for a thunderstorm. Nothing is drawn for an unknown or missing weather. See [Weather effects](#weather-effects) below.
 - **Analog clock** that shows the real time, and a single running instance of the app.
 
 Settings live in `%AppData%\PomoQuote` (JSON files; a missing or damaged file falls back to the defaults). The app was called HelloWorldBot before: on the first start its settings in `%AppData%\HelloWorldBot` are copied over once, without overwriting or deleting anything.
@@ -83,6 +84,18 @@ The widget (280 logical px wide, scaled for 100 to 200% display scaling) keeps i
 ### Provider logos
 
 Codex shows the official OpenAI Blossom, Antigravity (when it is added) the official Antigravity icon, both unmodified files whose empty margins are cut at load time and then scaled so the visible mark fills an about 20 px box at full brightness; Claude shows Anthropic's official **Claude Spark** from its public press kit, unmodified (only cropped of its empty margin and scaled): the owner accepted the trademark risk and **PomoQuote has no written permission from Anthropic**, so delete `Assets/Providers/claude-on-dark.png` and `claude-on-light.png` to go back to the neutral glyph (no code change; the neutral glyph `claude-neutral-on-*` is also the fallback if the file is missing or damaged). The marks belong to their owners and PomoQuote is not affiliated with or endorsed by any of them. Sources, hashes, terms and the decision are in [THIRD_PARTY_ASSETS.md](THIRD_PARTY_ASSETS.md).
+## Weather effects
+
+The effect is drawn behind the widget's text, icons, bars, quote bubble and AI usage area (they keep their own backgrounds) and never changes the widget's size or layout. Every Open-Meteo weather code the app understands maps to an effect in one table, `Weather/WeatherEffectMapping.cs` (code to kind and level, with day and night colours; clear sky is glints by day and stars by night).
+
+**Settings > Weather effects...** (also in the widget's right-click menu and the tray menu):
+
+- **On or off.** On by default: the effect is faint and it stops by itself whenever nobody can see it.
+- **Intensity.** **Low** (the default) draws about half the particles of **Normal**; **Normal** draws the full effect. Both update about 15 times a second.
+- **Reduce motion.** Shows one still picture instead of an animation. The effect is also a still picture whenever Windows has animations turned off (Settings > Accessibility > Visual effects > Animation effects).
+
+The effect has its own timer, which exists only while the effect is on, the widget is visible and nothing hides it: it makes no tick while the widget is minimised, hidden or in the tray, covered by other windows, the Windows session is locked or the computer sleeps. At most a few dozen particles are drawn from a fixed pool with cached drawing objects (nothing is allocated per frame), every colour is faint, by design, so the effect is subtle: a test composites the exact colours and opacities the renderer uses, with up to 4 streaks, flakes or cloud puffs lying on top of each other (and a thunderstorm's flash on top of them), over the widget's panel and requires a contrast of 4.5:1 for the secondary text and 7:1 for the primary text (a second test samples the real renderer for every code at 100% and 200%); glints and stars never overlap. A thunderstorm flashes once every 15 to 40 seconds, softly (a rise of half a second), and a change of weather, or of day to night, cross-fades over about a second. The choices are saved in `%AppData%\PomoQuote\weather-effects.json` (a missing or damaged file falls back to the defaults).
+
 ## Build, run and test
 
 Requires Windows and the [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0).
