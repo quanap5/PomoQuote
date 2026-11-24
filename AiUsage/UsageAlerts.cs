@@ -36,6 +36,8 @@ internal sealed class UsageAlertEngine
         {
             if (!window.IsResetReal || window.ResetsAt is not { } resetsAt) continue;
 
+            // A window is identified by its reset time truncated to the minute: a provider reports the same reset for the whole
+            // window, and a few seconds of jitter between reads must not look like a new window (assumes windows are at least minutes long).
             var windowId = (resetsAt.ToUnixTimeSeconds() / 60).ToString();
             var highest = 0;
             foreach (var threshold in thresholds.OrderBy(t => t))

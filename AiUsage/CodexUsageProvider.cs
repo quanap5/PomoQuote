@@ -31,6 +31,8 @@ internal sealed class CodexUsageProvider : IUsageProvider
 
     public string DisplayName => "Codex";
 
+    public UsageDataSource DataSource => UsageDataSource.CodexAppServer;
+
     public async Task<UsageSnapshot> ReadAsync(CancellationToken cancellationToken)
     {
         var unknown = new UsageSource(ProviderId, UsageEnvironment.Windows, "", "");

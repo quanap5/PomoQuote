@@ -13,6 +13,9 @@ internal interface IUsageProvider
     /// <summary>Name shown to the user ("Codex").</summary>
     string DisplayName { get; }
 
+    /// <summary>Where this provider's numbers come from (also used for the snapshots the collector makes when a read fails).</summary>
+    UsageDataSource DataSource { get; }
+
     /// <summary>Reads the quota once. Must honour <paramref name="cancellationToken"/> and clean up any process it started.</summary>
     Task<UsageSnapshot> ReadAsync(CancellationToken cancellationToken);
 }

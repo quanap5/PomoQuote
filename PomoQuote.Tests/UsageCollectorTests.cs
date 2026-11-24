@@ -17,6 +17,8 @@ internal sealed class FakeProvider : IUsageProvider
 
     public string DisplayName => Id.ToUpperInvariant();
 
+    public UsageDataSource DataSource => UsageDataSource.CodexAppServer;
+
     public int Reads { get; private set; }
 
     public Task<UsageSnapshot> ReadAsync(CancellationToken cancellationToken)

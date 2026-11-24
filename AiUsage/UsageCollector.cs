@@ -72,7 +72,9 @@ internal sealed class UsageCollector : IDisposable
             UsageSnapshot snapshot;
             try
             {
-                snapshot = await provider.ReadAsync(limit.Token).ConfigureAwait(false);
+                // Run the read on a pool thread: the first part of a provider's read (finding the program, starting a process)
+                // is synchronous, and this method is called from the UI thread's timers. Nothing of a read may block the UI.
+                snapshot = await Task.Run(() => provider.ReadAsync(limit.Token), CancellationToken.None).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested || _disposed.IsCancellationRequested)
             {
@@ -109,7 +111,7 @@ internal sealed class UsageCollector : IDisposable
         Task.WhenAll(providerIds.Select(id => RefreshAsync(id, cancellationToken)));
 
     private UsageSnapshot Failure(IUsageProvider provider, UsageState state, string text) =>
-        UsageSnapshot.Empty(new UsageSource(provider.Id, UsageEnvironment.Windows, "", ""), _clock.GetUtcNow(), UsageDataSource.CodexAppServer, state, text);
+        UsageSnapshot.Empty(new UsageSource(provider.Id, UsageEnvironment.Windows, "", ""), _clock.GetUtcNow(), provider.DataSource, state, text);
 
     private void SaveCache()
     {
