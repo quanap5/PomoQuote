@@ -55,26 +55,31 @@ internal static class UsageViewBuilder
     {
         var shown = status.Shown;
         var latest = status.Latest;
-        var rows = shown is null ? [] : Rows(shown, settings, now, zone, status.Latest?.EffectiveState(now, settings.Interval) == UsageState.Stale);
+        var effective = latest?.EffectiveState(now, settings.Interval);
+
+        // The numbers on screen are from an earlier good read while the latest read says something else (no plan limits, no reply, not
+        // set up, a failure): they are kept, but never silently: icon, amber note and badge say they are old.
+        var oldNumbers = shown is { Windows.Count: > 0 } && latest is not null && latest.State != UsageState.Ok;
+        var rows = shown is null ? [] : Rows(shown, settings, now, zone, effective == UsageState.Stale || oldNumbers);
         var plan = shown?.Source.PlanTier ?? "";
 
-        var effective = latest?.EffectiveState(now, settings.Interval);
         string note;
         string shortNote;
         bool problem;
         switch (effective)
         {
             case null or UsageState.Waiting:
-                (note, problem) = shown is null ? (latest is { ErrorText.Length: > 0 } ? latest.ErrorText : "Reading...", false) : ($"updated {Clock(shown.ObservedAt, zone)}", false);
-                shortNote = note;
+                (note, problem) = shown is null ? (latest is { ErrorText.Length: > 0 } ? latest.ErrorText : "Reading...", false)
+                    : oldNumbers ? ($"no reply; data from {Clock(shown.ObservedAt, zone)}", true) : ($"updated {Clock(shown.ObservedAt, zone)}", false);
+                shortNote = oldNumbers && shown is not null ? $"no reply · {Clock(shown.ObservedAt, zone)}" : note;
                 break;
             case UsageState.NotSetUp:
-                (note, problem) = (shown is null ? "not set up" : $"not set up; data from {Clock(shown.ObservedAt, zone)}", false);
+                (note, problem) = (shown is null ? "not set up" : $"not set up; data from {Clock(shown.ObservedAt, zone)}", oldNumbers);
                 shortNote = shown is null ? note : $"not set up · {Clock(shown.ObservedAt, zone)}";
                 break;
             case UsageState.NoPlanLimits:
-                (note, problem) = ("no plan limits", false);
-                shortNote = note;
+                (note, problem) = (shown is null ? "no plan limits" : $"no plan limits; data from {Clock(shown.ObservedAt, zone)}", oldNumbers);
+                shortNote = shown is null ? note : $"no plan limits · {Clock(shown.ObservedAt, zone)}";
                 break;
             case UsageState.Ok:
                 (note, problem) = ($"updated {Clock(latest!.ObservedAt, zone)}", false);
@@ -107,6 +112,7 @@ internal static class UsageViewBuilder
             UsageState.Ok or null or UsageState.Waiting or UsageState.NotSetUp or UsageState.NoPlanLimits => rows.Any(r => r.Level != UsageLevel.Normal) ? ProviderSeverity.NearLimit : ProviderSeverity.None,
             _ => ProviderSeverity.Error,
         };
+        if (oldNumbers && severity is ProviderSeverity.None or ProviderSeverity.NearLimit) severity = ProviderSeverity.Stale;
         var source = shown is null ? "" : shown.Source.Environment.ToString();
         var tip = new List<string> { status.DisplayName + (plan.Length > 0 ? $" ({plan})" : "") };
         if (source.Length > 0) tip.Add("Source: " + source);

@@ -396,7 +396,7 @@ public sealed class ExpandedKeyboardTests : IDisposable
             var items = Enumerable.Range(0, accessible.GetChildCount()).Select(i => accessible.GetChild(i)!).Where(c => c.Role == AccessibleRole.ListItem).ToList();
 
             Assert.Equal(3, items.Count);
-            Assert.Equal(["A, plus", "B, plus", "C, plus"], items.Select(i => i.Name).ToArray()); // name and plan
+            Assert.Equal(["A, plus", "B, plus", "C, plus"], items.Select(i => i.Name ?? "").ToArray()); // name and plan
             Assert.All(items, item => Assert.False(string.IsNullOrWhiteSpace(item.Description)));
             Assert.Contains(items, item => item.State.HasFlag(AccessibleStates.Focused));
             Assert.All(items, item => Assert.True(item.Bounds.Width > 0 && item.Bounds.Height > 0));

@@ -68,9 +68,16 @@ internal static class UsageGeometry
         views.Count == 0 ? 0 : views.Sum(CardHeight) + CardGap * (views.Count - 1);
 
     /// <summary>The height of the whole AI usage area: 0 without providers, fixed in Compact, the cards (capped) in Expanded.</summary>
-    public static int AreaHeight(IReadOnlyList<UsageProviderView> views, bool expanded) =>
-        views.Count == 0 ? 0 : expanded ? Math.Min(MaxExpandedHeight, ExpandedContentHeight(views)) : CompactHeight;
+    public static int AreaHeight(IReadOnlyList<UsageProviderView> views, bool expanded, int maxExpanded = MaxExpandedHeight) =>
+        views.Count == 0 ? 0 : expanded ? Math.Min(maxExpanded, ExpandedContentHeight(views)) : CompactHeight;
 
     /// <summary>How far the Expanded area can scroll (0 when everything fits).</summary>
-    public static int MaxScroll(IReadOnlyList<UsageProviderView> views) => Math.Max(0, ExpandedContentHeight(views) - MaxExpandedHeight);
+    public static int MaxScroll(IReadOnlyList<UsageProviderView> views, int maxExpanded = MaxExpandedHeight) => Math.Max(0, ExpandedContentHeight(views) - maxExpanded);
+
+    /// <summary>
+    /// The tallest the Expanded area may be so that the widget grows downward without leaving the screen: the room below the
+    /// top of the usage area, between the Compact height and the usual cap. The top edge, the clock and the timer therefore stay
+    /// where they are; when the screen is short the area just scrolls sooner.
+    /// </summary>
+    public static int ExpandedLimit(int roomBelowLogical) => Math.Clamp(roomBelowLogical, CompactHeight, MaxExpandedHeight);
 }

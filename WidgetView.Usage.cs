@@ -35,6 +35,7 @@ internal sealed partial class WidgetView
     private bool _expanded;
     private string? _selected;
     private int _scroll;
+    private int _maxArea = UsageGeometry.MaxExpandedHeight;
     private string? _tipKey;
     private int _focusedCard = -1;
     private bool _listFocused;
@@ -76,12 +77,13 @@ internal sealed partial class WidgetView
     /// Gives the usage area its content and layout; returns true when the widget height changed (the window is then resized).
     /// <paramref name="selectedProvider"/> is the provider Compact shows (a missing one falls back to the first).
     /// </summary>
-    public bool SetUsage(Func<IReadOnlyList<UsageProviderView>> views, bool expanded, string? selectedProvider)
+    public bool SetUsage(Func<IReadOnlyList<UsageProviderView>> views, bool expanded, string? selectedProvider, int maxExpandedHeight = UsageGeometry.MaxExpandedHeight)
     {
+        _maxArea = Math.Clamp(maxExpandedHeight, UsageGeometry.CompactHeight, UsageGeometry.MaxExpandedHeight);
         _views = views();
         _expanded = expanded;
         _selected = ProviderCarousel.Resolve(_views.Select(v => v.Id).ToList(), selectedProvider);
-        _scroll = Math.Clamp(_scroll, 0, UsageGeometry.MaxScroll(_views));
+        _scroll = Math.Clamp(_scroll, 0, UsageGeometry.MaxScroll(_views, _maxArea));
         var before = LogicalHeight;
         Relayout();
         Invalidate();
@@ -136,7 +138,7 @@ internal sealed partial class WidgetView
 
     private void ScrollBy(int logicalDelta)
     {
-        var max = UsageGeometry.MaxScroll(_views);
+        var max = UsageGeometry.MaxScroll(_views, _maxArea);
         var next = Math.Clamp(_scroll + logicalDelta, 0, max);
         if (next == _scroll) return;
         _scroll = next;
@@ -181,11 +183,11 @@ internal sealed partial class WidgetView
     {
         var top = _views.Take(index).Sum(v => UsageGeometry.CardHeight(v) + UsageGeometry.CardGap);
         var bottom = top + UsageGeometry.CardHeight(_views[index]);
-        var visible = UsageGeometry.AreaHeight(_views, true);
+        var visible = UsageGeometry.AreaHeight(_views, true, _maxArea);
         var wanted = _scroll;
         if (top < wanted) wanted = top;
         else if (bottom > wanted + visible) wanted = bottom - visible;
-        _scroll = Math.Clamp(wanted, 0, UsageGeometry.MaxScroll(_views));
+        _scroll = Math.Clamp(wanted, 0, UsageGeometry.MaxScroll(_views, _maxArea));
     }
 
     protected override void OnGotFocus(EventArgs e)
@@ -262,7 +264,7 @@ internal sealed partial class WidgetView
         // Only the usage area scrolls, and only in Expanded; the clock and the timer stay where they are. Compact is changed by the logo only.
         if (!_expanded || _views.Count == 0) return;
         var u = Unit;
-        var area = new RectangleF(0, _usageTop * u, ClientSize.Width, UsageGeometry.AreaHeight(_views, true) * u);
+        var area = new RectangleF(0, _usageTop * u, ClientSize.Width, UsageGeometry.AreaHeight(_views, true, _maxArea) * u);
         if (area.Contains(e.Location)) ScrollBy(e.Delta > 0 ? -UsageGeometry.RowHeight : UsageGeometry.RowHeight);
     }
 
@@ -311,7 +313,7 @@ internal sealed partial class WidgetView
         else if (show) _focusedCard = Math.Min(_focusedCard, _views.Count - 1);
         _selector.Visible = show && !_expanded;
 
-        var areaHeight = UsageGeometry.AreaHeight(_views, _expanded);
+        var areaHeight = UsageGeometry.AreaHeight(_views, _expanded, _maxArea);
         _selector.Bounds = new Rectangle((int)Math.Round(UsageGeometry.Margin * u), (int)Math.Round(_usageTop * u), (int)Math.Round(UsageGeometry.LogoColumn * u), (int)Math.Round(UsageGeometry.CompactHeight * u));
         var toggleSize = (int)Math.Round(16 * u);
         var toggleY = _expanded ? _usageTop + 2 : _usageTop + (UsageGeometry.CompactHeight - 16) / 2;
@@ -357,7 +359,7 @@ internal sealed partial class WidgetView
     {
         if (_views.Count == 0) return;
 
-        var area = new RectangleF(UsageGeometry.Margin * u, _usageTop * u, (UsageGeometry.WidgetWidth - 2 * UsageGeometry.Margin) * u, UsageGeometry.AreaHeight(_views, _expanded) * u);
+        var area = new RectangleF(UsageGeometry.Margin * u, _usageTop * u, (UsageGeometry.WidgetWidth - 2 * UsageGeometry.Margin) * u, UsageGeometry.AreaHeight(_views, _expanded, _maxArea) * u);
         if (_expanded) DrawExpanded(graphics, u, area);
         else if (Selected is { } view) DrawCompact(graphics, u, area, view);
     }
@@ -501,11 +503,11 @@ internal sealed partial class WidgetView
 
     private void DrawScrollbar(Graphics graphics, float u, RectangleF area)
     {
-        var max = UsageGeometry.MaxScroll(_views);
+        var max = UsageGeometry.MaxScroll(_views, _maxArea);
         if (max <= 0) return;
         var content = UsageGeometry.ExpandedContentHeight(_views);
         var track = new RectangleF(area.Right - 4 * u, area.Y + 22 * u, 3 * u, area.Height - 24 * u);
-        var thumbHeight = Math.Max(14 * u, track.Height * UsageGeometry.MaxExpandedHeight / content);
+        var thumbHeight = Math.Max(14 * u, track.Height * _maxArea / content);
         var thumbTop = track.Y + (track.Height - thumbHeight) * _scroll / max;
         PillBar.Draw(graphics, track, 0, TrackColor, TrackColor);
         using var thumb = PillBar.Pill(new RectangleF(track.X, thumbTop, track.Width, thumbHeight));

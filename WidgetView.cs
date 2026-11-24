@@ -196,13 +196,16 @@ internal sealed partial class WidgetView : Control
 
     private int _usageTop;
 
+    /// <summary>Where the usage area starts, in logical px (the room below it decides how tall Expanded may be).</summary>
+    public int UsageTop => _usageTop;
+
     private void Relayout()
     {
         _quotePlan = PlanQuote();
         var y = QuoteTop;
         if (_quotePlan is { } plan) y += (int)plan.CardHeight + QuoteTail + 6;
         _usageTop = y;
-        var area = UsageGeometry.AreaHeight(_views, _expanded);
+        var area = UsageGeometry.AreaHeight(_views, _expanded, _maxArea);
         LogicalHeight = Math.Max(150, y + area + (area > 0 ? 12 : 8));
         PositionUsageControls();
         UpdateAccessibleSummary();
@@ -271,9 +274,10 @@ internal sealed partial class WidgetView : Control
 
     private static Color PhaseColor(PomodoroPhase phase) => phase switch
     {
-        PomodoroPhase.Work => Color.FromArgb(240, 98, 82),
-        PomodoroPhase.ShortBreak => Color.FromArgb(70, 190, 120),
-        _ => Color.FromArgb(86, 150, 240),
+        // Timer colours are never red, orange or yellow: those are for quota warnings only.
+        PomodoroPhase.Work => Color.FromArgb(138, 130, 244),
+        PomodoroPhase.ShortBreak => Color.FromArgb(150, 204, 112),
+        _ => Color.FromArgb(104, 168, 240),
     };
 
     protected override void Dispose(bool disposing)

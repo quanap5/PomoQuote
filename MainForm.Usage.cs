@@ -91,8 +91,22 @@ internal sealed partial class MainForm
     private void ApplyUsageLayout()
     {
         if (_widgetView is null) return;
-        _widgetView.SetUsage(() => _usage.Views(), _usage.Settings.Expanded, _usage.Settings.SelectedProvider);
+        _widgetView.SetUsage(() => _usage.Views(), _usage.Settings.Expanded, _usage.Settings.SelectedProvider, RoomForUsageArea());
         FitWidgetHeight();
+    }
+
+    /// <summary>
+    /// How tall the Expanded area may be so that the widget grows downward from where its top edge is now: the clock and the timer
+    /// keep their place on screen, and when the screen is short only the usage area scrolls sooner (in logical px).
+    /// </summary>
+    private int RoomForUsageArea()
+    {
+        if (!_widgetMode) return Widget.UsageGeometry.MaxExpandedHeight;
+        var area = Widget.WidgetPlacement.AreaFor(Bounds, WorkAreaProvider());
+        var top = RectangleToScreen(ClientRectangle).Top;
+        var unit = Math.Max(0.5f, ClientSize.Width / (float)Widget.UsageGeometry.WidgetWidth);
+        var roomLogical = (int)((area.Bottom - top) / unit) - _widgetView.UsageTop - 12;
+        return Widget.UsageGeometry.ExpandedLimit(roomLogical);
     }
 
     /// <summary>In widget mode: the window takes the height the widget needs now (the quote card and the usage area grow and shrink) and stays on screen.</summary>

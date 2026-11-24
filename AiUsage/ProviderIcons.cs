@@ -57,7 +57,7 @@ internal sealed class ProviderIcons : IDisposable
             if (stream is not null)
             {
                 using var decoded = new Bitmap(stream);
-                if (decoded.Width >= 4 && decoded.Height >= 4) bitmap = new Bitmap(decoded); // detach from the stream
+                if (decoded.Width >= 4 && decoded.Height >= 4) bitmap = CropToVisible(decoded); // detach from the stream and drop the transparent padding
             }
         }
         catch (Exception ex) when (ex is ArgumentException or ExternalException or IOException or OutOfMemoryException or InvalidOperationException)
@@ -67,6 +67,41 @@ internal sealed class ProviderIcons : IDisposable
 
         _originals[key] = bitmap;
         return bitmap;
+    }
+
+    /// <summary>
+    /// A copy of <paramref name="source"/> cut to the visible part (the pixels that are not almost transparent). The official files
+    /// keep wide empty margins, which made the mark small in its box; the files themselves are never changed, only this copy in memory.
+    /// </summary>
+    internal static Bitmap CropToVisible(Bitmap source)
+    {
+        var area = new Rectangle(0, 0, source.Width, source.Height);
+        var data = source.LockBits(area, System.Drawing.Imaging.ImageLockMode.ReadOnly, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+        int left = source.Width, top = source.Height, right = -1, bottom = -1;
+        try
+        {
+            var row = new byte[data.Stride];
+            for (var y = 0; y < source.Height; y++)
+            {
+                Marshal.Copy(data.Scan0 + y * data.Stride, row, 0, data.Stride);
+                for (var x = 0; x < source.Width; x++)
+                {
+                    if (row[x * 4 + 3] < 16) continue; // alpha
+                    if (x < left) left = x;
+                    if (x > right) right = x;
+                    if (y < top) top = y;
+                    if (y > bottom) bottom = y;
+                }
+            }
+        }
+        finally
+        {
+            source.UnlockBits(data);
+        }
+
+        if (right < left || bottom < top) return new Bitmap(source); // nothing visible: keep as it is
+        var visible = Rectangle.FromLTRB(left, top, right + 1, bottom + 1);
+        return source.Clone(visible, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
     }
 
     private static Bitmap Scale(Bitmap source, int pixels)
