@@ -223,6 +223,13 @@ public sealed class WidgetIconsAndDateTests
         Assert.Contains("Claude Spark - Clay.png", credits);
         Assert.Contains("no written permission", credits, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("marketing@anthropic.com", credits);
+        // The three guideline quotes are word for word (anthropic.com/legal/trademark-guidelines, checked 2026-11-24).
+        Assert.Contains("You may only use our trademarks as specifically permitted by us and only in materials we approve beforehand.", credits);
+        Assert.Contains("No alterations of our trademarks (changes to color, font, proportion, or otherwise) are permitted.", credits);
+        Assert.Contains("You may not use our trademarks in a manner that implies Anthropic\u2019s sponsorship or endorsement, or a relationship or affiliation with Anthropic, except as we expressly authorize.", credits);
+        Assert.Contains("If you have an existing business relationship with Anthropic", credits); // the contact is published for that case only
+        Assert.DoesNotContain("only as specifically permitted by us", credits.Replace("You may only use our trademarks as specifically permitted by us", "")); // no paraphrased version left
+
         Assert.Contains("accepts", credits, StringComparison.OrdinalIgnoreCase); // the owner's acceptance of the risk
         Assert.Contains("claude-neutral-on-dark.png", credits);
         Assert.Contains("not affiliated", readme, StringComparison.OrdinalIgnoreCase);
