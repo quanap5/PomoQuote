@@ -16,6 +16,13 @@ internal sealed class FakeSession : IJsonLineSession
         _hangWhenEmpty = hangWhenEmpty;
     }
 
+    /// <summary>Lines the fake process has already printed before anything is sent (for programs that take their request from the command line).</summary>
+    public FakeSession WithQueued(params string[] lines)
+    {
+        foreach (var line in lines) _pending.Enqueue(line);
+        return this;
+    }
+
     public List<string> Sent { get; } = [];
 
     public bool Disposed { get; private set; }

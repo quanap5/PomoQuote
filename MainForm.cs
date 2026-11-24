@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using PomoQuote.AiUsage;
+using PomoQuote.AiUsage.Claude;
 using PomoQuote.Mascot;
 using PomoQuote.Pomodoro;
 using PomoQuote.Quotes;
@@ -52,7 +53,7 @@ internal sealed partial class MainForm : Form
     public MainForm(
         WeatherService weatherService, SettingsStore settingsStore, PomodoroStore pomodoroStore, TimeProvider clock,
         WidgetStore widgetStore, MascotStore mascotStore, QuoteSettingsStore? quoteStore = null, IQuoteProvider? quoteProvider = null, Random? random = null,
-        UsageSettingsStore? usageSettings = null, UsageCacheStore? usageCache = null, UsageAlertStore? usageAlerts = null, IReadOnlyList<IUsageProvider>? usageProviders = null)
+        UsageSettingsStore? usageSettings = null, UsageCacheStore? usageCache = null, UsageAlertStore? usageAlerts = null, IReadOnlyList<IUsageProvider>? usageProviders = null, ClaudeSetup? claudeSetup = null)
     {
         _mascotStore = mascotStore;
         _mascotSettings = mascotStore.Load();
@@ -108,7 +109,7 @@ internal sealed partial class MainForm : Form
         viewMenu.DropDownItems.Add(wallpaperMenu);
         BuildQuotes(viewMenu, quoteStore ?? new QuoteSettingsStore(QuoteSettingsStore.DefaultPath), quoteProvider ?? new BundledQuoteProvider(), random ?? Random.Shared);
         BuildWidget(viewMenu);
-        BuildUsage(usageSettings, usageCache, usageAlerts, usageProviders);
+        BuildUsage(usageSettings, usageCache, usageAlerts, usageProviders, claudeSetup);
         BuildMascot(clock);
         _menu = new MenuStrip { Dock = DockStyle.Top };
         _menu.Items.Add(viewMenu);

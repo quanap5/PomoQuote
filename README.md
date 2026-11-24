@@ -22,7 +22,7 @@
 
 Settings live in `%AppData%\PomoQuote` (JSON files; a missing or damaged file falls back to the defaults). The app was called HelloWorldBot before: on the first start its settings in `%AppData%\HelloWorldBot` are copied over once, without overwriting or deleting anything.
 
-## AI usage on the widget (Codex)
+## AI usage on the widget (Codex and Claude Code)
 
 **Settings > AI Usage...** shows how much of your **Codex** quota is used, right on the widget: for the five-hour and the weekly window the percent used, a bar, the time left until the reset, your plan, and when the numbers were read (marked *stale* when they are older than twice the refresh interval). It is **off until you turn it on** there.
 
@@ -30,7 +30,21 @@ Settings live in `%AppData%\PomoQuote` (JSON files; a missing or damaged file fa
 - **Settings:** enable Codex, see whether Codex is found and logged in (read-only `codex --version` and `codex login status`), **Test connection**, display order, display mode (bars, or percent only), how often to read, and warning levels (default 80% and 95%). Warnings are a balloon notification, once per window and level (not repeated after a restart; they come back for the next window or after usage drops below the level, and never for a window whose reset time is unknown).
 - **What it shows when something is wrong:** *not installed*, *not logged in*, *unsupported version* (an answer in a shape this version does not understand), or *read failed*, with the last good numbers kept and marked. One provider failing never affects another or the rest of the app. After the PC wakes from sleep or the network comes back, it reads again at once.
 - **Files:** `%AppData%\PomoQuote\usage.json` (your choices), `usage-cache.json` (the last good numbers: percent, reset time, plan, hashed account key, no ids or tokens) and `usage-alerts.json` (which warnings were shown).
-- **Not yet:** Windows only, **WSL is not supported yet**; Claude Code and Antigravity come in later releases (the code is already built for several providers).
+- **Not yet:** Windows only, **WSL is not supported yet**; Antigravity comes in a later release (the code is already built for several providers).
+
+### Claude Code (status line bridge)
+
+Claude Code only shows its 5-hour and weekly limits to a **status line command**, so PomoQuote can read them through a small bridge. **It never changes your Claude settings on its own**: in **Settings > AI Usage... > Claude** you click **Set up status line bridge**, a dialog shows the exact change (file, the command now, the command after, where the backup goes) and nothing is written until you click **Set up bridge** (Enter and Esc both mean Cancel).
+
+- **What it changes:** only `statusLine` in your user-level `~/.claude/settings.json`. With no status line yet, one is added; with your own status line command, only its `command` text is replaced by `PomoQuote.exe --bridge claude` plus your original command, which keeps running exactly as before (same input; its output and exit code are passed through; it never breaks Claude Code if PomoQuote is missing or fails). Everything else in the file (other keys, order, formatting, line endings) is left as it was.
+- **Backup and undo:** before any change the whole file is copied to `%LocalAppData%\PomoQuote\bridge-backups\` (never overwritten; if the file changed while PomoQuote was preparing, nothing is written). **Remove bridge** puts your original command back (or removes the key we added), keeps edits you made later, does nothing if the line is not ours, and works even if PomoQuote.exe was moved. **Check** tells you if the bridge was moved or deleted, and **Check a project folder** looks for a project-level `statusLine` that overrides the user-level one.
+- **What it saves:** per Claude Code session one small file in `%LocalAppData%\PomoQuote\usage\` with only the percent used and reset time of each window, the Claude Code version and a hashed session key. No email, session id, folder, transcript, tokens or costs. Files older than 7 days are deleted; the newest one wins. The bridge adds well under 100 ms (about 60-120 ms measured, mostly .NET startup) and runs only when Claude Code redraws its status line.
+- **What the widget shows:** *waiting for the first Claude Code answer* (the numbers appear only after the first reply of a session), *stale*, *not set up*, *no plan limits* (API-key logins have none) or *unsupported*, next to the Codex strip, with the same warning levels.
+- **Refresh Claude now** (Settings and the widget menu): one small `claude -p` request (smallest model, one word, `--setting-sources project`, 30 s limit, killed on timeout and when the app exits) reads your current limits, e.g. right after a restart before the first session. It uses a very small amount of quota, so it asks once, runs only on a click, one at a time and at most once a minute. Nothing of the prompt or the answer is kept, and PomoQuote still never reads or stores a token or password.
+- **Not yet:** Windows only (WSL is not supported), and a project-level `statusLine` is only detected for folders you check.
+![The widget with Codex and Claude at 100, 125, 150 and 200 percent](Assets/AiUsage/preview-claude-widget-scales-100-125-150-200.png)
+
+![Claude states: updated by a manual refresh, high usage, stale, waiting for the first reply, not set up, no plan limits](Assets/AiUsage/preview-claude-states.png)
 
 ![The widget with the Codex strip at 100, 125, 150 and 200 percent](Assets/AiUsage/preview-widget-scales-100-125-150-200.png)
 

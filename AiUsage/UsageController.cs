@@ -99,6 +99,9 @@ internal sealed class UsageController : IDisposable
         Changed?.Invoke(this, EventArgs.Empty);
     }
 
+    /// <summary>Reads one provider now (for example after a bridge was installed or a manual refresh saved new numbers).</summary>
+    public void RefreshProvider(string providerId) => _ = _collector.RefreshAsync(providerId);
+
     /// <summary>Reads every enabled provider now (also used by "Test connection").</summary>
     public void RefreshAll()
     {
@@ -124,7 +127,7 @@ internal sealed class UsageController : IDisposable
         foreach (var provider in _collector.Providers.Where(p => Settings.IsEnabled(p.Id)))
         {
             var id = provider.Id;
-            var timer = new System.Windows.Forms.Timer { Interval = (int)Settings.Interval.TotalMilliseconds };
+            var timer = new System.Windows.Forms.Timer { Interval = (int)(provider.PollInterval ?? Settings.Interval).TotalMilliseconds };
             timer.Tick += (_, _) => _ = _collector.RefreshAsync(id);
             timer.Start();
             _timers[id] = timer;

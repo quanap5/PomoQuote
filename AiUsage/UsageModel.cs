@@ -29,6 +29,12 @@ public enum UsageState
     NotInstalled,
     NotLoggedIn,
 
+    /// <summary>The provider needs a one-time setup (for Claude: the status line bridge) that has not been done.</summary>
+    NotSetUp,
+
+    /// <summary>The account has no plan limits to show (an API-key login has no 5-hour or weekly window).</summary>
+    NoPlanLimits,
+
     /// <summary>The CLI answered, but not in a shape PomoQuote understands (an older or newer version).</summary>
     Unsupported,
 
@@ -40,6 +46,8 @@ public enum UsageState
 public enum UsageDataSource
 {
     CodexAppServer,
+    ClaudeStatusLine,
+    ManualRefresh,
 }
 
 /// <summary>Who the numbers belong to. The account is only ever a short hash, never the id, email or name.</summary>

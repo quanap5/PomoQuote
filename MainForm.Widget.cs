@@ -19,6 +19,7 @@ internal sealed partial class MainForm
     private ToolStripMenuItem _widgetModeItem = null!;
     private ToolStripMenuItem _widgetCityItem = null!;
     private ToolStripMenuItem _widgetPomodoroToggleItem = null!;
+    private ToolStripMenuItem _widgetRefreshClaudeItem = null!;
     private readonly Dictionary<int, List<ToolStripMenuItem>> _opacityItems = [];
     private bool _widgetMode;
     private Rectangle _normalBounds;
@@ -56,11 +57,14 @@ internal sealed partial class MainForm
         _widgetMenu = new ContextMenuStrip();
         _widgetMenu.Items.Add(new ToolStripMenuItem("Exit &widget mode", null, (_, _) => SetWidgetMode(false)));
         _widgetMenu.Items.Add(_widgetPomodoroToggleItem);
+        _widgetRefreshClaudeItem = new ToolStripMenuItem("Refresh &Claude now", null, (_, _) => RefreshClaudeNow());
+        _widgetMenu.Items.Add(_widgetRefreshClaudeItem);
         _widgetMenu.Items.Add(new ToolStripMenuItem("&Next sentence", null, (_, _) => ShowNextQuote()) { ShortcutKeyDisplayString = "Ctrl+N" });
         _widgetMenu.Items.Add(BuildOpacityMenu("&Opacity"));
         _widgetMenu.Items.Add(settings);
         _widgetMenu.Items.Add(new ToolStripSeparator());
         _widgetMenu.Items.Add(new ToolStripMenuItem("E&xit app", null, (_, _) => Close()));
+        _widgetMenu.Opening += (_, _) => _widgetRefreshClaudeItem.Enabled = _usage.Settings.IsEnabled("claude");
         _widgetMenu.Opening += (_, _) => _widgetPomodoroToggleItem.Text = _pomodoro.Timer.State switch
         {
             PomodoroRunState.Running => "Pause Pomodoro",

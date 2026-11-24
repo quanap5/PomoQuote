@@ -34,7 +34,7 @@ internal sealed class ProcessJsonLineSession : IJsonLineSession
 
     private ProcessJsonLineSession(Process process) => _process = process;
 
-    public static ProcessJsonLineSession Start(string fileName, IEnumerable<string> arguments)
+    public static ProcessJsonLineSession Start(string fileName, IEnumerable<string> arguments, string? workingDirectory = null, bool closeInput = false)
     {
         var info = new ProcessStartInfo(fileName)
         {
@@ -46,6 +46,7 @@ internal sealed class ProcessJsonLineSession : IJsonLineSession
             StandardOutputEncoding = new UTF8Encoding(false),
             StandardErrorEncoding = new UTF8Encoding(false),
         };
+        if (workingDirectory is not null) info.WorkingDirectory = workingDirectory;
         foreach (var argument in arguments) info.ArgumentList.Add(argument);
 
         var process = Process.Start(info) ?? throw new Win32Exception("The process did not start.");
@@ -54,6 +55,7 @@ internal sealed class ProcessJsonLineSession : IJsonLineSession
         // stderr is never shown or kept; draining it stops the child from blocking on a full pipe.
         process.ErrorDataReceived += (_, _) => { };
         process.BeginErrorReadLine();
+        if (closeInput) process.StandardInput.Close(); // for programs that take their request from the command line and must not wait for input
         return new ProcessJsonLineSession(process);
     }
 
