@@ -56,5 +56,5 @@ Proposed version for this release: **1.1.0** (the rename is a visible change, an
 - "Hello World" stays on one centered line at any window size (PR #1).
 - The full clock rim stays inside its area at any window size (PR #4).
 
-[Unreleased]: https://github.com/quanap5/HelloWorldBot/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/quanap5/HelloWorldBot/releases/tag/v1.0.0
+[Unreleased]: https://github.com/quanap5/PomoQuote/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/quanap5/PomoQuote/releases/tag/v1.0.0
