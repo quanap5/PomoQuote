@@ -32,7 +32,7 @@ internal sealed class WeatherService
         var latitude = city.Latitude.ToString("0.#####", CultureInfo.InvariantCulture);
         var longitude = city.Longitude.ToString("0.#####", CultureInfo.InvariantCulture);
         var url = $"{ForecastUrl}?latitude={latitude}&longitude={longitude}" +
-                  "&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&timezone=auto";
+                  "&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,is_day,wind_direction_10m&timezone=auto";
         return OpenMeteoParser.ParseForecast(await GetStringAsync(url, cancellationToken));
     }
 

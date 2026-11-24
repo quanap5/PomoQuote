@@ -16,7 +16,9 @@ internal sealed record WeatherReport(
     double TemperatureCelsius,
     int HumidityPercent,
     double WindSpeedKmh,
-    int WeatherCode);
+    int WeatherCode,
+    bool IsDay = true,
+    double? WindDirectionDegrees = null);
 
 /// <summary>Any failure to look up a city or its weather: network, timeout, HTTP status or unexpected data.</summary>
 internal sealed class WeatherException : Exception
