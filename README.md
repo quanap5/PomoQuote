@@ -70,9 +70,19 @@ The widget (280 logical px wide, scaled for 100 to 200% display scaling) keeps i
 
 ![Expanded with an error, 0% and 100%, stale data; a long sentence in the bubble](Assets/AiUsage/preview-expanded-states-and-long-quote.png)
 
+### The clock, the date and the Pomodoro icon
+
+- **Date after the clock, on two lines:** the solar date in Vietnamese (`Thứ Ba, 24/11/2026`) and the Vietnamese lunar date (`Âm lịch: 16/10 Bính Ngọ`, a leap month is marked `nhuận`, the year is named by its heavenly stem and earthly branch). The solar date is your PC's local date. The lunar date is computed in the program (no network, no data table) with the astronomical algorithm of **Hồ Ngọc Đức** (new moons and the sun's longitude after Jean Meeus) at **UTC+7**, which is what makes it the Vietnamese calendar rather than the Chinese one. It is worked out once a day: when the local date changes (midnight, or a wake-up from sleep on another day) and not at every clock tick. The text is 12 px (never below 11.5 px where the room allows) and shrinks step by step down to 10 px only when a long line needs it (a leap month); it never overlaps the clock.
+- **Pomodoro state icon** next to the timer, in the same column, size (14 px) and gap as the weather icons: a stopwatch outline for **Idle** (not started), a filled stopwatch for **Work**, a cup for **Rest** (short and long break; the phase colour tells them apart), and a small pause mark over the phase icon while the timer is **paused**. The accessible name says it ("Pomodoro work, paused"), and the timer bar tooltip is unchanged.
+
+![The Pomodoro icon in its states: idle, work, work paused, rest, rest paused](Assets/AiUsage/preview-pomodoro-states.png)
+
+![Work paused at 100, 125, 150 and 200 percent](Assets/AiUsage/preview-pomodoro-paused-scales-100-125-150-200.png)
+
+![Rest at 100, 125, 150 and 200 percent](Assets/AiUsage/preview-pomodoro-rest-scales-100-125-150-200.png)
 ### Provider logos
 
-Codex shows the official OpenAI Blossom, Antigravity (when it is added) the official Antigravity icon, both unmodified files whose empty margins are cut at load time and then scaled so the visible mark fills an about 20 px box at full brightness; Claude Code shows a neutral terminal icon for now, because Anthropic's trademark guidelines allow its marks only as Anthropic permits (Anthropic's approval is needed; see THIRD_PARTY_ASSETS.md). Sources, terms and the trademark notice are in [THIRD_PARTY_ASSETS.md](THIRD_PARTY_ASSETS.md). The marks belong to their owners, and PomoQuote is not affiliated with any of them; the same notice is in **Help > About**.
+Codex shows the official OpenAI Blossom, Antigravity (when it is added) the official Antigravity icon, both unmodified files whose empty margins are cut at load time and then scaled so the visible mark fills an about 20 px box at full brightness; Claude Code shows an icon from the [lobe-icons](https://github.com/lobehub/lobe-icons) library (LobeHub, MIT): a community drawing of the Claude Code terminal mascot, **not an official Anthropic asset**. Anthropic's trademark guidelines require prior approval for its marks, so the owner decides whether to keep it, ask Anthropic, or go back to the neutral glyph: delete `Assets/Providers/claude-on-dark.png` and `claude-on-light.png` (no code change) and the widget uses the neutral glyph (the neutral glyph `claude-neutral-on-*` is also the fallback if the file is missing or damaged). Sources, versions, terms and the trademark notice are in [THIRD_PARTY_ASSETS.md](THIRD_PARTY_ASSETS.md).
 ## Build, run and test
 
 Requires Windows and the [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0).

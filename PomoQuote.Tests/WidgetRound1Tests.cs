@@ -201,7 +201,7 @@ public sealed class WidgetRound1Tests
     public void Every_pen_brush_font_string_format_and_path_the_widget_code_creates_is_in_a_using()
     {
         var root = RepositoryRoot();
-        var files = new[] { "WidgetView.cs", "WidgetView.Usage.cs", "UsageLogoSelector.cs", "UsageExpandToggle.cs", "WidgetGlyphs.cs", Path.Combine("Widget", "PillBar.cs") };
+        var files = new[] { "WidgetView.cs", "WidgetView.Usage.cs", "UsageLogoSelector.cs", "UsageExpandToggle.cs", "WidgetGlyphs.cs", Path.Combine("Widget", "PillBar.cs"), Path.Combine("Widget", "PomodoroIcon.cs") };
         var creation = new Regex(@"new (Pen|SolidBrush|Font|StringFormat|GraphicsPath|ImageAttributes|LinearGradientBrush)\(|PillBar\.(Pill|Rounded)\(|= Pill\(");
         var offenders = new List<string>();
 
