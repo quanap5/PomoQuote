@@ -325,11 +325,11 @@ public sealed class WeatherEffectTests : IDisposable
             previous = level;
         }
 
-        Assert.InRange(flashes.Count, 20, 90); // about one every 7 to 19 seconds
-        for (var i = 1; i < flashes.Count; i++) Assert.True(flashes[i] - flashes[i - 1] >= 6.9f, "at most one flash every 7 seconds (far under the 3 flashes a second limit)");
+        Assert.InRange(flashes.Count, 10, 40); // one every 15 to 40 seconds
+        for (var i = 1; i < flashes.Count; i++) Assert.True(flashes[i] - flashes[i - 1] >= 14.9f, "at most one flash every 15 seconds (far under the 3 flashes a second limit)");
         Assert.True(maxStep <= 0.35f, $"the flash changes by at most {maxStep:0.00} between frames");
         Assert.InRange(peak, 0.9f, 1.0001f);
-        Assert.True(WeatherEffectField.FlashAlpha <= 24, "the flash is a faint wash, not a white-out");
+        Assert.True(WeatherEffectField.FlashAlpha <= 12, "the flash is a faint wash, not a white-out");
     }
 
     [Fact]
@@ -446,7 +446,7 @@ public sealed class WeatherEffectTests : IDisposable
     internal static double Contrast(double a, double b) => (Math.Max(a, b) + 0.05) / (Math.Min(a, b) + 0.05);
 
     /// <summary>The brightest pixel (by luminance) the effect ever puts over the widget's panel colour, over many frames of every effect.</summary>
-    internal static (double Luminance, Color Pixel, string Where) WorstPixel(float unit = 1f)
+    internal static (double Luminance, Color Pixel, string Where) WorstPixel(float unit = 1f, int frames = 40)
     {
         var worst = (Luminance: 0.0, Pixel: Color.Black, Where: "");
         using var bitmap = new Bitmap((int)(280 * unit), (int)(360 * unit), PixelFormat.Format32bppArgb);
@@ -459,7 +459,7 @@ public sealed class WeatherEffectTests : IDisposable
             foreach (var intensity in Enum.GetValues<WeatherEffectIntensity>())
             {
                 field.Set(effect, intensity, instant: true);
-                for (var frame = 0; frame < 40; frame++)
+                for (var frame = 0; frame < frames; frame++)
                 {
                     field.Advance(3.1f); // 124 seconds per effect, so a thunderstorm flash lands in some frames
                     graphics.Clear(Color.FromArgb(28, 32, 40));
@@ -479,20 +479,94 @@ public sealed class WeatherEffectTests : IDisposable
         return worst;
     }
 
+    private static (double Luminance, Color Colour) Composite((int R, int G, int B) rgb, int alpha, int stack, bool withFlash)
+    {
+        // Source-over compositing of `stack` layers of one colour and opacity on the panel, then the thunderstorm flash on top.
+        double r = 28, g = 32, b = 40;
+        for (var i = 0; i < stack; i++)
+        {
+            var k = alpha / 255.0;
+            (r, g, b) = (r * (1 - k) + rgb.R * k, g * (1 - k) + rgb.G * k, b * (1 - k) + rgb.B * k);
+        }
+
+        if (withFlash)
+        {
+            var k = WeatherEffectField.FlashAlpha / 255.0;
+            var flash = WeatherEffectField.FlashColor;
+            (r, g, b) = (r * (1 - k) + flash.R * k, g * (1 - k) + flash.G * k, b * (1 - k) + flash.B * k);
+        }
+
+        var colour = Color.FromArgb((int)Math.Round(r), (int)Math.Round(g), (int)Math.Round(b));
+        return (Luminance(colour.R, colour.G, colour.B), colour);
+    }
+
+    [Fact]
+    public void Up_to_four_overlapping_particles_and_the_flash_keep_the_text_readable_analytically()
+    {
+        // Not sampled: the very colours and opacities the renderer draws with (GuaranteedLayers), stacked to the overlap it
+        // guarantees (4 streaks, flakes, cloud puffs or haze patches; a thunderstorm's flash on top), over the panel (28, 32, 40).
+        Assert.Equal(4, WeatherEffectField.GuaranteedOverlap);
+        var layers = WeatherEffectField.GuaranteedLayers().ToList();
+        Assert.True(layers.Count >= 11);
+        foreach (var (name, rgb, alpha, stack, withFlash) in layers)
+        {
+            var (luminance, colour) = Composite(rgb, alpha, stack, withFlash);
+            var secondary = Contrast(Luminance(190, 200, 212), luminance);
+            var primary = Contrast(Luminance(244, 246, 248), luminance);
+            Assert.True(secondary >= 4.5, $"{name}: {stack} stacked (flash {withFlash}) give {colour}: secondary text {secondary:0.00}:1 (want 4.5:1)");
+            Assert.True(primary >= 7.0, $"{name}: {stack} stacked (flash {withFlash}) give {colour}: primary text {primary:0.00}:1 (want 7:1)");
+        }
+
+        // One more particle than guaranteed breaks the rule for the rain: the guarantee is tight, not slack.
+        var rain = layers.First(l => l.Name == "icy rain");
+        var five = Composite(rain.Rgb, rain.Alpha, 5, true);
+        Assert.True(Contrast(Luminance(190, 200, 212), five.Luminance) < 4.5 || Contrast(Luminance(244, 246, 248), five.Luminance) < 7.0);
+    }
+
+    [Fact]
+    public void The_streak_and_flake_opacity_cannot_be_raised_without_failing_the_guarantee()
+    {
+        // The opacity at which four stacked icy streaks plus the flash stop passing is above the one in use and below 33 (the value an earlier version used).
+        var rain = WeatherEffectField.GuaranteedLayers().First(l => l.Name == "icy rain");
+        foreach (var alpha in new[] { 33, 28, 24, 21, 20 })
+        {
+            var (luminance, _) = Composite(rain.Rgb, alpha, rain.Stack, rain.WithFlash);
+            Assert.True(Contrast(Luminance(190, 200, 212), luminance) < 4.5, $"opacity {alpha} must not pass");
+        }
+    }
+
     [Fact]
     public void The_text_stays_readable_over_the_brightest_pixel_any_effect_ever_draws()
     {
-        var (luminance, pixel, where) = WorstPixel();
-
-        // The widget's text colours: secondary (190, 200, 212) and primary (244, 246, 248), the weakest text on the panel.
-        var secondary = Contrast(Luminance(190, 200, 212), luminance);
-        var primary = Contrast(Luminance(244, 246, 248), luminance);
-        Assert.True(secondary >= 4.5, $"secondary text {secondary:0.00}:1 over {pixel} ({where})");
-        Assert.True(primary >= 7.0, $"primary text {primary:0.00}:1 over {pixel} ({where})");
-        // The panel itself, for the record: its contrast with the text is the ceiling.
-        Assert.True(Contrast(Luminance(190, 200, 212), Luminance(28, 32, 40)) > secondary);
+        // A second, sampled guard: the real renderer, every code at both intensities, at 100% and at 200%.
+        foreach (var (unit, frames) in new[] { (1f, 40), (2f, 16) })
+        {
+            var (luminance, pixel, where) = WorstPixel(unit, frames);
+            var secondary = Contrast(Luminance(190, 200, 212), luminance);
+            var primary = Contrast(Luminance(244, 246, 248), luminance);
+            Assert.True(secondary >= 4.5, $"unit {unit}: secondary text {secondary:0.00}:1 over {pixel} ({where})");
+            Assert.True(primary >= 7.0, $"unit {unit}: primary text {primary:0.00}:1 over {pixel} ({where})");
+        }
     }
 
+    [Fact]
+    public void The_cloud_and_haze_bands_follow_the_widget_height()
+    {
+        using var field = new WeatherEffectField();
+        foreach (var code in new[] { 3, 45 })
+        {
+            field.SetSize(280, 200);
+            field.Set(WeatherEffectMapping.For(code, true), WeatherEffectIntensity.Normal, instant: true);
+            Assert.True(field.MaxParticleY < 200);
+
+            field.SetSize(280, 520); // Expanded: the widget grows
+            Assert.True(field.MaxParticleY > 400, $"code {code}: the bands stayed in the top part ({field.MaxParticleY:0})");
+            Assert.True(field.ParticlesWithin(30));
+
+            field.SetSize(280, 180); // and shrinks back
+            Assert.True(field.MaxParticleY < 180);
+        }
+    }
     [Fact]
     public void The_effect_is_visible_on_the_dark_panel()
     {

@@ -207,6 +207,50 @@ public sealed class WidgetEffectTimerTests : IDisposable
     }
 
     [Fact]
+    public void The_clock_tick_alone_stops_and_restarts_the_effect_with_no_manual_re_evaluation()
+    {
+        OnStaThread(() =>
+        {
+            using var form = ShownWidget();
+            var view = form.WidgetViewForTests;
+            Assert.True(view.EffectTimerRunning);
+
+            // Covered: only the probe changes; the half-second clock tick has to notice it.
+            view.OcclusionProbe = _ => true;
+            Pump(TimeSpan.FromMilliseconds(1300));
+            Assert.False(view.EffectTimerRunning, "the effect timer was still running after the window was covered");
+            Assert.Equal(EffectRunState.Paused, view.EffectState);
+            var ticks = view.EffectTicks;
+            Pump(TimeSpan.FromMilliseconds(500));
+            Assert.Equal(ticks, view.EffectTicks);
+
+            view.OcclusionProbe = _ => false;
+            Pump(TimeSpan.FromMilliseconds(1300));
+            Assert.True(view.EffectTimerRunning, "the effect timer did not restart after the window was uncovered");
+            Assert.True(view.EffectTicks > ticks);
+
+            // Minimised: the real window state, then the clock tick.
+            form.WindowState = FormWindowState.Minimized;
+            Pump(TimeSpan.FromMilliseconds(1300));
+            Assert.False(view.EffectTimerRunning, "the effect timer was still running while the window was minimised");
+            var minimizedTicks = view.EffectTicks;
+            Pump(TimeSpan.FromMilliseconds(500));
+            Assert.Equal(minimizedTicks, view.EffectTicks);
+
+            form.RestoreFromTray();
+            for (var i = 0; i < 50 && form.WindowState != FormWindowState.Normal; i++)
+            {
+                form.WindowState = FormWindowState.Normal;
+                Pump(TimeSpan.FromMilliseconds(40));
+            }
+
+            if (!form.Visible) form.Show();
+            Pump(TimeSpan.FromMilliseconds(1300));
+            Assert.True(view.EffectTimerRunning, "the effect timer did not restart after the window was restored");
+        });
+    }
+
+    [Fact]
     public void Reduce_motion_and_Windows_animations_off_give_one_still_picture_and_no_timer()
     {
         OnStaThread(() =>

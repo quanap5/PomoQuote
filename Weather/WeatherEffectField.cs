@@ -24,10 +24,52 @@ internal sealed class WeatherEffectField : IDisposable
     public const int PeakAlpha = 48;
 
     /// <summary>The opacity of a streak or a flake, which can cross another one: two of them stacked still keep the text readable (the contrast test measures it).</summary>
-    public const int CrossingAlpha = 21;
+    public const int CrossingAlpha = 16;
 
     /// <summary>The opacity of the whole-widget flash of a thunderstorm at its brightest.</summary>
-    public const int FlashAlpha = 20;
+    public const int FlashAlpha = 10;
+
+    /// <summary>The opacity of one cloud puff and of one haze patch.</summary>
+    public const int CloudAlpha = 14;
+
+    public const int HazeAlpha = 13;
+
+    /// <summary>How many streaks, flakes or cloud puffs may lie on top of each other at one pixel and still keep the text at 4.5:1 or more (see <see cref="GuaranteedLayers"/>). Glints and stars are spread apart, so they never overlap.</summary>
+    public const int GuaranteedOverlap = 4;
+
+    public static readonly Color FlashColor = Color.FromArgb(214, 226, 255);
+
+    public static (int R, int G, int B) RainColor(bool icy, bool day) => icy ? (196, 228, 255) : day ? (160, 196, 238) : (130, 168, 220);
+
+    public static (int R, int G, int B) SnowColor(bool day) => day ? (232, 240, 252) : (206, 220, 244);
+
+    public static (int R, int G, int B) CloudColor(bool day) => day ? (206, 220, 240) : (150, 166, 198);
+
+    public static (int R, int G, int B) HazeColor(bool day) => day ? (214, 222, 232) : (160, 172, 192);
+
+    public static (int R, int G, int B) GlintColor => (255, 238, 196);
+
+    public static (int R, int G, int B) StarColor => (214, 224, 255);
+
+    /// <summary>
+    /// Every colour and opacity the renderer draws with, and the worst stack of it that can lie at one pixel: the test composites exactly
+    /// these over the panel, so changing an opacity or a colour above changes what the test proves. A thunderstorm's flash lies on top of its rain.
+    /// </summary>
+    public static IEnumerable<(string Name, (int R, int G, int B) Rgb, int Alpha, int Stack, bool WithFlash)> GuaranteedLayers()
+    {
+        foreach (var day in new[] { true, false })
+        {
+            var d = day ? "day" : "night";
+            yield return ($"rain {d}", RainColor(false, day), CrossingAlpha, GuaranteedOverlap, true);
+            yield return ($"snow {d}", SnowColor(day), CrossingAlpha, GuaranteedOverlap, false);
+            yield return ($"clouds {d}", CloudColor(day), CloudAlpha, GuaranteedOverlap, false);
+            yield return ($"haze {d}", HazeColor(day), HazeAlpha, GuaranteedOverlap, false);
+        }
+
+        yield return ("icy rain", RainColor(true, true), CrossingAlpha, GuaranteedOverlap, true);
+        yield return ("glints", GlintColor, PeakAlpha, 1, false);
+        yield return ("stars", StarColor, PeakAlpha, 1, false);
+    }
 
     /// <summary>How long one flash lasts.</summary>
     public const float FlashSeconds = 1.4f;
@@ -95,7 +137,33 @@ internal sealed class WeatherEffectField : IDisposable
     }
 
     /// <summary>The widget size in logical px; the particles wrap inside it.</summary>
-    public void SetSize(float width, float height) => (_width, _height) = (Math.Max(40, width), Math.Max(40, height));
+    public void SetSize(float width, float height)
+    {
+        var oldHeight = _height;
+        (_width, _height) = (Math.Max(40, width), Math.Max(40, height));
+        if (Math.Abs(_height - oldHeight) < 0.5f) return;
+
+        // Clouds and haze sit in one band each: spread the bands over the new height (the widget grows and shrinks with the quote and the usage area).
+        PlaceBands(_front);
+        PlaceBands(_back);
+    }
+
+    private void PlaceBands(Layer layer)
+    {
+        if (layer.Effect.Kind is not (WeatherEffectKind.Clouds or WeatherEffectKind.Haze)) return;
+        for (var i = 0; i < layer.Count; i++) layer.Particles[i].Y = (i + 0.5f) / layer.Count * _height;
+    }
+
+    /// <summary>The lowest particle position of the shown layer, in logical px (a test checks the bands follow the height).</summary>
+    public float MaxParticleY
+    {
+        get
+        {
+            var max = 0f;
+            for (var i = 0; i < _front.Count; i++) max = Math.Max(max, _front.Particles[i].Y);
+            return max;
+        }
+    }
 
     /// <summary>Switches to a new effect or intensity. The old effect fades out and the new one fades in, unless <paramref name="instant"/> (a still picture).</summary>
     public void Set(WeatherEffect effect, WeatherEffectIntensity intensity, bool instant = false)
@@ -117,7 +185,7 @@ internal sealed class WeatherEffectField : IDisposable
         Seed(_front, effect);
         _front.Target = effect.Kind == WeatherEffectKind.None ? 0 : 1;
         _front.Opacity = instant ? _front.Target : 0;
-        _flashCountdown = 5 + (float)_random.NextDouble() * 6;
+        _flashCountdown = 15 + (float)_random.NextDouble() * 25;
         _flashAge = 99;
     }
 
@@ -143,7 +211,7 @@ internal sealed class WeatherEffectField : IDisposable
             if (_flashCountdown <= 0)
             {
                 _flashAge = 0;
-                _flashCountdown = 7 + (float)_random.NextDouble() * 12; // at most one flash every 7 seconds
+                _flashCountdown = 15 + (float)_random.NextDouble() * 25; // one flash every 15 to 40 seconds
             }
         }
     }
@@ -310,7 +378,7 @@ internal sealed class WeatherEffectField : IDisposable
         var flash = FlashLevel;
         if (flash > 0.01f)
         {
-            _brush.Color = Color.FromArgb((int)(FlashAlpha * flash), 214, 226, 255);
+            _brush.Color = Color.FromArgb((int)(FlashAlpha * flash), FlashColor);
             graphics.FillRectangle(_brush, 0, 0, _width * unit, _height * unit);
         }
     }
@@ -325,12 +393,12 @@ internal sealed class WeatherEffectField : IDisposable
         {
             case WeatherEffectKind.Rain:
             {
-                var (r, gr, b) = layer.Effect.Icy ? (196, 228, 255) : day ? (160, 196, 238) : (130, 168, 220);
+                var (r, gr, b) = RainColor(layer.Effect.Icy, day);
                 _pen.Width = Math.Max(1.2f, 1.1f * u);
                 for (var i = 0; i < layer.Count; i++)
                 {
                     ref var p = ref layer.Particles[i];
-                    _pen.Color = Color.FromArgb(A(CrossingAlpha + 4, o), r, gr, b);
+                    _pen.Color = Color.FromArgb(A(CrossingAlpha, o), r, gr, b);
                     var tail = p.Size / MathF.Sqrt(1 + 0.16f * 0.16f);
                     g.DrawLine(_pen, p.X * u, p.Y * u, (p.X - tail * 0.16f) * u, (p.Y - tail) * u);
                 }
@@ -340,7 +408,7 @@ internal sealed class WeatherEffectField : IDisposable
 
             case WeatherEffectKind.Snow:
             {
-                var (r, gr, b) = day ? (232, 240, 252) : (206, 220, 244);
+                var (r, gr, b) = SnowColor(day);
                 for (var i = 0; i < layer.Count; i++)
                 {
                     ref var p = ref layer.Particles[i];
@@ -355,8 +423,8 @@ internal sealed class WeatherEffectField : IDisposable
 
             case WeatherEffectKind.Clouds:
             {
-                var (r, gr, b) = day ? (206, 220, 240) : (150, 166, 198);
-                _brush.Color = Color.FromArgb(A(14, o), r, gr, b);
+                var (r, gr, b) = CloudColor(day);
+                _brush.Color = Color.FromArgb(A(CloudAlpha, o), r, gr, b);
                 for (var i = 0; i < layer.Count; i++)
                 {
                     ref var p = ref layer.Particles[i];
@@ -373,8 +441,8 @@ internal sealed class WeatherEffectField : IDisposable
 
             case WeatherEffectKind.Haze:
             {
-                var (r, gr, b) = day ? (214, 222, 232) : (160, 172, 192);
-                _brush.Color = Color.FromArgb(A(13, o), r, gr, b);
+                var (r, gr, b) = HazeColor(day);
+                _brush.Color = Color.FromArgb(A(HazeAlpha, o), r, gr, b);
                 for (var i = 0; i < layer.Count; i++)
                 {
                     ref var p = ref layer.Particles[i];
@@ -390,7 +458,7 @@ internal sealed class WeatherEffectField : IDisposable
             case WeatherEffectKind.Stars:
             {
                 var stars = layer.Effect.Kind == WeatherEffectKind.Stars;
-                var (r, gr, b) = stars ? (214, 224, 255) : (255, 238, 196);
+                var (r, gr, b) = stars ? StarColor : GlintColor;
                 _pen.Width = Math.Max(1f, 0.7f * u);
                 for (var i = 0; i < layer.Count; i++)
                 {
