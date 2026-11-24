@@ -1,6 +1,6 @@
-using HelloWorldBot.Pomodoro;
+using PomoQuote.Pomodoro;
 
-namespace HelloWorldBot;
+namespace PomoQuote;
 
 /// <summary>Modal dialog for the Pomodoro options. Enter = OK, Esc = Cancel; numbers are limited to their valid ranges.</summary>
 internal sealed class PomodoroSettingsDialog : Form

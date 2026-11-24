@@ -1,4 +1,4 @@
-namespace HelloWorldBot.Mascot;
+namespace PomoQuote.Mascot;
 
 /// <summary>
 /// Everything the character can be doing. <see cref="Look"/>, <see cref="Land"/>, <see cref="Drag"/> and

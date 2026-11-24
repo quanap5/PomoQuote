@@ -1,6 +1,6 @@
 using System.Media;
 
-namespace HelloWorldBot.Pomodoro;
+namespace PomoQuote.Pomodoro;
 
 /// <summary>
 /// Connects the <see cref="PomodoroTimer"/> to the desktop: a UI timer that ticks it, the alert

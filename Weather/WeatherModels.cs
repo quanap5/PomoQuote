@@ -1,4 +1,4 @@
-namespace HelloWorldBot.Weather;
+namespace PomoQuote.Weather;
 
 /// <summary>A city resolved to coordinates. <see cref="Country"/> may be empty when the API gives none.</summary>
 internal sealed record CityLocation(string Name, string Country, double Latitude, double Longitude)

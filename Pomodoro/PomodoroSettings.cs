@@ -1,4 +1,4 @@
-namespace HelloWorldBot.Pomodoro;
+namespace PomoQuote.Pomodoro;
 
 internal enum PomodoroPhase
 {

@@ -1,8 +1,8 @@
 using System.Drawing.Drawing2D;
 using System.Drawing.Text;
-using HelloWorldBot.Weather;
+using PomoQuote.Weather;
 
-namespace HelloWorldBot;
+namespace PomoQuote;
 
 /// <summary>
 /// Shows a city's current weather as three centered lines of icons and text on a transparent background: the place, the

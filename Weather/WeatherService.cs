@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace HelloWorldBot.Weather;
+namespace PomoQuote.Weather;
 
 /// <summary>
 /// Calls the free Open-Meteo geocoding and forecast APIs (no API key). Every failure, including

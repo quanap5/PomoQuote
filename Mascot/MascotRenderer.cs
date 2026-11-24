@@ -1,7 +1,7 @@
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 
-namespace HelloWorldBot.Mascot;
+namespace PomoQuote.Mascot;
 
 /// <summary>
 /// Cuts frames out of the sprite sheet and enlarges them by a whole factor with nearest-neighbour scaling (no blur at

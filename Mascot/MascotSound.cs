@@ -1,6 +1,6 @@
 using System.Media;
 
-namespace HelloWorldBot.Mascot;
+namespace PomoQuote.Mascot;
 
 /// <summary>
 /// Plays a short WAV (16-bit PCM) at a chosen volume. <see cref="SoundPlayer"/> has no volume control, so

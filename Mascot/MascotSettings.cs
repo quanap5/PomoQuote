@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace HelloWorldBot.Mascot;
+namespace PomoQuote.Mascot;
 
 /// <summary>
 /// Options for the taskbar mascot. <see cref="EnabledMonitors"/> lists the monitors (by device name) the
@@ -45,7 +45,7 @@ internal sealed record MascotSettings(
 }
 
 /// <summary>
-/// Reads and writes <see cref="MascotSettings"/> as JSON, by default in %AppData%\HelloWorldBot\mascot.json.
+/// Reads and writes <see cref="MascotSettings"/> as JSON, by default in %AppData%\PomoQuote\mascot.json.
 /// A missing or unreadable file yields the defaults; out-of-range numbers are clamped.
 /// </summary>
 internal sealed class MascotStore
@@ -57,11 +57,11 @@ internal sealed class MascotStore
     public MascotStore(string path) => _path = path;
 
     public static string DefaultPath { get; } = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "HelloWorldBot", "mascot.json");
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "PomoQuote", "mascot.json");
 
     /// <summary>The optional user file that overrides the animation and behaviour defaults.</summary>
     public static string UserConfigPath { get; } = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "HelloWorldBot", "mascot-config.json");
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "PomoQuote", "mascot-config.json");
 
     public MascotSettings Load()
     {

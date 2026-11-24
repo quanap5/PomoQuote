@@ -1,6 +1,6 @@
-using HelloWorldBot.Mascot;
+using PomoQuote.Mascot;
 
-namespace HelloWorldBot;
+namespace PomoQuote;
 
 /// <summary>Modal dialog for the mascot options. Enter = OK, Esc = Cancel; at least one monitor must stay ticked.</summary>
 internal sealed class MascotSettingsDialog : Form

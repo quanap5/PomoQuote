@@ -1,4 +1,4 @@
-namespace HelloWorldBot.Weather;
+namespace PomoQuote.Weather;
 
 /// <summary>What the weather looks like: words and the icon that goes with them.</summary>
 internal sealed record WeatherCondition(string Text, WeatherIconId Icon);

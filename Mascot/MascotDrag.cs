@@ -1,6 +1,6 @@
 using System.Drawing;
 
-namespace HelloWorldBot.Mascot;
+namespace PomoQuote.Mascot;
 
 /// <summary>
 /// Where the character may be picked up to and where it lands. Pure geometry on the walkways (one per monitor), so

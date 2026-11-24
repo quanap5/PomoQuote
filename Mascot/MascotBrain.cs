@@ -1,4 +1,4 @@
-namespace HelloWorldBot.Mascot;
+namespace PomoQuote.Mascot;
 
 /// <summary>What the character decided to do next, and for how long (movement and rests; finite animations ignore it).</summary>
 internal sealed record MascotAction(MascotState State, double Seconds);

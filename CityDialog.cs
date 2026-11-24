@@ -1,4 +1,4 @@
-namespace HelloWorldBot;
+namespace PomoQuote;
 
 /// <summary>Small modal dialog asking for a city name. Enter = OK, Esc = Cancel.</summary>
 internal sealed class CityDialog : Form

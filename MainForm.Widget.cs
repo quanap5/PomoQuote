@@ -1,7 +1,7 @@
-using HelloWorldBot.Pomodoro;
-using HelloWorldBot.Widget;
+using PomoQuote.Pomodoro;
+using PomoQuote.Widget;
 
-namespace HelloWorldBot;
+namespace PomoQuote;
 
 /// <summary>
 /// Widget mode: the same window and the same controllers, shown compactly. Switching only hides the
@@ -49,11 +49,13 @@ internal sealed partial class MainForm
         settings.DropDownItems.Add(_widgetCityItem);
         settings.DropDownItems.Add(new ToolStripMenuItem("&Pomodoro...", null, (_, _) => ShowPomodoroSettings()));
         settings.DropDownItems.Add(new ToolStripMenuItem("&Mascot...", null, (_, _) => ShowMascotSettings()));
+        settings.DropDownItems.Add(new ToolStripMenuItem("&Quotes...", null, (_, _) => ShowQuoteSettings()));
 
         _widgetPomodoroToggleItem = new ToolStripMenuItem("Start Pomodoro", null, (_, _) => TogglePomodoro());
         _widgetMenu = new ContextMenuStrip();
         _widgetMenu.Items.Add(new ToolStripMenuItem("Exit &widget mode", null, (_, _) => SetWidgetMode(false)));
         _widgetMenu.Items.Add(_widgetPomodoroToggleItem);
+        _widgetMenu.Items.Add(new ToolStripMenuItem("&Next sentence", null, (_, _) => ShowNextQuote()) { ShortcutKeyDisplayString = "Ctrl+N" });
         _widgetMenu.Items.Add(BuildOpacityMenu("&Opacity"));
         _widgetMenu.Items.Add(settings);
         _widgetMenu.Items.Add(new ToolStripSeparator());
@@ -154,7 +156,7 @@ internal sealed partial class MainForm
     private void SetNormalControlsVisible(bool visible)
     {
         _menu.Visible = visible;
-        _label.Visible = visible;
+        _quote.Visible = visible;
         _weather.Visible = visible;
         _pomodoroPanel.Visible = visible;
         _clock.Visible = visible;
@@ -198,6 +200,12 @@ internal sealed partial class MainForm
         if (keyData == (Keys.Control | Keys.W))
         {
             SetWidgetMode(!_widgetMode);
+            return true;
+        }
+
+        if (keyData == (Keys.Control | Keys.N))
+        {
+            ShowNextQuote();
             return true;
         }
 

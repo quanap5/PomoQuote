@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace HelloWorldBot.Weather;
+namespace PomoQuote.Weather;
 
 /// <summary>The user's saved settings: for now just the city.</summary>
 internal sealed record AppSettings(CityLocation City)
@@ -9,7 +9,7 @@ internal sealed record AppSettings(CityLocation City)
 }
 
 /// <summary>
-/// Reads and writes <see cref="AppSettings"/> as JSON, by default in %AppData%\HelloWorldBot\settings.json.
+/// Reads and writes <see cref="AppSettings"/> as JSON, by default in %AppData%\PomoQuote\settings.json.
 /// A missing, unreadable or invalid file yields the default settings, never an exception.
 /// </summary>
 internal sealed class SettingsStore
@@ -21,7 +21,7 @@ internal sealed class SettingsStore
     public SettingsStore(string path) => _path = path;
 
     public static string DefaultPath { get; } = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "HelloWorldBot", "settings.json");
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "PomoQuote", "settings.json");
 
     public AppSettings Load()
     {

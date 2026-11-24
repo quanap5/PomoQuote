@@ -1,8 +1,8 @@
 using System.Runtime.InteropServices;
-using HelloWorldBot.Pomodoro;
+using PomoQuote.Pomodoro;
 using Microsoft.Win32;
 
-namespace HelloWorldBot.Mascot;
+namespace PomoQuote.Mascot;
 
 /// <summary>
 /// Runs the taskbar character while the main window is hidden in the tray: a timer feeds the <see cref="MascotActor"/>,

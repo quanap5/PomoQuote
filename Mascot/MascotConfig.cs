@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 
-namespace HelloWorldBot.Mascot;
+namespace PomoQuote.Mascot;
 
 /// <summary>What the Pomodoro says about the day: it decides how the character spends its time.</summary>
 public enum MascotMood

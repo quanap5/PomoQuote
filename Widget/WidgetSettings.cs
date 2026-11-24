@@ -1,7 +1,7 @@
 using System.Drawing;
 using System.Text.Json;
 
-namespace HelloWorldBot.Widget;
+namespace PomoQuote.Widget;
 
 /// <summary>
 /// What is remembered about widget mode: whether it is on, where the widget sits (top-left corner in
@@ -33,7 +33,7 @@ internal sealed record WidgetSettings(bool Enabled = false, int? X = null, int? 
 }
 
 /// <summary>
-/// Reads and writes <see cref="WidgetSettings"/> as JSON, by default in %AppData%\HelloWorldBot\widget.json.
+/// Reads and writes <see cref="WidgetSettings"/> as JSON, by default in %AppData%\PomoQuote\widget.json.
 /// A missing or unreadable file yields the defaults; an unknown opacity is reset to 100%.
 /// </summary>
 internal sealed class WidgetStore
@@ -45,7 +45,7 @@ internal sealed class WidgetStore
     public WidgetStore(string path) => _path = path;
 
     public static string DefaultPath { get; } = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "HelloWorldBot", "widget.json");
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "PomoQuote", "widget.json");
 
     public WidgetSettings Load()
     {

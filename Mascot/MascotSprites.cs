@@ -1,4 +1,4 @@
-namespace HelloWorldBot.Mascot;
+namespace PomoQuote.Mascot;
 
 /// <summary>Sizing of the drawn character. The sprite sheet is a grid of square cells (24 px by default).</summary>
 internal static class MascotSprites
