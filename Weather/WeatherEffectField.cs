@@ -24,7 +24,7 @@ internal sealed class WeatherEffectField : IDisposable
     public const int PeakAlpha = 48;
 
     /// <summary>The opacity of a streak or a flake, which can cross another one: two of them stacked still keep the text readable (the contrast test measures it).</summary>
-    public const int CrossingAlpha = 33;
+    public const int CrossingAlpha = 21;
 
     /// <summary>The opacity of the whole-widget flash of a thunderstorm at its brightest.</summary>
     public const int FlashAlpha = 20;
@@ -207,7 +207,7 @@ internal sealed class WeatherEffectField : IDisposable
                     break;
                 case WeatherEffectKind.Snow:
                     p.Vy = (12 + 7 * (int)effect.Level) * (0.7f + Random01() * 0.6f);
-                    p.Size = 1.1f + Random01() * 1.3f;
+                    p.Size = 1.4f + Random01() * 1.5f;
                     p.Rate = 0.6f + Random01() * 0.9f; // the sway frequency
                     p.Vx = 3 + Random01() * 5; // the sway amplitude
                     break;

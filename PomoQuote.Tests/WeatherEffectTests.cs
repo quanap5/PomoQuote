@@ -459,7 +459,7 @@ public sealed class WeatherEffectTests : IDisposable
             foreach (var intensity in Enum.GetValues<WeatherEffectIntensity>())
             {
                 field.Set(effect, intensity, instant: true);
-                for (var frame = 0; frame < 24; frame++)
+                for (var frame = 0; frame < 40; frame++)
                 {
                     field.Advance(3.1f); // 124 seconds per effect, so a thunderstorm flash lands in some frames
                     graphics.Clear(Color.FromArgb(28, 32, 40));
