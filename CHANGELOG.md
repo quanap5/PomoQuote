@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-25
+
+The widget release: AI usage for Codex and Claude Code, a redesigned widget, provider logos, the date with the Vietnamese lunar date, weather effects, and widget mode as the default with hide to tray.
+
 ### Added
 
 - **New README intro GIF** (`docs/intro.gif`, 19 s, 720 px wide, loops): made with the motion-video workflow (HyperFrames) mostly from real captures of the current build on sample data (the taskbar strip is stylised): the logo, the widget (clock, solar and Vietnamese lunar date, weather, Pomodoro, English sentence with its Vietnamese translation), the Pomodoro in Idle, Work and Rest, AI usage for Codex and Claude Code in Compact and Expanded, weather effects, the taskbar robot and the Hide to tray menu. The README text and feature list describe the current app (widget as the default mode, tray, weather effects), and the expanded AI usage preview now shows the official Claude Spark instead of the retired drawing. Documentation only.
@@ -31,11 +35,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The time stays visible when the AI usage status text is long (the status text no longer pushes the clock out of the widget).
 - Leaving widget mode when the app started in widget mode left the normal window without its taskbar button (issue 30): the window is registered with the taskbar again and its icon applied once more. The visible widget never has a taskbar button in any path (fresh start, shown from the tray, second launch, Ctrl+W round trip): it used to get one after a hide and show or a Ctrl+W round trip, and the widget window now has no taskbar button by construction. A test reads the real taskbar with UI Automation (no button for the visible widget or while hidden, a button for the normal window, across repeated cycles; it fails without the fix) and a second test checks the window style flags.
 
 ### Changed
 
+- Documentation and credits were made consistent: `THIRD_PARTY_ASSETS.md` lists every packaged asset with its source, terms and hash (a test checks that every file in `Assets/Providers/` has a row), and the README, CHANGELOG and credits files must be valid UTF-8 (`DocsEncodingTests`).
 - The widget is 280 px wide at 100% (it was 260) and its height follows the sentence (the bubble grows with the text) and the AI usage area (Compact is one fixed block; Expanded grows with its blocks up to a limit); without AI usage the widget keeps its base layout.
+
+### Known issues
+
+- The weather effect is very faint by design: its colours are kept dark enough to keep the text at a contrast of 4.5:1 or more (the intro GIF brightens it so it shows). It is a still picture, not an animation, when Windows animations are turned off or Reduce motion is on.
+- [#46](https://github.com/quanap5/PomoQuote/issues/46): non-standard Codex windows (not 5 hours or one week) get identical truncated labels.
+- [#44](https://github.com/quanap5/PomoQuote/issues/44): the PowerShell form of the Claude status line bridge (used only when Git Bash is missing) does not propagate the exit code of the original command.
+- The Claude icon is Anthropic's official mark used **without written permission** from Anthropic (the owner accepted the risk; the contact is marketing@anthropic.com; see `THIRD_PARTY_ASSETS.md`).
+- Windows only; WSL is not supported yet.
+- Antigravity is not shown yet (its icon is packaged for a later release).
+- The Vietnamese translations of the 357 sentences have not been reviewed by a native speaker.
 
 ## [1.1.0] - 2026-11-24
 
@@ -90,6 +106,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - "Hello World" stays on one centered line at any window size (PR #1).
 - The full clock rim stays inside its area at any window size (PR #4).
 
-[Unreleased]: https://github.com/quanap5/PomoQuote/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/quanap5/PomoQuote/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/quanap5/PomoQuote/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/quanap5/PomoQuote/releases/tag/v1.1.0
 [1.0.0]: https://github.com/quanap5/PomoQuote/commit/ef0b64619e98481a45595c17f268dd091b359724
