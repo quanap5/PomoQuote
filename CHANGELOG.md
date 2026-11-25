@@ -31,17 +31,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Leaving widget mode when the app started in widget mode left the normal window without its taskbar button (issue 30): the window is registered with the taskbar again and its icon applied once more; a test checks the window style and icon, and the taskbar was checked with UI Automation (no button before the fix, one button after).
+- Leaving widget mode when the app started in widget mode left the normal window without its taskbar button (issue 30): the window is registered with the taskbar again and its icon applied once more. The visible widget never has a taskbar button in any path (fresh start, shown from the tray, second launch, Ctrl+W round trip): it used to get one after a hide and show or a Ctrl+W round trip, and the widget window now has no taskbar button by construction. A test reads the real taskbar with UI Automation (no button for the visible widget or while hidden, a button for the normal window, across repeated cycles; it fails without the fix) and a second test checks the window style flags.
 
 ### Changed
 
 - The widget is 280 px wide at 100% (it was 260) and its height follows the sentence (the bubble grows with the text) and the AI usage area (Compact is one fixed block; Expanded grows with its blocks up to a limit); without AI usage the widget keeps its base layout.
 
 ## [1.1.0] - 2026-11-24
-
-### Fixed
-
-- Leaving widget mode when the app started in widget mode left the normal window without its taskbar button (issue 30): the window is registered with the taskbar again and its icon applied once more; a test checks the window style and icon, and the taskbar was checked with UI Automation (no button before the fix, one button after).
 
 ### Changed
 
