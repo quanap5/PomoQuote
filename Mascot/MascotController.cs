@@ -30,6 +30,7 @@ internal sealed class MascotController : IDisposable
     private MascotWindow? _window;
     private MascotSettings _settings;
     private string _loadedCharacter = "";
+    private string _requestedCharacter = "";
     private SynchronizationContext? _uiContext;
     private long _lastTimestamp;
     private int _ticks;
@@ -155,7 +156,8 @@ internal sealed class MascotController : IDisposable
     public void Apply(MascotSettings settings)
     {
         _settings = settings.Normalized();
-        if (_renderer is not null && _loadedCharacter != MascotCharacters.Find(_settings.Character).Id)
+        // Compared with the character asked for, not the one loaded: a sheet that is missing (the robot stands in) is not tried again on every Apply.
+        if (_renderer is not null && _requestedCharacter != MascotCharacters.Find(_settings.Character).Id)
         {
             // Another character: its sheet replaces the old one at once (a running character keeps walking where it is).
             _renderer.Dispose();
@@ -213,6 +215,7 @@ internal sealed class MascotController : IDisposable
         {
             LoadConfig();
             var character = MascotCharacters.Find(_settings.Character);
+            _requestedCharacter = character.Id;
             try
             {
                 _renderer = new MascotRenderer(Path.Combine(_assetsDirectory, character.SheetFile), _config.FrameSize);

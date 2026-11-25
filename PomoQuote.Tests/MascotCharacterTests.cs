@@ -422,6 +422,39 @@ public sealed class MascotCharacterWidgetTests : IDisposable
     }
 
     [Fact]
+    public void A_character_whose_sheet_is_missing_falls_back_to_the_robot_and_is_not_reloaded_on_every_apply()
+    {
+        OnStaThread(() =>
+        {
+            using var form = NewForm(widget: true);
+            form.Show();
+            Pump(300);
+            var sheet = Path.Combine(AppContext.BaseDirectory, "Assets", "Mascot", "man-sprites.png");
+            var hidden = sheet + ".hidden";
+            File.Move(sheet, hidden);
+            try
+            {
+                form.SetMascotCharacter("man");
+                Assert.True(form.Mascot.IsRunning);
+                Assert.Equal("robot", form.Mascot.LoadedCharacter); // the robot stands in
+
+                File.Move(hidden, sheet); // the file is back, but the choice has not changed: nothing is reloaded by an unrelated Apply
+                form.Mascot.Apply(form.Mascot.Settings with { SoundEnabled = false });
+                Assert.Equal("robot", form.Mascot.LoadedCharacter);
+
+                form.SetMascotCharacter("woman"); // a real change loads at once
+                Assert.Equal("woman", form.Mascot.LoadedCharacter);
+                form.SetMascotCharacter("man");
+                Assert.Equal("man", form.Mascot.LoadedCharacter);
+            }
+            finally
+            {
+                if (File.Exists(hidden)) File.Move(hidden, sheet);
+            }
+        });
+    }
+
+    [Fact]
     public void Leaving_and_entering_widget_mode_sends_the_mascot_out_and_takes_it_in()
     {
         OnStaThread(() =>
