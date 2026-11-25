@@ -34,7 +34,14 @@ internal sealed class SingleInstanceSignal : IDisposable
 
     public void Dispose()
     {
-        _registration?.Unregister(null);
+        if (_registration is not null)
+        {
+            // Unregister(null) returns at once and the pool keeps its own handle to the event until a callback in flight is done; waiting for the
+            // unregistration to complete means the named event is really gone when Dispose returns.
+            using var done = new ManualResetEvent(false);
+            if (_registration.Unregister(done)) done.WaitOne(TimeSpan.FromSeconds(2));
+        }
+
         _event.Dispose();
     }
 }

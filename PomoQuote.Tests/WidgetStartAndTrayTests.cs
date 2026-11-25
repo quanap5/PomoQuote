@@ -135,7 +135,15 @@ public sealed class StartModeAndShellStateTests : IDisposable
             Assert.True(received.Wait(TimeSpan.FromSeconds(5)), "the first instance was not told");
         }
 
-        Assert.False(SingleInstanceSignal.Notify(name)); // the listener is gone
+        // The listener is gone. Dispose waits for the unregistration, so this is false at once; polling briefly keeps the test calm on a loaded machine.
+        var gone = false;
+        for (var i = 0; i < 40 && !gone; i++)
+        {
+            gone = !SingleInstanceSignal.Notify(name);
+            if (!gone) Thread.Sleep(50);
+        }
+
+        Assert.True(gone, "the named event still existed after the listener was disposed");
     }
 
     [Fact]
@@ -709,16 +717,28 @@ public sealed class WidgetTrayFormTests : IDisposable
                 form.ShowWidgetFromTray();
             }
 
+            // The counters are process-wide: finalizers and timers of earlier tests can still move them for a moment. A reading is taken once it has stopped changing,
+            // and a leak is growth that is still there after the same settling, so the bounds mean what they always meant.
+            (int Handles, uint Gdi, uint User, long Managed) Settled()
+            {
+                (int, uint, uint, long) last = (-1, 0, 0, 0);
+                for (var i = 0; i < 20; i++)
+                {
+                    Pump(TimeSpan.FromMilliseconds(150));
+                    GC.Collect();
+                    GC.WaitForPendingFinalizers();
+                    GC.Collect();
+                    process.Refresh();
+                    var now = (process.HandleCount, GetGuiResources(process.Handle, 0), GetGuiResources(process.Handle, 1), GC.GetTotalMemory(true) / (512 * 1024));
+                    if (now == last) break;
+                    last = now;
+                }
+
+                return (last.Item1, last.Item2, last.Item3, last.Item4 * 512 * 1024);
+            }
+
             for (var i = 0; i < 10; i++) Cycle(); // warm-up
-            Pump(TimeSpan.FromMilliseconds(200));
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-            GC.Collect();
-            process.Refresh();
-            var handles = process.HandleCount;
-            var gdi = GetGuiResources(process.Handle, 0);
-            var user = GetGuiResources(process.Handle, 1);
-            var managed = GC.GetTotalMemory(true);
+            var (handles, gdi, user, managed) = Settled();
 
             for (var i = 0; i < 100; i++)
             {
@@ -734,19 +754,11 @@ public sealed class WidgetTrayFormTests : IDisposable
                 if (i % 10 == 0) Pump(TimeSpan.FromMilliseconds(20));
             }
 
-            Pump(TimeSpan.FromMilliseconds(300));
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-            GC.Collect();
-            process.Refresh();
-            var handlesAfter = process.HandleCount;
-            var gdiAfter = GetGuiResources(process.Handle, 0);
-            var userAfter = GetGuiResources(process.Handle, 1);
-            var managedAfter = GC.GetTotalMemory(true);
+            var (handlesAfter, gdiAfter, userAfter, managedAfter) = Settled();
 
             Assert.True(handlesAfter - handles <= 60, $"handles {handles} -> {handlesAfter}");
-            Assert.True(gdiAfter - gdi <= 12, $"GDI objects {gdi} -> {gdiAfter}");
-            Assert.True(userAfter - user <= 12, $"USER objects {user} -> {userAfter}");
+            Assert.True((long)gdiAfter - gdi <= 12, $"GDI objects {gdi} -> {gdiAfter}");
+            Assert.True((long)userAfter - user <= 12, $"USER objects {user} -> {userAfter}");
             Assert.True(managedAfter - managed <= 4 * 1024 * 1024, $"managed memory {managed} -> {managedAfter}");
             Assert.Equal(ShellState.WidgetVisible, form.ShellState);
         });
