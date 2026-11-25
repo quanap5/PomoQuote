@@ -15,7 +15,7 @@ Highlights:
 
 - **Four mascot characters** (Robot, Animal, Man, Woman, all original pixel art with the same animations) and a **Show the mascot** switch right in the widget's right-click menu: the mascot now walks the taskbar beside the widget, not only when the window is minimized.
 - **Theme: System / Light / Dark** for the widget (System follows Windows live), with every colour coming from one set of theme tokens.
-- **AI usage for Grok** (the weekly allowance of a Grok plan, through the Grok Build CLI) and **Antigravity** (through gy), both off until you turn them on in Settings > AI Usage.
+- **AI usage for Grok** (the weekly allowance of a Grok plan, through the Grok Build CLI) and **Antigravity** (through `agy`), both off until you turn them on in Settings > AI Usage.
 - An optional **automatic Claude refresh** (off by default; every 15, 30 or 60 minutes) that keeps the Claude bars current when no Claude Code session is open.
 
 ### Added
@@ -28,13 +28,13 @@ Highlights:
 
 ### Fixed
 
--
+- **Theme: weather effect colours at startup.** With Windows in light mode and the theme System (or a saved Light), the weather particles, the lightning flash and the sun glints now use the light-panel colours from the first frame; before, the effect was set up for a dark panel until the theme changed once, so snow was invisible on the light panel and rain was much weaker. The effect now matches the panel whenever the theme is applied, including at startup.
 - Two tests that failed now and then (the second-launch signal and the handle-leak check) are deterministic; the second-launch signal now waits for its named event to be released when the app closes, so the event is gone when it exits.
 
 ### Known issues
 
 - The Compact provider logo can stay in the old theme's colours for up to about 12 seconds after you change the Windows theme while the widget is on System.
-- A rare crash at exit: an InvalidOperationException from the provider list's *Closed* handler in WidgetView.Usage.cs (ShowProviderList) when the app closes while the list is open.
+- A rare crash at exit: an `InvalidOperationException` from the provider list's *Closed* handler in `WidgetView.Usage.cs` (`ShowProviderList`) when the app closes while the list is open.
 - Not checked in the running app before this release: dragging the cat, the Mascot Options dialog and a restart with the cat selected; the weather-colour fix at startup; and the real Grok and Antigravity readings (they were tested with fakes and, for the spikes, one real read each, not QA'd in the finished app).
 - The weather effect is very faint by design: its colours are kept dark enough to keep the text at a contrast of 4.5:1 or more (the intro GIF brightens it so it shows). It is a still picture, not an animation, when Windows animations are turned off or Reduce motion is on.
 - [#46](https://github.com/quanap5/PomoQuote/issues/46): non-standard Codex windows (not 5 hours or one week) get identical truncated labels.
@@ -42,6 +42,7 @@ Highlights:
 - The Claude icon is Anthropic's official mark used **without written permission** from Anthropic (the owner accepted the risk; the contact is marketing@anthropic.com; see THIRD_PARTY_ASSETS.md). The Grok icon is likewise xAI's official mark without written permission.
 - Windows only; WSL is not supported yet.
 - The Vietnamese translations of the 357 sentences have not been reviewed by a native speaker.
+
 ## [1.2.0] - 2026-11-25
 
 The widget release: AI usage for Codex and Claude Code, a redesigned widget, provider logos, the date with the Vietnamese lunar date, weather effects, and widget mode as the default with hide to tray.
