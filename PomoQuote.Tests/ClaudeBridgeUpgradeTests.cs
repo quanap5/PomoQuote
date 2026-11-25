@@ -205,7 +205,7 @@ public sealed class ClaudeBridgeUpgradeTests : IDisposable
     {
         File.WriteAllText(Settings, SettingsWith(Original)); // the user's own status line
         var originalFile = File.ReadAllText(Settings);
-        // The 1.1 install: the same file with the command replaced by the old-style bridge.
+        // An earlier development build's install: the same file with the command replaced by the old-style bridge.
         File.WriteAllText(Settings, originalFile.Replace(Lit(Original), Lit(LegacyCommand(Original))));
 
         Assert.Equal(BridgeResult.Done, Installer().Upgrade());
