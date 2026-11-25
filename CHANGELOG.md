@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-25
+
+The characters, themes and providers release: a choice of four mascot characters, a Light, Dark or System theme for the widget, Grok and Antigravity usage next to Codex and Claude Code, and an optional automatic Claude refresh.
+
+Highlights:
+
+- **Four mascot characters** (Robot, Animal, Man, Woman, all original pixel art with the same animations) and a **Show the mascot** switch right in the widget's right-click menu: the mascot now walks the taskbar beside the widget, not only when the window is minimized.
+- **Theme: System / Light / Dark** for the widget (System follows Windows live), with every colour coming from one set of theme tokens.
+- **AI usage for Grok** (the weekly allowance of a Grok plan, through the Grok Build CLI) and **Antigravity** (through gy), both off until you turn them on in Settings > AI Usage.
+- An optional **automatic Claude refresh** (off by default; every 15, 30 or 60 minutes) that keeps the Claude bars current when no Claude Code session is open.
+
 ### Added
 
 - **Mascot characters and a mascot toggle in widget mode.** Four selectable pixel-art characters, all original art drawn for the project (CC0) with the same 14 animations as the robot (idle, look, walk, run, jump, land, sit, sleep, wave, celebrate, surprised, sad, drag, shout): **Robot** (unchanged, still the default), **Animal** (a cat), **Man** and **Woman**. **Settings > Mascot** (the normal window, the widget and the tray menus) now has **Show the mascot**, the character picker with the current one ticked, and **Options...** (the old dialog); the widget's right-click menu has **Show the mascot** directly. In widget mode the mascot walks the taskbar beside the widget while it is on (like when the window is minimized; hiding the widget to the tray leaves it out, and a double click brings the widget back); changes apply at once and are saved in `mascot.json` (`Character`; a missing or unknown id means the robot; the mascot stays on by default). Characters are one registry entry each (`MascotCharacters`), with the sheets and their credits in `Assets/Mascot`. Sheets and previews are made by `tools/generate-mascot-sprites.ps1` and `tools/generate-mascot-preview.ps1`.
@@ -17,8 +28,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **Theme: weather effect colours at startup.** With Windows in light mode and the theme System (or a saved Light), the weather particles, the lightning flash and the sun glints now use the light-panel colours from the first frame; before, the effect was set up for a dark panel until the theme changed once, so snow was invisible on the light panel and rain was much weaker. The effect now matches the panel whenever the theme is applied, including at startup.
+-
+- Two tests that failed now and then (the second-launch signal and the handle-leak check) are deterministic; the second-launch signal now waits for its named event to be released when the app closes, so the event is gone when it exits.
 
+### Known issues
+
+- The Compact provider logo can stay in the old theme's colours for up to about 12 seconds after you change the Windows theme while the widget is on System.
+- A rare crash at exit: an InvalidOperationException from the provider list's *Closed* handler in WidgetView.Usage.cs (ShowProviderList) when the app closes while the list is open.
+- Not checked in the running app before this release: dragging the cat, the Mascot Options dialog and a restart with the cat selected; the weather-colour fix at startup; and the real Grok and Antigravity readings (they were tested with fakes and, for the spikes, one real read each, not QA'd in the finished app).
+- The weather effect is very faint by design: its colours are kept dark enough to keep the text at a contrast of 4.5:1 or more (the intro GIF brightens it so it shows). It is a still picture, not an animation, when Windows animations are turned off or Reduce motion is on.
+- [#46](https://github.com/quanap5/PomoQuote/issues/46): non-standard Codex windows (not 5 hours or one week) get identical truncated labels.
+- [#44](https://github.com/quanap5/PomoQuote/issues/44): the PowerShell form of the Claude status line bridge (used only when Git Bash is missing) does not propagate the exit code of the original command.
+- The Claude icon is Anthropic's official mark used **without written permission** from Anthropic (the owner accepted the risk; the contact is marketing@anthropic.com; see THIRD_PARTY_ASSETS.md). The Grok icon is likewise xAI's official mark without written permission.
+- Windows only; WSL is not supported yet.
+- The Vietnamese translations of the 357 sentences have not been reviewed by a native speaker.
 ## [1.2.0] - 2026-11-25
 
 The widget release: AI usage for Codex and Claude Code, a redesigned widget, provider logos, the date with the Vietnamese lunar date, weather effects, and widget mode as the default with hide to tray.
@@ -122,7 +145,8 @@ Highlights:
 - "Hello World" stays on one centered line at any window size (PR #1).
 - The full clock rim stays inside its area at any window size (PR #4).
 
-[Unreleased]: https://github.com/quanap5/PomoQuote/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/quanap5/PomoQuote/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/quanap5/PomoQuote/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/quanap5/PomoQuote/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/quanap5/PomoQuote/releases/tag/v1.1.0
 [1.0.0]: https://github.com/quanap5/PomoQuote/commit/ef0b64619e98481a45595c17f268dd091b359724
