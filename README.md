@@ -8,7 +8,7 @@
 
 ![PomoQuote intro, 19 seconds: the logo; the widget with the clock, the solar and Vietnamese lunar date, weather, the Pomodoro timer and an English sentence with its Vietnamese translation; the Pomodoro in Idle, Work and Rest; AI usage for Codex and Claude Code in Compact and Expanded; weather effects (rain at night, snow by day); the taskbar robot and the Hide to tray menu](docs/intro.gif)
 
-*The clip is made from real captures of the app on sample data (no account, path or personal information is shown); the weather effects are brightened in it so they show in a small GIF.*
+*The clip is made mostly from real captures of the app on sample data (no account, path or personal information is shown). The taskbar strip with the robot is stylised (the robot is the real sprite sheet on a drawn bar, not a screenshot of a desktop), and the weather effects are brightened so they show in a small GIF. Ctrl+H hides the widget while it has the keyboard focus.*
 
 **PomoQuote** is a Windows desktop app for focused work and learning English. It opens as a small always-on-top **widget** that keeps an English sentence with its Vietnamese translation in front of you, next to the time and date (with the Vietnamese lunar date), the weather (with faint weather effects behind it), a Pomodoro timer and, if you turn it on, how much of your Codex and Claude Code quota is used. The widget hides to the tray when you do not need it, there is a normal window with an analog clock too, and a small pixel-art robot walks along your taskbar while you work.
 
