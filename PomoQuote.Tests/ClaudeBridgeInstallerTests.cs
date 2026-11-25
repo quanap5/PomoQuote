@@ -317,7 +317,7 @@ public sealed class ClaudeBridgeInstallerTests : IDisposable
         Assert.True(ClaudeBridgeCommand.IsBashForm(command));
         Assert.False(ClaudeBridgeCommand.IsBashForm(powershell));
 
-        // The form PomoQuote 1.1 wrote (no fallback) is still understood.
+        // The form an earlier development build wrote (no fallback) is still understood.
         var legacy = "\"C:/Apps/PomoQuote.exe\" --bridge claude --chain-b64 " + ClaudeBridge.EncodeChain("node x.js");
         Assert.Equal(@"C:\Apps\PomoQuote.exe", ClaudeBridgeCommand.ExecutableOf(legacy));
         Assert.Equal("node x.js", ClaudeBridge.ChainFrom(ClaudeBridgeCommand.Arguments(legacy)));
