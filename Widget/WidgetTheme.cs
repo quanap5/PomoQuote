@@ -146,11 +146,15 @@ internal sealed record WidgetTheme
 /// <summary>Reads whether Windows uses its light theme for apps.</summary>
 internal static class SystemTheme
 {
+    /// <summary>Test seam: replaces the registry read for everything created while it is set (so a widget can be built on a light or a dark Windows).</summary>
+    internal static Func<bool>? Override { get; set; }
+
     private const string Key = @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize";
 
     /// <summary>True when apps are set to the light theme. A missing or odd value means light, which is what Windows does when it is not set.</summary>
     public static bool IsLight()
     {
+        if (Override is { } forced) return forced();
         try
         {
             using var key = Registry.CurrentUser.OpenSubKey(Key);

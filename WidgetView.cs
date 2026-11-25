@@ -47,6 +47,7 @@ internal sealed partial class WidgetView : Control
         DoubleBuffered = true;
         ResizeRedraw = true;
         _theme = WidgetTheme.Resolve(_themeMode, SystemIsLight());
+        _effects.LightPanel = !_theme.IsDark; // the weather effect draws for this panel from its first frame
         BackColor = _theme.Panel;
         Cursor = Cursors.SizeAll;
         AccessibleName = "PomoQuote widget";
@@ -86,6 +87,9 @@ internal sealed partial class WidgetView : Control
 
     private bool SystemIsLight() => SystemIsLightProbe();
 
+    /// <summary>Whether the weather effect draws for a light panel (dark particles); for the tests.</summary>
+    internal bool EffectsLightPanel => _effects.LightPanel;
+
     /// <summary>The colours in force now.</summary>
     internal WidgetTheme Theme => _theme;
 
@@ -108,6 +112,7 @@ internal sealed partial class WidgetView : Control
     private void ResolveTheme()
     {
         var next = WidgetTheme.Resolve(_themeMode, SystemIsLight());
+        _effects.LightPanel = !next.IsDark; // also when the theme itself did not change: the effect always matches the panel
         if (ReferenceEquals(next, _theme)) return;
         _theme = next;
         BackColor = next.Panel;

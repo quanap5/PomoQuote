@@ -227,7 +227,7 @@ public sealed class WidgetThemeWidgetTests : IDisposable
         }
     }
 
-    private MainForm NewForm(bool systemIsLight = true, IReadOnlyList<PomoQuote.AiUsage.IUsageProvider>? providers = null)
+    private MainForm NewForm(bool systemIsLight = true, IReadOnlyList<PomoQuote.AiUsage.IUsageProvider>? providers = null, bool setProbe = true)
     {
         var http = new HttpClient(new NeverAnswers()) { Timeout = TimeSpan.FromMinutes(10) };
         var form = new MainForm(
@@ -241,7 +241,7 @@ public sealed class WidgetThemeWidgetTests : IDisposable
             Location = new Point(-3000, -3000),
             WorkAreaProvider = () => [new Rectangle(-6000, -6000, 4000, 4000)],
         };
-        form.WidgetViewForTests.SystemIsLightProbe = () => systemIsLight;
+        if (setProbe) form.WidgetViewForTests.SystemIsLightProbe = () => systemIsLight;
         return form;
     }
 
@@ -277,9 +277,69 @@ public sealed class WidgetThemeWidgetTests : IDisposable
         return bitmap;
     }
 
-    [Fact]
-    public void The_default_follows_windows_and_a_choice_applies_at_once_without_a_restart()
+    [Theory]
+    [InlineData(ThemeMode.System, true, true)]
+    [InlineData(ThemeMode.System, false, false)]
+    public void A_widget_built_on_a_light_or_dark_windows_draws_its_weather_effect_for_that_panel_from_the_first_frame(ThemeMode mode, bool windowsIsLight, bool expectLightPanel)
     {
+        OnStaThread(() =>
+        {
+            new WidgetStore(Path.Combine(_root, "widget.json")).Save(WidgetSettings.Default with { Theme = mode });
+            SystemTheme.Override = () => windowsIsLight;
+            try
+            {
+                using var form = NewForm(systemIsLight: windowsIsLight, setProbe: false); // the probe is NOT set after construction: the startup value counts
+                var view = form.WidgetViewForTests;
+
+                Assert.Equal(!expectLightPanel, view.Theme.IsDark);
+                Assert.Equal(expectLightPanel, view.EffectsLightPanel);
+            }
+            finally
+            {
+                SystemTheme.Override = null;
+            }
+        });
+    }
+
+    [Fact]
+    public void A_saved_light_choice_draws_the_effect_for_a_light_panel_whatever_windows_uses()
+    {
+        OnStaThread(() =>
+        {
+            new WidgetStore(Path.Combine(_root, "widget.json")).Save(WidgetSettings.Default with { Theme = ThemeMode.Light });
+            SystemTheme.Override = () => false; // a dark Windows
+            try
+            {
+                using var form = NewForm(systemIsLight: false, setProbe: false);
+
+                Assert.False(form.WidgetViewForTests.Theme.IsDark);
+                Assert.True(form.WidgetViewForTests.EffectsLightPanel);
+            }
+            finally
+            {
+                SystemTheme.Override = null;
+            }
+        });
+    }
+
+    [Fact]
+    public void The_effect_panel_mode_follows_every_later_change_of_the_theme()
+    {
+        OnStaThread(() =>
+        {
+            using var form = NewForm(systemIsLight: true);
+            var view = form.WidgetViewForTests;
+            form.SetTheme(ThemeMode.Dark);
+            Assert.False(view.EffectsLightPanel);
+            form.SetTheme(ThemeMode.Light);
+            Assert.True(view.EffectsLightPanel);
+            form.SetTheme(ThemeMode.System); // Windows is light
+            Assert.True(view.EffectsLightPanel);
+        });
+    }
+
+    [Fact]
+    public void The_default_follows_windows_and_a_choice_applies_at_once_without_a_restart()    {
         OnStaThread(() =>
         {
             using var form = NewForm(systemIsLight: true);
