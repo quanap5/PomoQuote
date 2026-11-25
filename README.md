@@ -6,20 +6,22 @@
 [![.NET 9](https://img.shields.io/badge/.NET-9.0-512BD4.svg)](https://dotnet.microsoft.com/download/dotnet/9.0)
 [![Platform: Windows](https://img.shields.io/badge/platform-Windows-0078D6.svg)](#build-run-and-test)
 
-![PomoQuote intro: the logo, an English sentence with its Vietnamese translation, the Pomodoro timer and weather over a wallpaper, and the small widget](docs/intro.gif)
+![PomoQuote intro, 19 seconds: the logo; the widget with the clock, the solar and Vietnamese lunar date, weather, the Pomodoro timer and an English sentence with its Vietnamese translation; the Pomodoro in Idle, Work and Rest; AI usage for Codex and Claude Code in Compact and Expanded; weather effects (rain at night, snow by day); the taskbar robot and the Hide to tray menu](docs/intro.gif)
 
-**PomoQuote** is a Windows desktop app for focused work and learning English. It keeps an English sentence with its Vietnamese translation in front of you, next to a Pomodoro timer, the weather and an analog clock, and a small pixel-art robot walks along your taskbar while you work.
+*The clip is made from real captures of the app on sample data (no account, path or personal information is shown); the weather effects are brightened in it so they show in a small GIF.*
+
+**PomoQuote** is a Windows desktop app for focused work and learning English. It opens as a small always-on-top **widget** that keeps an English sentence with its Vietnamese translation in front of you, next to the time and date (with the Vietnamese lunar date), the weather (with faint weather effects behind it), a Pomodoro timer and, if you turn it on, how much of your Codex and Claude Code quota is used. The widget hides to the tray when you do not need it, there is a normal window with an analog clock too, and a small pixel-art robot walks along your taskbar while you work.
 
 ## Features
 
 - **English sentences with Vietnamese translations.** 357 bundled offline sentences (motivation, idioms and proverbs, conversation) in large type that shrinks to fit. A new one appears at start, at each Pomodoro phase, optionally every 5/10/30/60 minutes, or on demand with **View > Next sentence (Ctrl+N)**. It shuffles through all of them before repeating and never shows the same one twice in a row. **Settings > Quotes...** picks the categories, translation on/off and the interval. Data: [Assets/Quotes/quotes.json](Assets/Quotes/quotes.json).
 - **Pomodoro timer.** Work 25 min, break 5 min, long break 15 min after 4 work sessions (all adjustable in **Settings > Pomodoro...**), with Start / Pause / Resume, Skip and Reset, a progress ring, an alert sound and a balloon notification at each phase end, the remaining time in the window title, and a count of today's work sessions.
 - **Weather.** Current weather for a city (default Hanoi, change it in **Settings > City...**) from [Open-Meteo](https://open-meteo.com/) (free, no API key), refreshed about every 10 minutes, with an icon for every value (sun and moon variants by day and night). Offline it keeps the last values and says so.
-- **Wallpapers.** **View > Wallpaper** switches between three bundled photos and the plain background.
+- **Wallpapers.** In the normal window, **View > Wallpaper** switches between three bundled photos and the plain background.
 - **Taskbar mascot.** Minimize the window and it hides to the system tray while a pixel-art robot walks along the top of the taskbar, across all monitors. It reacts to the Pomodoro (brisk walk while working, shout and jump when a session ends, sleeps during breaks), can be clicked and dragged, and never takes focus. **Settings > Mascot...** sets sound, volume, speed, size, random actions and monitors.
 - **Widget mode, the default.** The app now opens as the widget (see [Start mode and the tray](#start-mode-and-the-tray)). **View > Widget mode** (or **Ctrl+W**) turns the window into a small always-on-top widget (280 px wide) with the time, the date, weather, Pomodoro and the current sentence, plus your Codex and Claude Code quota if you turn on **Settings > AI Usage...**. Drag it anywhere, right-click for options, set its opacity to 100%, 80% or 60%.
 - **Weather effects on the widget.** A faint animation behind the widget's text follows the weather it already shows (no extra network use): sun glints or twinkling stars for clear sky, slowly drifting clouds (denser when cloudier), haze for fog, falling streaks for drizzle and rain (more for heavier rain; icy-tinted for freezing rain), slow flakes for snow, and heavy rain with a rare, soft, brief flash for a thunderstorm. Nothing is drawn for an unknown or missing weather. See [Weather effects](#weather-effects) below.
-- **Analog clock** that shows the real time, and a single running instance of the app.
+- **Analog clock** in the normal window that shows the real time, and a single running instance of the app (starting a second copy shows the first one, also when it is hidden in the tray).
 
 Settings live in `%AppData%\PomoQuote` (JSON files; a missing or damaged file falls back to the defaults). The app was called HelloWorldBot before: on the first start its settings in `%AppData%\HelloWorldBot` are copied over once, without overwriting or deleting anything.
 
