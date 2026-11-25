@@ -78,10 +78,12 @@ internal sealed partial class MainForm
         settings.DropDownItems.Add(new ToolStripMenuItem("&Quotes...", null, (_, _) => ShowQuoteSettings()));
         settings.DropDownItems.Add(new ToolStripMenuItem("&AI Usage...", null, (_, _) => ShowUsageSettings()));
         settings.DropDownItems.Add(new ToolStripMenuItem("Weather &effects...", null, (_, _) => ShowWeatherEffectsSettings()));
+        settings.DropDownItems.Add(BuildStartInMenu());
 
         _widgetPomodoroToggleItem = new ToolStripMenuItem("Start Pomodoro", null, (_, _) => TogglePomodoro());
         _widgetMenu = new ContextMenuStrip();
-        _widgetMenu.Items.Add(new ToolStripMenuItem("Exit &widget mode", null, (_, _) => SetWidgetMode(false)));
+        _widgetMenu.Items.Add(new ToolStripMenuItem("&Hide to tray", null, (_, _) => HideWidgetToTray()) { ShortcutKeyDisplayString = "Ctrl+H" });
+        _widgetMenu.Items.Add(new ToolStripMenuItem("Exit &widget mode", null, (_, _) => SetWidgetMode(false)) { ShortcutKeyDisplayString = "Ctrl+W" });
         _widgetMenu.Items.Add(_widgetPomodoroToggleItem);
         _widgetRefreshClaudeItem = new ToolStripMenuItem("Refresh &Claude now", null, (_, _) => RefreshClaudeNow());
         _widgetMenu.Items.Add(_widgetRefreshClaudeItem);
@@ -177,11 +179,33 @@ internal sealed partial class MainForm
         }
 
         _widgetMode = on;
+        _widgetHidden = false;
+        UpdateTrayPersistence();
         _widgetModeItem.Checked = on;
         _widgetSettings = _widgetSettings with { Enabled = on };
         ResumeLayout(performLayout: true);
         Invalidate(true);
         SaveWidgetSettings();
+        if (!on)
+        {
+            if (IsHandleCreated && !Visible) Show(); // it was hidden in the tray: leaving widget mode shows the normal window
+            RestoreTaskbarPresence();
+        }
+    }
+
+    /// <summary>
+    /// Leaving widget mode must give the normal window its taskbar button and its title-bar logo back. A window that was created already borderless
+    /// (the app started in widget mode) never gets its taskbar button from the border change alone, so the window is registered with the taskbar
+    /// again (the handle is recreated with the form's icon) and the icon is applied once more.
+    /// </summary>
+    private void RestoreTaskbarPresence()
+    {
+        if (!IsHandleCreated || IsDisposed) return;
+        var icon = Icon;
+        ShowInTaskbar = false;
+        ShowInTaskbar = true;
+        Icon = icon;
+        ShowIcon = true;
     }
 
     private void SetNormalControlsVisible(bool visible)
@@ -231,6 +255,12 @@ internal sealed partial class MainForm
         if (keyData == (Keys.Control | Keys.W))
         {
             SetWidgetMode(!_widgetMode);
+            return true;
+        }
+
+        if (keyData == HideToTrayShortcut && _widgetMode)
+        {
+            HideWidgetToTray();
             return true;
         }
 

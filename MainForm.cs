@@ -106,6 +106,7 @@ internal sealed partial class MainForm : Form
         settingsMenu.DropDownItems.Add(new ToolStripMenuItem("&Quotes...", null, (_, _) => ShowQuoteSettings()));
         settingsMenu.DropDownItems.Add(new ToolStripMenuItem("&AI Usage...", null, (_, _) => ShowUsageSettings()));
         settingsMenu.DropDownItems.Add(new ToolStripMenuItem("Weather &effects...", null, (_, _) => ShowWeatherEffectsSettings()));
+        settingsMenu.DropDownItems.Add(BuildStartInMenu());
 
         var viewMenu = new ToolStripMenuItem("&View");
         viewMenu.DropDownItems.Add(wallpaperMenu);
@@ -144,7 +145,7 @@ internal sealed partial class MainForm : Form
         UpdateQuoteBand();
         CenterToScreen();
         _normalBounds = Bounds;
-        if (_widgetSettings.Enabled) SetWidgetMode(true);
+        if (StartModePolicy.StartsAsWidget(_widgetSettings.StartIn, _widgetSettings.Enabled)) SetWidgetMode(true);
     }
 
     /// <summary>The sentence band takes about a third of the height, never less than its minimum, so it grows with the window.</summary>

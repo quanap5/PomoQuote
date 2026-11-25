@@ -90,8 +90,37 @@ internal sealed partial class WidgetView
         ApplyWeatherEffect();
     }
 
+    private Form? _hostForm;
+
+    /// <summary>The window is hidden, shown or minimised without this control hearing about it (its own Visible does not raise an event then), so the form is watched.</summary>
+    protected override void OnHandleCreated(EventArgs e)
+    {
+        base.OnHandleCreated(e);
+        if (FindForm() is not { } form || ReferenceEquals(form, _hostForm)) return;
+        if (_hostForm is not null) UnwatchHostForm();
+        _hostForm = form;
+        form.VisibleChanged += OnHostFormChanged;
+        form.Resize += OnHostFormChanged;
+    }
+
+    private void UnwatchHostForm()
+    {
+        if (_hostForm is null) return;
+        _hostForm.VisibleChanged -= OnHostFormChanged;
+        _hostForm.Resize -= OnHostFormChanged;
+        _hostForm = null;
+    }
+
+    private void OnHostFormChanged(object? sender, EventArgs e)
+    {
+        _clockTick.Enabled = Visible; // no clock tick either while the window is hidden
+        EvaluateEffects();
+        if (Visible) Invalidate();
+    }
+
     private void DisposeEffects()
     {
+        UnwatchHostForm();
         SystemEvents.SessionSwitch -= OnSessionSwitch;
         SystemEvents.PowerModeChanged -= OnPowerModeChanged;
         SystemEvents.UserPreferenceChanged -= OnUserPreferenceChanged;

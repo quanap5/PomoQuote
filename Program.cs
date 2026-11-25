@@ -13,13 +13,20 @@ internal static class Program
 
         // One instance only: a second copy would put a second robot and a second tray icon on screen.
         using var singleInstance = new Mutex(initiallyOwned: true, @"Local\PomoQuote.SingleInstance", out var isFirstInstance);
-        if (!isFirstInstance) return 0;
+        if (!isFirstInstance)
+        {
+            // The first copy may be hidden in the tray: ask it to show itself instead of silently doing nothing.
+            SingleInstanceSignal.Notify(SingleInstanceSignal.DefaultName);
+            return 0;
+        }
 
         // Settings of the former name (HelloWorldBot) are copied over before any store reads its file.
         AppDataMigration.Run();
 
         ApplicationConfiguration.Initialize();
-        Application.Run(new MainForm());
+        using var form = new MainForm();
+        using var signal = new SingleInstanceSignal(SingleInstanceSignal.DefaultName, form.ShowFromSecondLaunch);
+        Application.Run(form);
         return 0;
     }
 }

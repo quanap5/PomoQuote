@@ -1,5 +1,6 @@
 using PomoQuote.Mascot;
 using PomoQuote.Pomodoro;
+using PomoQuote.Widget;
 
 namespace PomoQuote;
 
@@ -18,6 +19,8 @@ internal sealed partial class MainForm
     private ToolStripMenuItem _trayPomodoroToggleItem = null!;
     private Font? _trayOpenFont;
     private bool _inTray;
+    private ToolStripMenuItem _trayToggleItem = null!;
+    private ToolStripMenuItem _trayOpenItem = null!;
 
     /// <summary>The monitors the robot may walk on. Replaceable so tests can fake a monitor layout.</summary>
     [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
@@ -48,22 +51,33 @@ internal sealed partial class MainForm
 
         // A single click only makes the character react; the window comes back on a double click (or from the tray).
         _mascot.RestoreRequested += (_, _) => RestoreFromTray();
-        _tray.Clicked += (_, _) => RestoreFromTray();
+        _tray.Clicked += (_, _) => OnTrayClicked();
+        _tray.DoubleClicked += (_, _) => OnTrayDoubleClicked();
 
         _trayPomodoroToggleItem = new ToolStripMenuItem("Start Pomodoro", null, (_, _) => TogglePomodoro());
         var settings = new ToolStripMenuItem("&Settings");
-        settings.DropDownItems.Add(new ToolStripMenuItem("&City...", null, (_, _) => { RestoreFromTray(); ChangeCity(); }));
-        settings.DropDownItems.Add(new ToolStripMenuItem("&Pomodoro...", null, (_, _) => { RestoreFromTray(); ShowPomodoroSettings(); }));
-        settings.DropDownItems.Add(new ToolStripMenuItem("&Mascot...", null, (_, _) => { RestoreFromTray(); ShowMascotSettings(); }));
-        settings.DropDownItems.Add(new ToolStripMenuItem("Weather &effects...", null, (_, _) => { RestoreFromTray(); ShowWeatherEffectsSettings(); }));
+        settings.DropDownItems.Add(new ToolStripMenuItem("&City...", null, (_, _) => { BringBack(); ChangeCity(); }));
+        settings.DropDownItems.Add(new ToolStripMenuItem("&Pomodoro...", null, (_, _) => { BringBack(); ShowPomodoroSettings(); }));
+        settings.DropDownItems.Add(new ToolStripMenuItem("&Mascot...", null, (_, _) => { BringBack(); ShowMascotSettings(); }));
+        settings.DropDownItems.Add(new ToolStripMenuItem("Weather &effects...", null, (_, _) => { BringBack(); ShowWeatherEffectsSettings(); }));
+        settings.DropDownItems.Add(BuildStartInMenu());
 
         _trayMenu = new ContextMenuStrip();
         _trayOpenFont = new Font(Font, FontStyle.Bold);
-        _trayMenu.Items.Add(new ToolStripMenuItem("&Open", null, (_, _) => RestoreFromTray()) { Font = _trayOpenFont });
+        _trayToggleItem = new ToolStripMenuItem("Hide widget", null, (_, _) => ApplyShellAction(ShellAction.TrayClick)) { Font = _trayOpenFont };
+        _trayOpenItem = new ToolStripMenuItem("&Open", null, (_, _) => OpenNormalWindowFromTray());
+        _trayMenu.Items.Add(_trayToggleItem);
+        _trayMenu.Items.Add(_trayOpenItem);
         _trayMenu.Items.Add(_trayPomodoroToggleItem);
         _trayMenu.Items.Add(settings);
         _trayMenu.Items.Add(new ToolStripSeparator());
         _trayMenu.Items.Add(new ToolStripMenuItem("E&xit", null, (_, _) => Close()));
+        _trayMenu.Opening += (_, _) =>
+        {
+            _trayToggleItem.Visible = _widgetMode;
+            _trayToggleItem.Text = _widgetHidden ? "Show widget" : "Hide widget";
+            _trayOpenItem.Text = _widgetMode ? "&Normal window" : "&Open";
+        };
         _trayMenu.Opening += (_, _) => _trayPomodoroToggleItem.Text = _pomodoro.Timer.State switch
         {
             PomodoroRunState.Running => "Pause Pomodoro",
@@ -120,7 +134,7 @@ internal sealed partial class MainForm
 
         _inTray = false;
         _mascot.Stop();
-        _tray.SetPersistent(false);
+        UpdateTrayPersistence();
         Show();
         if (WindowState == FormWindowState.Minimized) WindowState = FormWindowState.Normal;
         Activate();
