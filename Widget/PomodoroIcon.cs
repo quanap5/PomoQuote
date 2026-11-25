@@ -39,8 +39,11 @@ internal static class PomodoroIcon
         return state == PomodoroRunState.Paused ? name + ", paused" : name;
     }
 
-    public static void Draw(Graphics graphics, RectangleF box, PomodoroIconState state, Color colour, bool paused, float unit)
+    public static void Draw(Graphics graphics, RectangleF box, PomodoroIconState state, Color colour, bool paused, float unit, Color? panel = null, Color? bars = null)
     {
+        // The colours the icon cuts into its own shape: the panel behind it and the pause bars (the dark theme's by default).
+        var cut = panel ?? WidgetTheme.Dark.Panel;
+        var barColour = bars ?? WidgetTheme.Dark.PrimaryText;
         var previous = graphics.SmoothingMode;
         graphics.SmoothingMode = SmoothingMode.AntiAlias;
         var line = Math.Max(1.2f, 1.5f * unit);
@@ -67,7 +70,7 @@ internal static class PomodoroIcon
                 graphics.FillEllipse(brush, face);
                 graphics.DrawLine(pen, cx, box.Y + box.Height * 0.04f, cx, box.Y + box.Height * 0.18f);
                 graphics.DrawLine(pen, cx - box.Width * 0.14f, box.Y + box.Height * 0.04f, cx + box.Width * 0.14f, box.Y + box.Height * 0.04f);
-                using var hand = new Pen(Color.FromArgb(28, 32, 40), line) { StartCap = LineCap.Round, EndCap = LineCap.Round };
+                using var hand = new Pen(cut, line) { StartCap = LineCap.Round, EndCap = LineCap.Round };
                 var centre = new PointF(face.X + face.Width / 2, face.Y + face.Height / 2);
                 graphics.DrawLine(hand, centre.X, centre.Y, centre.X, face.Y + face.Height * 0.2f);
                 graphics.DrawLine(hand, centre.X, centre.Y, centre.X + face.Width * 0.24f, centre.Y + face.Height * 0.12f);
@@ -91,9 +94,9 @@ internal static class PomodoroIcon
         {
             // Two small bars on a panel-coloured dot at the lower right: the phase is paused, not over.
             var dot = new RectangleF(box.Right - box.Width * 0.5f, box.Bottom - box.Height * 0.5f, box.Width * 0.56f, box.Height * 0.56f);
-            using var backdrop = new SolidBrush(Color.FromArgb(28, 32, 40));
+            using var backdrop = new SolidBrush(cut);
             graphics.FillEllipse(backdrop, RectangleF.Inflate(dot, 0.8f * unit, 0.8f * unit));
-            using var white = new SolidBrush(Color.FromArgb(244, 246, 248));
+            using var white = new SolidBrush(barColour);
             var barWidth = Math.Max(1.2f, dot.Width * 0.2f);
             graphics.FillRectangle(white, dot.X + dot.Width * 0.26f, dot.Y + dot.Height * 0.22f, barWidth, dot.Height * 0.56f);
             graphics.FillRectangle(white, dot.X + dot.Width * 0.56f, dot.Y + dot.Height * 0.22f, barWidth, dot.Height * 0.56f);

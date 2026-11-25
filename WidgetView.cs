@@ -24,12 +24,10 @@ internal sealed partial class WidgetView : Control
     private const int WM_NCLBUTTONDOWN = 0x00A1;
     private const int HTCAPTION = 2;
 
-    private static readonly Color PanelColor = Color.FromArgb(28, 32, 40);
-    private static readonly Color BorderColor = Color.FromArgb(84, 94, 110);
-    private static readonly Color PrimaryText = Color.FromArgb(244, 246, 248);
-    private static readonly Color SecondaryText = Color.FromArgb(190, 200, 212);
-    private static readonly Color TrackColor = Color.FromArgb(62, 70, 84);
-    private static readonly Color CardColor = Color.FromArgb(40, 50, 66);
+
+    // The colours in force: every colour the widget draws comes from this one theme (see WidgetTheme).
+    private WidgetTheme _theme = WidgetTheme.Dark;
+    private ThemeMode _themeMode = ThemeMode.System;
 
     private readonly PomodoroController _pomodoro;
     private readonly WeatherPanel _weather;
@@ -48,7 +46,8 @@ internal sealed partial class WidgetView : Control
         _weather = weather;
         DoubleBuffered = true;
         ResizeRedraw = true;
-        BackColor = PanelColor;
+        _theme = WidgetTheme.Resolve(_themeMode, SystemIsLight());
+        BackColor = _theme.Panel;
         Cursor = Cursors.SizeAll;
         AccessibleName = "PomoQuote widget";
         AccessibleRole = AccessibleRole.Pane;
@@ -77,6 +76,48 @@ internal sealed partial class WidgetView : Control
         _clockTick.Enabled = Visible;
         EvaluateEffects();
         if (Visible) Invalidate();
+    }
+
+    // ---------- theme ----------
+
+    /// <summary>Test seam: whether Windows uses its light theme for apps. The real value is read from the registry.</summary>
+    [System.ComponentModel.Browsable(false), System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+    internal Func<bool> SystemIsLightProbe { get; set; } = SystemTheme.IsLight;
+
+    private bool SystemIsLight() => SystemIsLightProbe();
+
+    /// <summary>The colours in force now.</summary>
+    internal WidgetTheme Theme => _theme;
+
+    /// <summary>The user's choice (System, Light or Dark).</summary>
+    internal ThemeMode ThemeChoice => _themeMode;
+
+    /// <summary>Applies the user's choice at once: no restart, nothing is read again, the widget just repaints with the new tokens.</summary>
+    internal void ApplyTheme(ThemeMode mode)
+    {
+        _themeMode = mode;
+        ResolveTheme();
+    }
+
+    /// <summary>Windows changed its colours: only System mode follows it.</summary>
+    internal void SystemThemeChanged()
+    {
+        if (_themeMode == ThemeMode.System) ResolveTheme();
+    }
+
+    private void ResolveTheme()
+    {
+        var next = WidgetTheme.Resolve(_themeMode, SystemIsLight());
+        if (ReferenceEquals(next, _theme)) return;
+        _theme = next;
+        BackColor = next.Panel;
+        _selector.BackColor = next.Panel;
+        _selector.Theme = next;
+        _toggle.BackColor = next.Panel;
+        _toggle.Theme = next;
+        _effects.LightPanel = !next.IsDark;
+        _contentDirty = true; // the cached layer over a weather effect was drawn with the old colours
+        Invalidate(true);
     }
 
     private static string TimeText() => DateTime.Now.ToString("HH:mm:ss");
@@ -154,13 +195,13 @@ internal sealed partial class WidgetView : Control
         if (_quotePlan is not { } plan) return;
         var card = new RectangleF(UsageGeometry.Margin * u, QuoteTop * u, (UsageGeometry.WidgetWidth - 2 * UsageGeometry.Margin) * u, plan.CardHeight * u);
         using (var path = PillBar.Rounded(card, 11 * u))
-        using (var fill = new SolidBrush(CardColor))
+        using (var fill = new SolidBrush(_theme.Card))
         {
             graphics.FillPath(fill, path);
         }
 
         // The small tail of the bubble, at the lower left.
-        using (var tail = new SolidBrush(CardColor))
+        using (var tail = new SolidBrush(_theme.Card))
         {
             var x = card.X + 18 * u;
             graphics.FillPolygon(tail, [new PointF(x, card.Bottom - 1 * u), new PointF(x + 9 * u, card.Bottom - 1 * u), new PointF(x - 1 * u, card.Bottom + QuoteTail * u)]);
@@ -169,7 +210,7 @@ internal sealed partial class WidgetView : Control
         // The big quotation marks are decoration: drawn, never text, so a screen reader does not read them out. They sit in the
         // corners the text leaves free.
         using (var marks = new Font("Georgia", 34 * u, FontStyle.Bold, GraphicsUnit.Pixel))
-        using (var markBrush = new SolidBrush(Color.FromArgb(70, 160, 180, 210)))
+        using (var markBrush = new SolidBrush(_theme.QuoteMark))
         using (var typographic = new StringFormat(StringFormat.GenericTypographic))
         {
             graphics.DrawString("“", marks, markBrush, card.X + 6 * u, card.Y - 5 * u, typographic);
@@ -179,7 +220,7 @@ internal sealed partial class WidgetView : Control
 
         using var typo = new StringFormat(StringFormat.GenericTypographic) { FormatFlags = StringFormatFlags.NoWrap | StringFormatFlags.MeasureTrailingSpaces };
         using var english = new Font(QuoteLayout.EnglishFamily, plan.EnglishPixels * u, FontStyle.Regular, GraphicsUnit.Pixel);
-        using var englishBrush = new SolidBrush(Color.FromArgb(150, 236, 160));
+        using var englishBrush = new SolidBrush(_theme.QuoteEnglish);
         var x0 = card.X + QuoteInsetLeft * u;
         var y = card.Y + QuoteGeometry.PaddingTop * u;
         foreach (var line in plan.English)
@@ -191,7 +232,7 @@ internal sealed partial class WidgetView : Control
         if (plan.Vietnamese is null) return;
         y += QuoteGeometry.GapBetweenTexts * u;
         using var vietnamese = new Font(QuoteLayout.VietnameseFamily, plan.VietnamesePixels * u, FontStyle.Regular, GraphicsUnit.Pixel);
-        using var vietnameseBrush = new SolidBrush(Color.FromArgb(206, 216, 228));
+        using var vietnameseBrush = new SolidBrush(_theme.QuoteVietnamese);
         foreach (var line in plan.Vietnamese)
         {
             graphics.DrawString(line, vietnamese, vietnameseBrush, x0, y, typo);
@@ -232,7 +273,7 @@ internal sealed partial class WidgetView : Control
             (_measuredSolar, _measuredLunar, _measuredRoom, _measuredUnit) = (_solarLine, _lunarLine, room, u);
         }
 
-        using var brush = new SolidBrush(SecondaryText);
+        using var brush = new SolidBrush(_theme.SecondaryText);
         // Right-aligned: every line ends flush at the right content margin, whatever size it was shrunk to.
         using var ellipsis = new StringFormat(StringFormatFlags.NoWrap) { Trimming = StringTrimming.EllipsisCharacter, Alignment = StringAlignment.Far };
         for (var i = 0; i < 2; i++)
@@ -284,7 +325,7 @@ internal sealed partial class WidgetView : Control
     protected override void OnPaint(PaintEventArgs e)
     {
         if (PaintWithEffects(e.Graphics)) return;
-        e.Graphics.Clear(PanelColor);
+        e.Graphics.Clear(_theme.Panel);
         PaintContent(e.Graphics);
     }
 
@@ -301,14 +342,14 @@ internal sealed partial class WidgetView : Control
         using var near = new StringFormat(StringFormatFlags.NoWrap) { Trimming = StringTrimming.EllipsisCharacter };
         using var farFormat = new StringFormat(StringFormatFlags.NoWrap) { Alignment = StringAlignment.Far };
 
-        using (var border = new Pen(BorderColor, Math.Max(1f, u)))
+        using (var border = new Pen(_theme.Border, Math.Max(1f, u)))
         {
             graphics.DrawRectangle(border, 0, 0, ClientSize.Width - 1, ClientSize.Height - 1);
         }
 
         // Time, and after it the solar date and the Vietnamese lunar date on two lines
         using (var timeFont = new Font("Segoe UI Light", 30 * u, FontStyle.Regular, GraphicsUnit.Pixel))
-        using (var primary = new SolidBrush(PrimaryText))
+        using (var primary = new SolidBrush(_theme.PrimaryText))
         using (var typographic = new StringFormat(StringFormat.GenericTypographic) { FormatFlags = StringFormatFlags.NoWrap | StringFormatFlags.MeasureTrailingSpaces })
         {
             var time = TimeText();
@@ -323,30 +364,30 @@ internal sealed partial class WidgetView : Control
             // Every weather value comes with its own icon, drawn crisp at exactly this size (see IconTextLine).
             var snapshot = _weather.Snapshot;
             var iconSize = (int)Math.Round(14 * u);
-            IconTextLine.Draw(graphics, _weather.Icons, WeatherLines.City(snapshot), small, iconSize, 5 * u, left, 48 * u, SecondaryText, shadow: false);
-            IconTextLine.Draw(graphics, _weather.Icons, WeatherLines.Summary(snapshot), small, iconSize, 5 * u, left, 65 * u, PrimaryText, shadow: false);
+            IconTextLine.Draw(graphics, _weather.Icons, WeatherLines.City(snapshot), small, iconSize, 5 * u, left, 48 * u, _theme.SecondaryText, shadow: false);
+            IconTextLine.Draw(graphics, _weather.Icons, WeatherLines.Summary(snapshot), small, iconSize, 5 * u, left, 65 * u, _theme.PrimaryText, shadow: false);
         }
 
         // Pomodoro: phase and remaining time, today's count, pill progress bar
         var timer = _pomodoro.Timer;
-        var accent = PhaseColor(timer.Phase);
+        var accent = _theme.Phase(timer.Phase);
         var seconds = _pomodoro.WholeSecondsLeft();
         var phase = PomodoroController.PhaseName(timer.Phase) + (timer.State == PomodoroRunState.Paused ? " (paused)" : "");
         using (var bold = new Font("Segoe UI Semibold", 14 * u, FontStyle.Regular, GraphicsUnit.Pixel))
         using (var small = new Font("Segoe UI", 12f * u, FontStyle.Regular, GraphicsUnit.Pixel))
-        using (var primary = new SolidBrush(PrimaryText))
-        using (var secondary = new SolidBrush(SecondaryText))
+        using (var primary = new SolidBrush(_theme.PrimaryText))
+        using (var secondary = new SolidBrush(_theme.SecondaryText))
         {
             // The state icon has the weather icons' left edge, size (14 px) and gap (5 px), and is centred on its row.
             var iconSize = (int)Math.Round(14 * u);
             var iconState = PomodoroIcon.StateOf(timer.Phase, timer.State);
             var iconBox = new RectangleF((int)Math.Round(left), (int)Math.Round(87 * u + (bold.Height - iconSize) / 2f), iconSize, iconSize);
-            PomodoroIcon.Draw(graphics, iconBox, iconState, iconState == PomodoroIconState.Idle ? SecondaryText : accent, timer.State == PomodoroRunState.Paused, u);
+            PomodoroIcon.Draw(graphics, iconBox, iconState, iconState == PomodoroIconState.Idle ? _theme.SecondaryText : accent, timer.State == PomodoroRunState.Paused, u, _theme.Panel, _theme.PrimaryText);
             graphics.DrawString($"{phase}  {seconds / 60:00}:{seconds % 60:00}", bold, primary, new RectangleF(left + iconSize + 5 * u, 87 * u, width - iconSize - 5 * u, 20 * u), near);
             graphics.DrawString($"Today {_pomodoro.CompletedToday}", small, secondary, new RectangleF(left, 89 * u, width, 17 * u), farFormat);
         }
 
-        PillBar.Draw(graphics, new RectangleF(left, 116 * u, width, 7 * u), timer.Progress, TrackColor, accent);
+        PillBar.Draw(graphics, new RectangleF(left, 116 * u, width, 7 * u), timer.Progress, _theme.Track, accent);
         _hotSpots.Add((new RectangleF(left, 85 * u, width, 42 * u), "timer", TimerTooltip.Text(timer.Phase, timer.State, timer.PhaseDuration, timer.Remaining, DateTime.Now)));
         var pomodoroName = PomodoroIcon.Name(timer.Phase, timer.State);
         if (pomodoroName != _pomodoroName)
@@ -358,20 +399,12 @@ internal sealed partial class WidgetView : Control
         DrawQuote(graphics, u);
         if (_views.Count > 0)
         {
-            using var separator = new Pen(BorderColor, Math.Max(1f, u));
+            using var separator = new Pen(_theme.Border, Math.Max(1f, u));
             graphics.DrawLine(separator, left, _separatorY * u, left + width, _separatorY * u);
         }
 
         DrawUsage(graphics, u);
     }
-
-    private static Color PhaseColor(PomodoroPhase phase) => phase switch
-    {
-        // Timer colours are never red, orange or yellow: those are for quota warnings only.
-        PomodoroPhase.Work => Color.FromArgb(138, 130, 244),
-        PomodoroPhase.ShortBreak => Color.FromArgb(150, 204, 112),
-        _ => Color.FromArgb(104, 168, 240),
-    };
 
     protected override void Dispose(bool disposing)
     {

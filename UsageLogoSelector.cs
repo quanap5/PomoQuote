@@ -1,6 +1,7 @@
 using System.Drawing.Drawing2D;
 using System.Drawing.Text;
 using PomoQuote.AiUsage;
+using PomoQuote.Widget;
 
 namespace PomoQuote;
 
@@ -18,6 +19,7 @@ internal sealed class UsageLogoSelector : Control
     private bool _otherWarning;
     private bool _hot;
     private bool _refreshing;
+    private WidgetTheme _theme = WidgetTheme.Dark;
 
     public UsageLogoSelector()
     {
@@ -26,6 +28,19 @@ internal sealed class UsageLogoSelector : Control
         Cursor = Cursors.Hand;
         AccessibleRole = AccessibleRole.ComboBox;
         AccessibleDefaultActionDescription = "Open the list of providers";
+    }
+
+    /// <summary>The colours in force (set by the widget; a change repaints).</summary>
+    [System.ComponentModel.Browsable(false), System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+    public WidgetTheme Theme
+    {
+        get => _theme;
+        set
+        {
+            if (ReferenceEquals(_theme, value)) return;
+            _theme = value;
+            Invalidate();
+        }
     }
 
     /// <summary>The device pixels of one logical pixel (the badge and focus ring scale with it).</summary>
@@ -127,7 +142,7 @@ internal sealed class UsageLogoSelector : Control
         var box = new RectangleF((Width - size) / 2f, (Height - size) / 2f, size, size);
         if (_hot)
         {
-            using var hot = new SolidBrush(Color.FromArgb(34, 255, 255, 255));
+            using var hot = new SolidBrush(_theme.SelectorHot);
             g.FillEllipse(hot, RectangleF.Inflate(box, 4 * u, 4 * u));
         }
 
@@ -139,27 +154,27 @@ internal sealed class UsageLogoSelector : Control
         {
             // No icon allowed or found: a neutral tile with the first letter; the name is in the tooltip and the accessible name.
             using var tile = Widget.PillBar.Rounded(box, 5 * u);
-            using var fill = new SolidBrush(Color.FromArgb(70, 80, 96));
+            using var fill = new SolidBrush(_theme.TileFill);
             g.FillPath(fill, tile);
             using var font = new Font("Segoe UI Semibold", 11 * u, FontStyle.Regular, GraphicsUnit.Pixel);
-            using var brush = new SolidBrush(Color.FromArgb(235, 240, 246));
+            using var brush = new SolidBrush(_theme.TileText);
             using var centre = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
             g.DrawString(_letter, font, brush, box, centre);
         }
 
         DrawBadge(g, box, u);
-        if (_refreshing) WidgetGlyphs.DrawUpdating(g, new RectangleF(box.X - 7 * u, box.Y - 3 * u, 9 * u, 9 * u), u);
+        if (_refreshing) WidgetGlyphs.DrawUpdating(g, new RectangleF(box.X - 7 * u, box.Y - 3 * u, 9 * u, 9 * u), u, _theme.SecondaryText);
         if (_otherWarning)
         {
             // Another provider needs attention: a small ring at the lower right of the logo.
             var ring = new RectangleF(box.Right - 3 * u, box.Bottom - 5 * u, 7 * u, 7 * u);
-            using var pen = new Pen(Color.FromArgb(240, 180, 80), Math.Max(1.5f, 1.6f * u));
+            using var pen = new Pen(_theme.Warning, Math.Max(1.5f, 1.6f * u));
             g.DrawEllipse(pen, ring);
         }
 
         if (Focused && ShowFocusCues)
         {
-            using var pen = new Pen(Color.FromArgb(150, 190, 240), Math.Max(1f, u)) { DashStyle = DashStyle.Dot };
+            using var pen = new Pen(_theme.Focus, Math.Max(1f, u)) { DashStyle = DashStyle.Dot };
             g.DrawRectangle(pen, 1, 1, Width - 3, Height - 3);
         }
     }
@@ -175,7 +190,7 @@ internal sealed class UsageLogoSelector : Control
         switch (_severity)
         {
             case ProviderSeverity.Error:
-                using (var red = new SolidBrush(Color.FromArgb(240, 98, 82))) g.FillEllipse(red, badge);
+                using (var red = new SolidBrush(_theme.Critical)) g.FillEllipse(red, badge);
                 using (var font = new Font("Segoe UI", 8.5f * u, FontStyle.Bold, GraphicsUnit.Pixel))
                 using (var white = new SolidBrush(Color.White))
                 using (var centre = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
@@ -185,8 +200,8 @@ internal sealed class UsageLogoSelector : Control
 
                 break;
             case ProviderSeverity.Stale:
-                using (var amber = new SolidBrush(Color.FromArgb(240, 180, 80))) g.FillEllipse(amber, badge);
-                using (var hands = new Pen(Color.FromArgb(40, 34, 20), Math.Max(1f, 1.2f * u)))
+                using (var amber = new SolidBrush(_theme.Stale)) g.FillEllipse(amber, badge);
+                using (var hands = new Pen(_theme.OnAmber, Math.Max(1f, 1.2f * u)))
                 {
                     var c = new PointF(badge.X + d / 2, badge.Y + d / 2);
                     g.DrawLine(hands, c.X, c.Y, c.X, c.Y - d * 0.28f);
@@ -195,7 +210,7 @@ internal sealed class UsageLogoSelector : Control
 
                 break;
             default:
-                using (var amber = new SolidBrush(Color.FromArgb(240, 180, 80)))
+                using (var amber = new SolidBrush(_theme.Warning))
                 {
                     g.FillPolygon(amber, [new PointF(badge.X + d / 2, badge.Y), new PointF(badge.Right, badge.Bottom), new PointF(badge.X, badge.Bottom)]);
                 }

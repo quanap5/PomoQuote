@@ -106,6 +106,7 @@ internal sealed partial class MainForm : Form
         settingsMenu.DropDownItems.Add(new ToolStripMenuItem("&Quotes...", null, (_, _) => ShowQuoteSettings()));
         settingsMenu.DropDownItems.Add(new ToolStripMenuItem("&AI Usage...", null, (_, _) => ShowUsageSettings()));
         settingsMenu.DropDownItems.Add(new ToolStripMenuItem("Weather &effects...", null, (_, _) => ShowWeatherEffectsSettings()));
+        settingsMenu.DropDownItems.Add(BuildThemeMenu());
         settingsMenu.DropDownItems.Add(BuildStartInMenu());
 
         var viewMenu = new ToolStripMenuItem("&View");

@@ -372,16 +372,29 @@ internal sealed class WeatherEffectField : IDisposable
     /// </summary>
     public void Draw(Graphics graphics, float unit)
     {
+        _lightPanelNow = LightPanel;
         if (_back.Opacity > 0) DrawLayer(graphics, _back, unit);
         if (_front.Opacity > 0) DrawLayer(graphics, _front, unit);
 
         var flash = FlashLevel;
         if (flash > 0.01f)
         {
-            _brush.Color = Color.FromArgb((int)(FlashAlpha * flash), FlashColor);
+            var (fr, fg, fb) = Tint(FlashColor.R, FlashColor.G, FlashColor.B);
+            _brush.Color = Color.FromArgb((int)(FlashAlpha * flash * (_lightPanelNow ? 0.6f : 1f)), fr, fg, fb);
             graphics.FillRectangle(_brush, 0, 0, _width * unit, _height * unit);
         }
     }
+
+    /// <summary>True when the widget panel is light: the particles are drawn dark instead of light, so they show on it and never wash the text out.</summary>
+    public bool LightPanel { get; set; }
+
+    private bool _lightPanelNow;
+
+    /// <summary>On a light panel each particle colour is pulled most of the way to a dark slate; on a dark one it is unchanged.</summary>
+    private (int R, int G, int B) Tint(int r, int g, int b) =>
+        _lightPanelNow ? ((int)(r * 0.25f + 40 * 0.75f), (int)(g * 0.25f + 56 * 0.75f), (int)(b * 0.25f + 84 * 0.75f)) : (r, g, b);
+
+    private (int R, int G, int B) Tint((int R, int G, int B) c) => Tint(c.R, c.G, c.B);
 
     private int A(float alpha, float opacity) => Math.Clamp((int)(alpha * opacity), 0, 255);
 
@@ -393,7 +406,7 @@ internal sealed class WeatherEffectField : IDisposable
         {
             case WeatherEffectKind.Rain:
             {
-                var (r, gr, b) = RainColor(layer.Effect.Icy, day);
+                var (r, gr, b) = Tint(RainColor(layer.Effect.Icy, day));
                 _pen.Width = Math.Max(1.2f, 1.1f * u);
                 for (var i = 0; i < layer.Count; i++)
                 {
@@ -408,7 +421,7 @@ internal sealed class WeatherEffectField : IDisposable
 
             case WeatherEffectKind.Snow:
             {
-                var (r, gr, b) = SnowColor(day);
+                var (r, gr, b) = Tint(SnowColor(day));
                 for (var i = 0; i < layer.Count; i++)
                 {
                     ref var p = ref layer.Particles[i];
@@ -423,7 +436,7 @@ internal sealed class WeatherEffectField : IDisposable
 
             case WeatherEffectKind.Clouds:
             {
-                var (r, gr, b) = CloudColor(day);
+                var (r, gr, b) = Tint(CloudColor(day));
                 _brush.Color = Color.FromArgb(A(CloudAlpha, o), r, gr, b);
                 for (var i = 0; i < layer.Count; i++)
                 {
@@ -441,7 +454,7 @@ internal sealed class WeatherEffectField : IDisposable
 
             case WeatherEffectKind.Haze:
             {
-                var (r, gr, b) = HazeColor(day);
+                var (r, gr, b) = Tint(HazeColor(day));
                 _brush.Color = Color.FromArgb(A(HazeAlpha, o), r, gr, b);
                 for (var i = 0; i < layer.Count; i++)
                 {
@@ -458,7 +471,7 @@ internal sealed class WeatherEffectField : IDisposable
             case WeatherEffectKind.Stars:
             {
                 var stars = layer.Effect.Kind == WeatherEffectKind.Stars;
-                var (r, gr, b) = stars ? StarColor : GlintColor;
+                var (r, gr, b) = Tint(stars ? StarColor : GlintColor);
                 _pen.Width = Math.Max(1f, 0.7f * u);
                 for (var i = 0; i < layer.Count; i++)
                 {

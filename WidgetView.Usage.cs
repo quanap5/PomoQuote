@@ -21,10 +21,6 @@ internal sealed class UsageUiEventArgs(bool expanded, string? selectedProvider) 
 /// </summary>
 internal sealed partial class WidgetView
 {
-    private static readonly Color QuotaColor = Color.FromArgb(70, 178, 190);
-    private static readonly Color WarningColor = Color.FromArgb(240, 180, 80);
-    private static readonly Color CriticalColor = Color.FromArgb(240, 98, 82);
-    private static readonly Color StaleColor = Color.FromArgb(240, 180, 80);
 
     private readonly ProviderIcons _icons = new();
     private readonly ToolTip _tip = new() { InitialDelay = 350, ReshowDelay = 100, AutoPopDelay = 9000, ShowAlways = true };
@@ -52,10 +48,10 @@ internal sealed partial class WidgetView
 
     private void InitializeUsage()
     {
-        _selector = new UsageLogoSelector { BackColor = PanelColor, Visible = false };
+        _selector = new UsageLogoSelector { BackColor = _theme.Panel, Theme = _theme, Visible = false };
         _selector.Step += (_, direction) => StepProvider(direction);
         _selector.OpenList += (_, _) => ShowProviderList();
-        _toggle = new UsageExpandToggle { BackColor = PanelColor, Visible = false };
+        _toggle = new UsageExpandToggle { BackColor = _theme.Panel, Theme = _theme, Visible = false };
         _toggle.Toggled += (_, _) => SetExpanded(!_expanded);
         _toggle.ScrollRequested += (_, direction) => ScrollBy(direction * UsageGeometry.RowHeight);
         SetStyle(ControlStyles.Selectable, true);
@@ -333,7 +329,7 @@ internal sealed partial class WidgetView
         var index = _views.ToList().FindIndex(v => v.Id == view.Id);
         var names = _views.Select(v => v.Name).ToList();
         var position = ProviderCarousel.Position(names, Math.Max(0, index));
-        var icon = _icons.Get(view.Id, IconBackground.Dark, (int)Math.Round(UsageGeometry.LogoSize * u));
+        var icon = _icons.Get(view.Id, _theme.LogoBackground, (int)Math.Round(UsageGeometry.LogoSize * u));
         var tip = view.Tip + (otherWarning ? "\n" + string.Join("; ", others.Where(v => v.Severity != ProviderSeverity.None).Select(v => $"{v.Name}: {v.Note}")) : "")
             + (_views.Count > 1 ? "\nScroll over the logo to switch provider; click to choose." : "");
         _selector.SetState(icon, view.Name, view.Severity, otherWarning, $"AI usage provider: {position}. {view.Name} {(view.HasData ? string.Join(", ", view.Rows.Select(r => $"{r.Label} {r.Percent} used")) : "no data")}{(view.Refreshing ? ", updating" : "")}. Use the arrow keys to switch, Enter to choose from a list.", view.Refreshing);
@@ -379,12 +375,12 @@ internal sealed partial class WidgetView
         if (!view.HasData)
         {
             // No quota read: say so plainly (N/A, never 0%) and why.
-            using var primary = new SolidBrush(PrimaryText);
+            using var primary = new SolidBrush(_theme.PrimaryText);
             using var near = new StringFormat(StringFormatFlags.NoWrap) { Trimming = StringTrimming.EllipsisCharacter };
             graphics.DrawString("N/A", semibold, primary, new RectangleF(rowsLeft, y, columns.LabelWidth + columns.BarWidth, rowHeight), near);
             var room = columns.Right - rowsLeft;
             var note = UsageViewBuilder.FitNote(view, room, s => graphics.MeasureString(s, text, int.MaxValue, near).Width);
-            using var noteBrush = new SolidBrush(view.IsProblem ? WarningColor : SecondaryText);
+            using var noteBrush = new SolidBrush(view.IsProblem ? _theme.Warning : _theme.SecondaryText);
             graphics.DrawString(note, text, noteBrush, new RectangleF(rowsLeft, y + rowHeight, room, rowHeight), near);
             _hotSpots.Add((new RectangleF(rowsLeft, area.Y, room, area.Height), "na:" + view.Id, view.Tip));
             return;
@@ -402,12 +398,12 @@ internal sealed partial class WidgetView
         var rowHeight = UsageGeometry.RowHeight * u;
         using var near = new StringFormat(StringFormatFlags.NoWrap) { Trimming = StringTrimming.EllipsisCharacter, LineAlignment = StringAlignment.Center };
         using var far = new StringFormat(StringFormatFlags.NoWrap) { Alignment = StringAlignment.Far, LineAlignment = StringAlignment.Center };
-        using var secondary = new SolidBrush(SecondaryText);
-        using var primary = new SolidBrush(PrimaryText);
+        using var secondary = new SolidBrush(_theme.SecondaryText);
+        using var primary = new SolidBrush(_theme.PrimaryText);
 
         graphics.DrawString(row.Label, text, secondary, new RectangleF(c.LabelX, y, c.LabelWidth, rowHeight), near);
         var barHeight = 7 * u;
-        PillBar.Draw(graphics, new RectangleF(c.BarX, y + (rowHeight - barHeight) / 2f, c.BarWidth, barHeight), row.Fraction, TrackColor, LevelColor(row.Level));
+        PillBar.Draw(graphics, new RectangleF(c.BarX, y + (rowHeight - barHeight) / 2f, c.BarWidth, barHeight), row.Fraction, _theme.Track, LevelColor(row.Level));
         graphics.DrawString(row.Percent, semibold, primary, new RectangleF(c.PercentX, y, c.PercentWidth, rowHeight), far);
         if (row.Stale) DrawClock(graphics, new RectangleF(c.PercentX - 1 * u, y + (rowHeight - 9 * u) / 2f, 9 * u, 9 * u), u);
         graphics.DrawString(row.Reset.Length > 0 ? row.Reset : "–", text, secondary, new RectangleF(c.ResetX, y, c.ResetWidth, rowHeight), far);
@@ -421,9 +417,9 @@ internal sealed partial class WidgetView
         return new UsageGeometry.RowColumns(left + c.LabelX * u, c.LabelWidth * u, left + c.BarX * u, c.BarWidth * u, left + c.PercentX * u, c.PercentWidth * u, left + c.ResetX * u, c.ResetWidth * u);
     }
 
-    private static void DrawClock(Graphics graphics, RectangleF box, float u)
+    private void DrawClock(Graphics graphics, RectangleF box, float u)
     {
-        using var pen = new Pen(StaleColor, Math.Max(1f, 1.1f * u));
+        using var pen = new Pen(_theme.Stale, Math.Max(1f, 1.1f * u));
         graphics.DrawEllipse(pen, box);
         var cx = box.X + box.Width / 2;
         var cy = box.Y + box.Height / 2;
@@ -440,7 +436,7 @@ internal sealed partial class WidgetView
         using var name = new Font("Segoe UI Semibold", 12f * u, FontStyle.Regular, GraphicsUnit.Pixel);
         using var text = new Font("Segoe UI", 12f * u, FontStyle.Regular, GraphicsUnit.Pixel);
         using var footer = new Font("Segoe UI", 11f * u, FontStyle.Regular, GraphicsUnit.Pixel);
-        using var primary = new SolidBrush(PrimaryText);
+        using var primary = new SolidBrush(_theme.PrimaryText);
         using var near = new StringFormat(StringFormatFlags.NoWrap) { Trimming = StringTrimming.EllipsisCharacter };
         using var centred = new StringFormat(near) { LineAlignment = StringAlignment.Center };
 
@@ -455,7 +451,7 @@ internal sealed partial class WidgetView
 
             if (Focused && (ShowFocusCues || _keyboardUsed) && index == _focusedCard)
             {
-                using var ring = new Pen(Color.FromArgb(150, 190, 240), Math.Max(1f, u)) { DashStyle = DashStyle.Dot };
+                using var ring = new Pen(_theme.Focus, Math.Max(1f, u)) { DashStyle = DashStyle.Dot };
                 graphics.DrawRectangle(ring, block.X - 2 * u, block.Y - 1 * u, block.Width + 4 * u, block.Height + 2 * u);
             }
 
@@ -470,7 +466,7 @@ internal sealed partial class WidgetView
             var rowTop = block.Y + UsageGeometry.HeaderHeight * u;
             var header = view.Plan.Length > 0 ? $"{view.Name}  \u00B7  {view.Plan}" : view.Name;
             graphics.DrawString(header, name, primary, new RectangleF(left, block.Y, right - left - (view.Refreshing ? 14 * u : 0), UsageGeometry.HeaderHeight * u), near);
-            if (view.Refreshing) WidgetGlyphs.DrawUpdating(graphics, new RectangleF(right - 11 * u, block.Y + 3 * u, 10 * u, 10 * u), u);
+            if (view.Refreshing) WidgetGlyphs.DrawUpdating(graphics, new RectangleF(right - 11 * u, block.Y + 3 * u, 10 * u, 10 * u), u, _theme.SecondaryText);
             _hotSpots.Add((new RectangleF(left, block.Y, right - left, UsageGeometry.HeaderHeight * u), "head:" + view.Id, view.Tip));
 
             var columns = ScaledColumns(left, (right - left) / u, u);
@@ -492,7 +488,7 @@ internal sealed partial class WidgetView
             var line = view.Source.Length > 0 ? $"{view.Source}  \u00B7  {view.Note}" : view.Note;
             var room = right - left;
             var shown = UsageViewBuilder.FitNote(view with { Note = line, ShortNote = view.Source.Length > 0 ? $"{view.Source}  \u00B7  {view.Short}" : view.Short }, room, s => graphics.MeasureString(s, footer, int.MaxValue, near).Width);
-            using var footerBrush = new SolidBrush(view.IsProblem ? WarningColor : SecondaryText);
+            using var footerBrush = new SolidBrush(view.IsProblem ? _theme.Warning : _theme.SecondaryText);
             graphics.DrawString(shown, footer, footerBrush, new RectangleF(left, rowTop, room, UsageGeometry.FooterHeight * u), near);
         }
 
@@ -507,16 +503,16 @@ internal sealed partial class WidgetView
         var track = new RectangleF(area.Right - 4 * u, area.Y + 2 * u, 3 * u, area.Height - 4 * u);
         var thumbHeight = Math.Max(14 * u, track.Height * _maxArea / content);
         var thumbTop = track.Y + (track.Height - thumbHeight) * _scroll / max;
-        PillBar.Draw(graphics, track, 0, TrackColor, TrackColor);
+        PillBar.Draw(graphics, track, 0, _theme.Track, _theme.Track);
         using var thumb = PillBar.Pill(new RectangleF(track.X, thumbTop, track.Width, thumbHeight));
-        using var brush = new SolidBrush(Color.FromArgb(150, 162, 178));
+        using var brush = new SolidBrush(_theme.Scroll);
         graphics.FillPath(brush, thumb);
     }
 
     /// <summary>The provider logo, or a neutral letter tile when there is no icon (the name stays in the header and the tooltip).</summary>
     private void DrawLogo(Graphics graphics, UsageProviderView view, RectangleF box, float u)
     {
-        var icon = _icons.Get(view.Id, IconBackground.Dark, (int)Math.Round(box.Width));
+        var icon = _icons.Get(view.Id, _theme.LogoBackground, (int)Math.Round(box.Width));
         if (icon is not null)
         {
             graphics.DrawImageUnscaled(icon, (int)Math.Round(box.X), (int)Math.Round(box.Y));
@@ -524,19 +520,19 @@ internal sealed partial class WidgetView
         }
 
         using var tile = PillBar.Rounded(box, 5 * u);
-        using var fill = new SolidBrush(Color.FromArgb(70, 80, 96));
+        using var fill = new SolidBrush(_theme.TileFill);
         graphics.FillPath(fill, tile);
         using var font = new Font("Segoe UI Semibold", 11 * u, FontStyle.Regular, GraphicsUnit.Pixel);
-        using var brush = new SolidBrush(Color.FromArgb(235, 240, 246));
+        using var brush = new SolidBrush(_theme.TileText);
         using var centre = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
         graphics.DrawString(view.Name.Length > 0 ? char.ToUpperInvariant(view.Name[0]).ToString() : "?", font, brush, box, centre);
     }
 
-    private static Color LevelColor(UsageLevel level) => level switch
+    private Color LevelColor(UsageLevel level) => level switch
     {
-        UsageLevel.Critical => CriticalColor,
-        UsageLevel.Warning => WarningColor,
-        _ => QuotaColor,
+        UsageLevel.Critical => _theme.Critical,
+        UsageLevel.Warning => _theme.Warning,
+        _ => _theme.Quota,
     };
 
     private void DisposeUsage()

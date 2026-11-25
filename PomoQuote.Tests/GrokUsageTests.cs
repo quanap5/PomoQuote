@@ -656,7 +656,7 @@ public sealed class GrokWidgetTests : IDisposable
             new AntigravityUsageProvider(new SampleRunner(), TimeProvider.System),
             new GrokUsageProvider(new FakeSessionFactory(() => new FakeSession(line => GrokSamples.Healthy(line, FutureGrok()))), TimeProvider.System),
         ];
-        return new MainForm(
+        var form = new MainForm(
             new WeatherService(http), new SettingsStore(Path.Combine(_root, "settings.json")), new PomodoroStore(Path.Combine(_root, "pomodoro.json")),
             TimeProvider.System, new WidgetStore(Path.Combine(_root, "widget.json")), new MascotStore(Path.Combine(_root, "mascot.json")),
             new QuoteSettingsStore(Path.Combine(_root, "quotes.json")), new BundledQuoteProvider(), new Random(1),
@@ -667,6 +667,8 @@ public sealed class GrokWidgetTests : IDisposable
             Location = new Point(-3000, -3000),
             WorkAreaProvider = () => [new Rectangle(-6000, -6000, 4000, 4000)],
         };
+        form.SetTheme(ThemeMode.Dark); // these tests measure the dark panel; the theme tests cover the others
+        return form;
     }
 
     private static void OnStaThread(Action body)
