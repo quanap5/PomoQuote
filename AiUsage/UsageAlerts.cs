@@ -8,7 +8,8 @@ namespace PomoQuote.AiUsage;
 /// <param name="Threshold">The level crossed (percent used).</param>
 /// <param name="PercentUsed">The current percent used.</param>
 /// <param name="ResetsAt">When the window resets.</param>
-internal sealed record UsageAlert(string ProviderId, QuotaKind Kind, int Threshold, double PercentUsed, DateTimeOffset ResetsAt);
+/// <param name="Group">The model group the window belongs to, for providers that report one limit per group (Antigravity); empty otherwise.</param>
+internal sealed record UsageAlert(string ProviderId, QuotaKind Kind, int Threshold, double PercentUsed, DateTimeOffset ResetsAt, string Group = "");
 
 /// <summary>
 /// Decides which warnings to raise. A warning fires once per (provider, account, window kind, threshold, window):
@@ -39,10 +40,13 @@ internal sealed class UsageAlertEngine
             // A window is identified by its reset time truncated to the minute: a provider reports the same reset for the whole
             // window, and a few seconds of jitter between reads must not look like a new window (assumes windows are at least minutes long).
             var windowId = (resetsAt.ToUnixTimeSeconds() / 60).ToString();
+            // Antigravity has one window per model group, each with its own reset time: the group is part of the key, so one group never re-arms or repeats another.
+            // Codex and Claude keys have no group part and stay exactly as they were.
+            var group = GroupOf(snapshot, window);
             var highest = 0;
             foreach (var threshold in thresholds.OrderBy(t => t))
             {
-                var prefix = $"{snapshot.Source.Key}|{window.Kind}|{threshold}|";
+                var prefix = group.Length > 0 ? $"{snapshot.Source.Key}|{window.Kind}|{group}|{threshold}|" : $"{snapshot.Source.Key}|{window.Kind}|{threshold}|";
                 var key = prefix + windowId;
 
                 // Re-arm: a different window has fired before (this one is new), or usage is back below the level.
@@ -60,11 +64,15 @@ internal sealed class UsageAlertEngine
                 }
             }
 
-            if (highest > 0) alerts.Add(new UsageAlert(snapshot.Source.ProviderId, window.Kind, highest, window.PercentUsed, resetsAt));
+            if (highest > 0) alerts.Add(new UsageAlert(snapshot.Source.ProviderId, window.Kind, highest, window.PercentUsed, resetsAt, window.Bucket.Length > 0 && group.Length > 0 ? window.Bucket : ""));
         }
 
         return (alerts, changed);
     }
+
+    /// <summary>The group part of a window's alert key: the model group for Antigravity, empty for every other provider.</summary>
+    private static string GroupOf(UsageSnapshot snapshot, QuotaWindow window) =>
+        snapshot.Source.ProviderId == AntigravityUsageProvider.ProviderId && window.Bucket.Length > 0 ? window.Bucket.Replace('|', '/') : "";
 }
 
 /// <summary>Stores the fired alert keys in usage-alerts.json (atomic write, defaults on a damaged file).</summary>

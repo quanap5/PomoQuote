@@ -186,7 +186,7 @@ internal static class UsageViewBuilder
         return parts.Count > 1 ? string.Join(", ", parts) : "";
     }
 
-    private static string ShortGroup(string name) => name.EndsWith(" models", StringComparison.OrdinalIgnoreCase) ? name[..^7].TrimEnd() : name;
+    internal static string ShortGroup(string name) => name.EndsWith(" models", StringComparison.OrdinalIgnoreCase) ? name[..^7].TrimEnd() : name;
 
     /// <summary>The tooltip of the one row: the most used group first, then every group's own used percent and reset time.</summary>
     internal static string GroupedRowTip(QuotaWindow shown, IReadOnlyList<QuotaWindow> all, DateTimeOffset now, TimeZoneInfo zone, bool stale)

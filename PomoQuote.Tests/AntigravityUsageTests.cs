@@ -326,6 +326,157 @@ public sealed class AntigravityProviderTests
     }
 }
 
+public sealed class AntigravityAlertTests
+{
+    private static readonly IReadOnlyList<int> Levels = [80, 95];
+
+    private static UsageSnapshot Groups(double geminiUsed, double otherUsed, int geminiResetMinutes = 48, int otherResetMinutes = 249, string geminiName = "Gemini Models") =>
+        new(new UsageSource(AntigravityUsageProvider.ProviderId, UsageEnvironment.Windows, "", ""),
+            [
+                new QuotaWindow(QuotaKind.Weekly, 10080, geminiUsed, AgySamples.Now.AddDays(6).AddMinutes(geminiResetMinutes), geminiName, true),
+                new QuotaWindow(QuotaKind.Weekly, 10080, otherUsed, AgySamples.Now.AddDays(6).AddMinutes(otherResetMinutes), "Claude and GPT models", true),
+            ],
+            AgySamples.Now, UsageDataSource.AntigravityCli, UsageState.Ok);
+
+    private static int[] Reads(UsageAlertEngine engine, Func<int, UsageSnapshot> snapshot, int count) =>
+        Enumerable.Range(0, count).Select(i => engine.Evaluate(snapshot(i), Levels).Alerts.Count).ToArray();
+
+    [Fact]
+    public void Two_groups_with_the_same_window_length_do_not_repeat_a_warning_on_unchanged_numbers()
+    {
+        var engine = new UsageAlertEngine();
+
+        Assert.Equal([1, 0, 0, 0, 0, 0], Reads(engine, _ => Groups(90, 10), 6)); // one group is at 90%
+    }
+
+    [Fact]
+    public void Two_groups_that_are_both_over_the_level_warn_once_each()
+    {
+        var engine = new UsageAlertEngine();
+
+        Assert.Equal([2, 0, 0, 0, 0, 0], Reads(engine, _ => Groups(90, 90), 6));
+    }
+
+    [Fact]
+    public void Each_group_re_arms_and_fires_on_its_own()
+    {
+        var engine = new UsageAlertEngine();
+        UsageAlert[] Step(double gemini, double other) => engine.Evaluate(Groups(gemini, other), Levels).Alerts.ToArray();
+
+        var first = Step(90, 90);
+        Assert.Equal(2, first.Length);
+        Assert.Empty(Step(90, 90));
+        Assert.Empty(Step(50, 90)); // Gemini drops below 80%: only Gemini re-arms
+        var again = Step(90, 90);
+        Assert.Equal("Gemini Models", Assert.Single(again).Group); // Gemini fires again, Claude and GPT does not repeat
+        Assert.Empty(Step(90, 90));
+        var critical = Step(96, 90);
+        Assert.Equal("Gemini Models", Assert.Single(critical).Group);
+        Assert.Equal(95, critical[0].Threshold);
+    }
+
+    [Fact]
+    public void A_group_that_resets_warns_again_for_its_new_window_and_the_other_group_is_unaffected()
+    {
+        var engine = new UsageAlertEngine();
+        Assert.Equal(2, engine.Evaluate(Groups(90, 90), Levels).Alerts.Count);
+
+        // Gemini's window ends and a new one starts (a new reset time); Claude and GPT keeps its window.
+        var next = engine.Evaluate(Groups(85, 90, geminiResetMinutes: 48 + 10080), Levels).Alerts;
+
+        Assert.Equal("Gemini Models", Assert.Single(next).Group);
+    }
+
+    [Fact]
+    public void A_restart_does_not_repeat_the_warnings_that_were_shown()
+    {
+        var first = new UsageAlertEngine();
+        first.Evaluate(Groups(90, 90), Levels);
+
+        var restarted = new UsageAlertEngine(first.FiredKeys.ToList());
+
+        Assert.Empty(restarted.Evaluate(Groups(90, 90), Levels).Alerts);
+    }
+
+    [Fact]
+    public void The_alert_and_the_balloon_name_the_group()
+    {
+        var engine = new UsageAlertEngine();
+        var snapshot = Groups(90, 10);
+        var alert = Assert.Single(engine.Evaluate(snapshot, Levels).Alerts);
+
+        var text = UsageController.AlertMessage(alert, snapshot, AgySamples.Now);
+
+        Assert.Equal("Gemini Models", alert.Group);
+        Assert.StartsWith("The weekly window of Gemini is 90% used (warning at 80%). It resets in 6d", text);
+    }
+
+    [Fact]
+    public void The_balloon_picks_the_right_window_when_two_groups_reset_at_the_same_minute()
+    {
+        var snapshot = Groups(90, 91, geminiResetMinutes: 60, otherResetMinutes: 60);
+        var engine = new UsageAlertEngine();
+
+        var alerts = engine.Evaluate(snapshot, Levels).Alerts;
+
+        Assert.Equal(["Gemini Models", "Claude and GPT models"], alerts.Select(a => a.Group));
+        Assert.Equal(["of Gemini", "of Claude and GPT"], alerts.Select(a => UsageController.AlertMessage(a, snapshot, AgySamples.Now)).Select(m => m.Substring(m.IndexOf("of ", StringComparison.Ordinal), m.IndexOf(" is ", StringComparison.Ordinal) - m.IndexOf("of ", StringComparison.Ordinal))));
+    }
+
+    [Fact]
+    public void Codex_keys_and_the_balloon_text_are_exactly_what_they_were()
+    {
+        var engine = new UsageAlertEngine();
+        var snapshot = UsageTestData.Snapshot(10, 90, weekReset: UsageTestData.Now.AddDays(3));
+        var alert = Assert.Single(engine.Evaluate(snapshot, Levels).Alerts);
+
+        Assert.Equal("", alert.Group);
+        var key = Assert.Single(engine.FiredKeys);
+        Assert.Equal($"codex|Windows|abc123abc123|Weekly|80|{UsageTestData.Now.AddDays(3).ToUnixTimeSeconds() / 60}", key); // no group part
+        Assert.Equal("The weekly window is 90% used (warning at 80%). It resets in 3d 0h.", UsageController.AlertMessage(alert, snapshot, UsageTestData.Now));
+        Assert.Equal([1, 0, 0, 0, 0, 0], Reads(new UsageAlertEngine(), _ => snapshot, 6));
+    }
+
+    [Fact]
+    public void A_failed_signed_out_run_that_names_the_usage_command_is_not_a_reason_to_stop()
+    {
+        var parse = Assert.Throws<AgyReportedErrorException>(() => AgyUsageParser.Parse("""{"status":"ERROR","error":"authentication required","command":{"name":"usage"}}"""));
+
+        Assert.True(parse.SignedOut);
+    }
+
+    [Fact]
+    public void A_failed_run_that_reports_a_turn_or_tokens_does_stop_the_reads()
+    {
+        Assert.Throws<AgyGuardException>(() => AgyUsageParser.Parse("""{"status":"ERROR","num_turns":1,"error":"boom"}"""));
+        Assert.Throws<AgyGuardException>(() => AgyUsageParser.Parse("""{"status":"ERROR","usage":{"total_tokens":42},"error":"boom"}"""));
+    }
+
+    [Fact]
+    public async Task The_provider_reports_a_signed_out_run_without_halting()
+    {
+        var runner = new CountingRunner("""{"status":"ERROR","error":"authentication required","command":{"name":"usage"}}""");
+        var provider = new AntigravityUsageProvider(runner, new FakeClock());
+
+        var first = await provider.ReadAsync(CancellationToken.None);
+        await provider.ReadAsync(CancellationToken.None);
+
+        Assert.Equal(UsageState.NotLoggedIn, first.State);
+        Assert.False(provider.Halted);
+        Assert.Equal(2, runner.Calls);
+    }
+
+    private sealed class CountingRunner(string output) : IAgyRunner
+    {
+        public int Calls { get; private set; }
+
+        public Task<AgyRunResult> RunUsageAsync(CancellationToken cancellationToken)
+        {
+            Calls++;
+            return Task.FromResult(new AgyRunResult(1, output));
+        }
+    }
+}
 public sealed class ProcessAgyRunnerTests : IDisposable
 {
     private readonly string _folder = Path.Combine(Path.GetTempPath(), "pq-agy-runner-" + Guid.NewGuid().ToString("N"));

@@ -3,8 +3,8 @@ using System.ComponentModel;
 namespace PomoQuote.AiUsage;
 
 /// <summary>
-/// Reads the Antigravity quota from the vendor's own command line: `agy -p /usage --output-format json`, the documented way to see the
-/// quota. The CLI owns the login; PomoQuote passes and reads no login of any kind. Guards: the answer must come from the usage command
+/// Reads the Antigravity quota from the vendor's own command line: `agy -p /usage --output-format json`, the command the vendor
+/// documents for seeing the quota (https://antigravity.google/docs/cli/commands/usage; its headless JSON mode is documented at /docs/cli/headless.md, the shape of the usage answer is only observed). The CLI owns the login; PomoQuote passes and reads no login of any kind. Guards: the answer must come from the usage command
 /// and report no conversation turn and no token use, otherwise the provider says "unsupported version" and stops asking for the rest of
 /// the run (a read that might spend quota is never repeated). A read that takes too long is abandoned and the process is killed.
 /// The shape of the answer is not an official contract: the parser tolerates missing and extra fields.

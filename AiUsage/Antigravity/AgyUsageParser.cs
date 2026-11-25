@@ -45,11 +45,12 @@ internal static class AgyUsageParser
 
         if (root.ValueKind != JsonValueKind.Object) throw new UsageParseException("The answer is not an object.");
 
-        // The CLI says a run failed: not signed in, or something else. Only the kind is kept.
+        // The CLI says a run failed (not signed in, or anything else): only the kind is kept, and the numbers are never used. A failed run is not
+        // a reason to stop reading unless it reports a turn or token use, which would mean a model was used.
         if (root.TryGetProperty("status", out var status) && status.ValueKind == JsonValueKind.String
-            && !string.Equals(status.GetString(), "SUCCESS", StringComparison.OrdinalIgnoreCase)
-            && !HasUsageCommand(root))
+            && !string.Equals(status.GetString(), "SUCCESS", StringComparison.OrdinalIgnoreCase))
         {
+            if (!NoModelUse(root)) throw new AgyGuardException("The CLI reports a turn or token use.");
             var text = root.TryGetProperty("error", out var error) ? ErrorText(error) : "";
             throw new AgyReportedErrorException(LooksSignedOut(text));
         }
@@ -80,6 +81,14 @@ internal static class AgyUsageParser
 
         if (windows.Count == 0) throw new UsageParseException("The answer has no usable quota bucket.");
         return windows;
+    }
+
+    /// <summary>True unless the answer reports a conversation turn or token use (fields that are missing say nothing).</summary>
+    private static bool NoModelUse(JsonElement root)
+    {
+        if (root.TryGetProperty("num_turns", out var turns) && turns.ValueKind == JsonValueKind.Number && turns.TryGetInt64(out var n) && n != 0) return false;
+        if (root.TryGetProperty("usage", out var usage) && usage.ValueKind == JsonValueKind.Object && usage.TryGetProperty("total_tokens", out var tokens) && tokens.ValueKind == JsonValueKind.Number && tokens.TryGetInt64(out var total) && total != 0) return false;
+        return true;
     }
 
     private static bool HasUsageCommand(JsonElement root) =>
