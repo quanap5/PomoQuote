@@ -51,6 +51,7 @@ public enum UsageDataSource
     CodexAppServer,
     ClaudeStatusLine,
     ManualRefresh,
+    AntigravityCli,
 }
 
 /// <summary>Who the numbers belong to. The account is only ever a short hash, never the id, email or name.</summary>
