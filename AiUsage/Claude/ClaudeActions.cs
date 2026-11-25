@@ -10,10 +10,13 @@ internal sealed class ClaudeActions
     private readonly ClaudeRefresher _refresher;
     private readonly UsageController _usage;
     private readonly Action? _bridgeChanged;
+    private readonly Action? _refreshed;
 
     /// <param name="bridgeChanged">Called after the settings file was changed (set up, upgrade, removal) so cached readings of it are dropped.</param>
-    public ClaudeActions(ClaudeBridgeInstaller installer, ClaudeRefresher refresher, UsageController usage, Action? bridgeChanged = null)
+    /// <param name="refreshed">Called after a refresh by hand succeeded (the automatic refresh then forgets an earlier failure).</param>
+    public ClaudeActions(ClaudeBridgeInstaller installer, ClaudeRefresher refresher, UsageController usage, Action? bridgeChanged = null, Action? refreshed = null)
     {
+        _refreshed = refreshed;
         _installer = installer;
         _refresher = refresher;
         _usage = usage;
@@ -87,6 +90,11 @@ internal sealed class ClaudeActions
     /// <summary>Whether the user has already seen the note that a manual refresh spends a very small amount of quota.</summary>
     public bool RefreshNoteSeen => _usage.Settings.ClaudeRefreshAcknowledged;
 
+    /// <summary>Whether the user has already accepted the note that the automatic refresh spends a very small amount of quota each time it runs.</summary>
+    public bool AutoRefreshNoteSeen => _usage.Settings.ClaudeAutoRefreshAcknowledged;
+
+    public void MarkAutoRefreshNoteSeen() => _usage.Apply(_usage.Settings with { ClaudeAutoRefreshAcknowledged = true });
+
     public void MarkRefreshNoteSeen() => _usage.Apply(_usage.Settings with { ClaudeRefreshAcknowledged = true });
 
     public int SecondsUntilRefreshAllowed => _refresher.SecondsUntilAllowed();
@@ -95,12 +103,23 @@ internal sealed class ClaudeActions
     public async Task<RefreshResult> RefreshAsync(CancellationToken cancellationToken)
     {
         var result = await _refresher.RefreshAsync(cancellationToken).ConfigureAwait(true);
-        if (result.Outcome == RefreshOutcome.Done) await _usage.TestAsync(ClaudeSnapshotProvider.ProviderId, cancellationToken).ConfigureAwait(true);
+        if (result.Outcome == RefreshOutcome.Done)
+        {
+            _refreshed?.Invoke();
+            await _usage.TestAsync(ClaudeSnapshotProvider.ProviderId, cancellationToken).ConfigureAwait(true);
+        }
+
         return result;
     }
 
     /// <summary>The text that explains the cost of a manual refresh.</summary>
     public const string RefreshNote =
         "\"Refresh Claude now\" sends one very small request to Claude (the smallest model, one word) to read your current limits. " +
-        "It uses a very small amount of your quota, so it only runs when you ask: never automatically, and at most once a minute.";
+        "It uses a very small amount of your quota, so it only runs when you ask (or, if you turn it on in Settings, on the schedule you choose), and at most once a minute.";
+
+    /// <summary>The note shown once, the first time the automatic refresh is turned on.</summary>
+    public const string AutoRefreshNote =
+        "Automatic refresh sends one very small request to Claude (the smallest model, one word) every time it runs, to read your current limits. " +
+        "Each one counts a very small amount against your Claude quota. It only runs when no Claude Code session is already keeping the numbers fresh, " +
+        "never while the PC is locked or asleep, the widget is hidden to the tray or a window is at 100%, and you can turn it off here at any time.";
 }

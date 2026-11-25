@@ -51,6 +51,9 @@ internal sealed class UsageController : IDisposable
     /// <summary>Raised on the UI thread when a status or the settings changed: the widget redraws and re-measures.</summary>
     public event EventHandler? Changed;
 
+    /// <summary>Raised after new settings were applied (not for a layout switch or a new reading), so things that follow a setting can follow it.</summary>
+    public event EventHandler? SettingsApplied;
+
     public IReadOnlyList<IUsageProvider> Providers => _collector.Providers;
 
     /// <summary>The enabled providers' statuses in the user's display order.</summary>
@@ -96,6 +99,7 @@ internal sealed class UsageController : IDisposable
         }
 
         ConfigureTimers(readNow: true);
+        SettingsApplied?.Invoke(this, EventArgs.Empty);
         Changed?.Invoke(this, EventArgs.Empty);
     }
 

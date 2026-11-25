@@ -118,6 +118,8 @@ internal static class UsageViewBuilder
         };
         if (oldNumbers && severity is ProviderSeverity.None or ProviderSeverity.NearLimit) severity = ProviderSeverity.Stale;
         var source = shown is null ? "" : shown.Source.Environment.ToString() + (groups.Length > 0 ? " · " + groups : "");
+        // Numbers that PomoQuote asked Claude for itself (one small request) say how: by the schedule (auto refresh) or by hand.
+        if (shown is { DataSource: UsageDataSource.ManualRefresh }) source += " \u00B7 " + (settings.ClaudeAutoRefresh ? "auto refresh" : "refreshed by hand");
         var tip = new List<string> { status.DisplayName + (plan.Length > 0 ? $" ({plan})" : "") };
         if (source.Length > 0) tip.Add("Source: " + source);
         tip.Add(note.Length > 0 ? char.ToUpperInvariant(note[0]) + note[1..] : note);
