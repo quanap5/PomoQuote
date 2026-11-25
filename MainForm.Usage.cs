@@ -15,6 +15,7 @@ internal sealed partial class MainForm
 {
     private UsageController _usage = null!;
     private ClaudeActions _claude = null!;
+    private ClaudeAutoRefresh _autoRefresh = null!;
 
     private void BuildUsage(UsageSettingsStore? settings, UsageCacheStore? cache, UsageAlertStore? alerts, IReadOnlyList<IUsageProvider>? providers, ClaudeSetup? claude)
     {
@@ -41,7 +42,9 @@ internal sealed partial class MainForm
             providers,
             TimeProvider.System,
             (title, message) => _tray.ShowBalloon(title, message));
-        _claude = new ClaudeActions(claude.Installer, claude.Refresher, _usage, bridgeStatus.Invalidate);
+        _claude = new ClaudeActions(claude.Installer, claude.Refresher, _usage, bridgeStatus.Invalidate, () => _autoRefresh?.ForgetFailure());
+        _autoRefresh = new ClaudeAutoRefresh(_claude.RefreshAsync, claude.Store, TimeProvider.System, () => _widgetHidden);
+        _usage.SettingsApplied += (_, _) => _autoRefresh.Configure(_usage.Settings.ClaudeAutoRefresh, _usage.Settings.ClaudeAutoRefreshMinutes);
         _claudeSettingsPath = claude.Installer.SettingsPath;
         _usage.Changed += (_, _) => ApplyUsageLayout();
         ApplyUsageLayout();
@@ -152,5 +155,12 @@ internal sealed partial class MainForm
         if (!IsDisposed && result.Outcome != RefreshOutcome.Done) _tray.ShowBalloon("Claude usage", result.Message);
     }
 
-    private void DisposeUsage() => _usage.Dispose();
+    private void DisposeUsage()
+    {
+        _autoRefresh.Dispose();
+        _usage.Dispose();
+    }
+
+    /// <summary>The automatic Claude refresh, for tests.</summary>
+    internal ClaudeAutoRefresh AutoRefreshForTests => _autoRefresh;
 }

@@ -161,6 +161,7 @@ internal sealed partial class MainForm : Form
         _weatherTimer.Start();
         _pomodoro.Start();
         _usage.Start();
+        _autoRefresh.Configure(_usage.Settings.ClaudeAutoRefresh, _usage.Settings.ClaudeAutoRefreshMinutes);
         _ = StartBridgeCheck();
         _ = RefreshWeatherAsync();
     }

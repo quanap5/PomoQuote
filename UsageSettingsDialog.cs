@@ -50,6 +50,8 @@ internal sealed class UsageSettingsDialog : Form
     private readonly Button _checkBridge;
     private readonly Button _checkProject;
     private readonly Button _refreshClaude;
+    private readonly CheckBox _autoRefresh;
+    private readonly ComboBox _autoRefreshMinutes;
 
     public UsageSettingsDialog(
         UsageSettings current, IReadOnlyList<(string Id, string Name)> providers, CodexDetector detector,
@@ -108,6 +110,17 @@ internal sealed class UsageSettingsDialog : Form
         _refreshClaude.Click += async (_, _) => await RefreshClaudeAsync();
         var claudeButtons = new FlowLayoutPanel { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, WrapContents = true, MaximumSize = new Size(460, 0), Margin = new Padding(20, 2, 0, 2) };
         claudeButtons.Controls.AddRange([_setup, _upgrade, _remove, _checkBridge, _checkProject, _refreshClaude]);
+
+        _autoRefresh = new CheckBox { Text = "Refresh Claude usage automatically", AutoSize = true, Checked = current.ClaudeAutoRefresh, Margin = new Padding(20, 6, 8, 2) };
+        _autoRefreshMinutes = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 130, Margin = new Padding(0, 4, 0, 2) };
+        foreach (var minutes in UsageSettings.AutoRefreshChoices) _autoRefreshMinutes.Items.Add($"every {minutes} minutes");
+        _autoRefreshMinutes.SelectedIndex = Math.Max(0, UsageSettings.AutoRefreshChoices.ToList().IndexOf(current.ClaudeAutoRefreshMinutes));
+        _autoRefreshMinutes.Enabled = _autoRefresh.Checked;
+        _autoRefresh.CheckedChanged += (_, _) => OnAutoRefreshChanged();
+        var autoRow = new FlowLayoutPanel { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, WrapContents = false, Margin = new Padding(0) };
+        autoRow.Controls.Add(_autoRefresh);
+        autoRow.Controls.Add(_autoRefreshMinutes);
+        var autoNote = new Label { Text = "Off by default. Each refresh sends one tiny request that counts a very small amount against your Claude quota; it is skipped while a Claude session keeps the numbers fresh.", AutoSize = true, MaximumSize = new Size(440, 0), ForeColor = SystemColors.GrayText, Margin = new Padding(20, 2, 0, 2) };
 
         // ---------- Antigravity ----------
         _agy = new CheckBox { Text = "Show Antigravity usage on the widget", AutoSize = true, Checked = current.IsEnabled(AntigravityUsageProvider.ProviderId), Margin = new Padding(0, 12, 0, 0) };
@@ -187,6 +200,8 @@ internal sealed class UsageSettingsDialog : Form
         layout.Controls.Add(_claudeStatus);
         layout.Controls.Add(claudeButtons);
         layout.Controls.Add(_claudeResult);
+        layout.Controls.Add(autoRow);
+        layout.Controls.Add(autoNote);
         layout.Controls.Add(ProviderRow(AntigravityUsageProvider.ProviderId, _agy));
         layout.Controls.Add(_agyStatus);
         layout.Controls.Add(agyRow);
@@ -230,6 +245,8 @@ internal sealed class UsageSettingsDialog : Form
             IntervalMinutes = IntervalChoices[Math.Max(0, _interval.SelectedIndex)],
             AlertsEnabled = _alerts.Checked,
             Thresholds = thresholds.OrderBy(t => t).ToList(),
+            ClaudeAutoRefresh = _autoRefresh.Checked,
+            ClaudeAutoRefreshMinutes = UsageSettings.AutoRefreshChoices[Math.Max(0, _autoRefreshMinutes.SelectedIndex)],
         };
     }
 
@@ -351,6 +368,16 @@ internal sealed class UsageSettingsDialog : Form
         _claudeResult.Text = ClaudeBridgeInstaller.ProjectOverrides(picker.SelectedPath)
             ? $"\"{Path.GetFileName(picker.SelectedPath.TrimEnd('\\', '/'))}\" has its own status line: it replaces the bridge in that project, so its usage is not read from there."
             : "That project does not override the status line.";
+    }
+
+    /// <summary>The first time the automatic refresh is turned on: say plainly what it costs and ask; declining leaves it off.</summary>
+    private void OnAutoRefreshChanged()
+    {
+        _autoRefreshMinutes.Enabled = _autoRefresh.Checked;
+        if (!_autoRefresh.Checked || _claude.AutoRefreshNoteSeen) return;
+        var go = MessageBox.Show(this, ClaudeActions.AutoRefreshNote + "\r\n\r\nTurn automatic refresh on?", "Refresh Claude usage automatically", MessageBoxButtons.YesNo, MessageBoxIcon.Information, MessageBoxDefaultButton.Button2);
+        if (go == DialogResult.Yes) _claude.MarkAutoRefreshNoteSeen();
+        else _autoRefresh.Checked = false;
     }
 
     private async Task RefreshClaudeAsync()

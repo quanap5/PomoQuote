@@ -23,6 +23,9 @@ public enum UsageDisplayMode
 /// <param name="ClaudeRefreshAcknowledged">Whether the user has seen the note that "Refresh Claude now" spends a very small amount of quota.</param>
 /// <param name="Expanded">True for the Expanded layout (every provider as a block), false for Compact (one provider at a time).</param>
 /// <param name="SelectedProvider">The provider Compact shows (null: the first one).</param>
+/// <param name="ClaudeAutoRefresh">Whether PomoQuote refreshes the Claude numbers by itself with the one-request refresh when no Claude session keeps them fresh (off by default: each refresh spends a very small amount of quota).</param>
+/// <param name="ClaudeAutoRefreshMinutes">Minutes between automatic Claude refreshes: 15, 30 or 60 (anything else becomes 30).</param>
+/// <param name="ClaudeAutoRefreshAcknowledged">Whether the user has seen, and accepted, the note about what the automatic refresh costs.</param>
 internal sealed record UsageSettings(
     IReadOnlyList<string> EnabledProviders,
     IReadOnlyList<string> Order,
@@ -32,8 +35,16 @@ internal sealed record UsageSettings(
     IReadOnlyList<int> Thresholds,
     bool ClaudeRefreshAcknowledged = false,
     bool Expanded = false,
-    string? SelectedProvider = null)
+    string? SelectedProvider = null,
+    bool ClaudeAutoRefresh = false,
+    int ClaudeAutoRefreshMinutes = UsageSettings.DefaultAutoRefreshMinutes,
+    bool ClaudeAutoRefreshAcknowledged = false)
 {
+    public const int DefaultAutoRefreshMinutes = 30;
+
+    /// <summary>The intervals the Settings dialog offers for the automatic Claude refresh.</summary>
+    public static readonly IReadOnlyList<int> AutoRefreshChoices = [15, 30, 60];
+
     public const int DefaultIntervalMinutes = 3;
     public const int MaxThresholds = 4;
 
@@ -60,7 +71,11 @@ internal sealed record UsageSettings(
         Thresholds.Distinct().Count() == Thresholds.Count;
 
     /// <summary>The same settings with thresholds sorted ascending.</summary>
-    public UsageSettings Normalized() => this with { Thresholds = Thresholds.OrderBy(t => t).ToList() };
+    public UsageSettings Normalized() => this with
+    {
+        Thresholds = Thresholds.OrderBy(t => t).ToList(),
+        ClaudeAutoRefreshMinutes = AutoRefreshChoices.Contains(ClaudeAutoRefreshMinutes) ? ClaudeAutoRefreshMinutes : DefaultAutoRefreshMinutes,
+    };
 }
 
 /// <summary>Reads and writes JSON files atomically (temp file and rename). A missing or damaged file gives the fallback.</summary>
