@@ -43,7 +43,7 @@ internal sealed record BridgePreview(StatusLineState State, string? CurrentComma
 /// <param name="Problems">Things the Check found (bridge program missing, damaged chain, wrong shell, project overrides, ...).</param>
 /// <param name="ProgramMissing">The set-up bridge program (or its saved original command) is gone or damaged: the strip says "bridge missing".</param>
 /// <param name="ShellMismatch">The command is written for a different shell than Claude Code would use now.</param>
-/// <param name="OldStyle">The bridge was written by PomoQuote 1.1: it runs the program by an absolute path with no fail-safe, so a moved or deleted program takes the status line down. Settings offers an upgrade.</param>
+/// <param name="OldStyle">The bridge was written by an earlier development build (before 1.2.0): it runs the program by an absolute path with no fail-safe, so a moved or deleted program takes the status line down. Settings offers an upgrade.</param>
 internal sealed record BridgeStatus(StatusLineState State, string Reason, IReadOnlyList<string> Problems, bool ProgramMissing = false, bool ShellMismatch = false, bool OldStyle = false)
 {
     /// <summary>Whether the user should be told about the bridge now (not project overrides, which are only listed by a manual check).</summary>
@@ -631,7 +631,7 @@ internal static class ClaudeBridgeCommand
         return text.StartsWith("if [ -f \"", StringComparison.Ordinal) || text.StartsWith("if (Test-Path ", StringComparison.Ordinal);
     }
 
-    /// <summary>A bridge written by PomoQuote 1.1: the program by absolute path, no test, no fallback.</summary>
+    /// <summary>A bridge written by an earlier development build (before 1.2.0): the program by absolute path, no test, no fallback.</summary>
     public static bool IsOldStyle(string command) => ClaudeSettingsPatcher.IsBridge(command) && !HasFailSafe(command);
 
     /// <summary>Whether the command is written for Git Bash (else PowerShell). The first form PomoQuote wrote began with a quote (bash) or `&amp;` (PowerShell).</summary>

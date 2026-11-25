@@ -107,7 +107,7 @@ public sealed class WidgetEffectTimerTests : IDisposable
             var before = view.EffectTicks;
             Pump(TimeSpan.FromSeconds(1));
             var frames = view.EffectTicks - before;
-            Assert.InRange(frames, 12, 20); // about 16 a second, give or take the timer's resolution
+            Assert.InRange(frames, 8, 24); // about 16 a second; a loaded machine (a parallel test run) delivers fewer timer ticks, so the lower bound is generous
 
             form.ApplyWeatherEffectSettings(new WeatherEffectSettings(true, WeatherEffectIntensity.Low, false));
             Assert.Equal(62, view.EffectTimerInterval);

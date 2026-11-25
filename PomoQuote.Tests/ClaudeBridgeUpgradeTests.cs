@@ -4,7 +4,7 @@ using PomoQuote.AiUsage.Claude;
 namespace PomoQuote.Tests;
 
 /// <summary>
-/// The bridge PomoQuote 1.1 wrote (absolute program path, no test, no fallback) is recognised as unsafe, reported by what it
+/// The bridge an earlier development build wrote (absolute program path, no test, no fallback) is recognised as unsafe, reported by what it
 /// really does, and can be upgraded in place. Everything works on throwaway files.
 /// </summary>
 public sealed class ClaudeBridgeUpgradeTests : IDisposable
@@ -41,7 +41,7 @@ public sealed class ClaudeBridgeUpgradeTests : IDisposable
     private ClaudeBridgeInstaller Installer(bool bash = true) =>
         new(Settings, State, () => AppExe, () => bash ? @"C:\Git\bin\bash.exe" : null, () => new DateTimeOffset(2026, 11, 24, 7, 0, 0, TimeSpan.Zero));
 
-    /// <summary>The command PomoQuote 1.1 wrote: the quoted program path, the marker and the chain; with a leading `&amp;` for PowerShell.</summary>
+    /// <summary>The command an earlier development build wrote: the quoted program path, the marker and the chain; with a leading `&amp;` for PowerShell.</summary>
     private string LegacyCommand(string? original, bool bash = true)
     {
         var core = $"\"{OldExe.Replace('\\', '/')}\" --bridge claude" + (original is null ? "" : " --chain-b64 " + ClaudeBridge.EncodeChain(original));
