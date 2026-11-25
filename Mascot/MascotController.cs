@@ -29,6 +29,7 @@ internal sealed class MascotController : IDisposable
     private MascotSound? _shout;
     private MascotWindow? _window;
     private MascotSettings _settings;
+    private string _loadedCharacter = "";
     private SynchronizationContext? _uiContext;
     private long _lastTimestamp;
     private int _ticks;
@@ -66,6 +67,9 @@ internal sealed class MascotController : IDisposable
     public MascotActor? Actor => _actor;
 
     public MascotSettings Settings => _settings;
+
+    /// <summary>The id of the character whose sheet is loaded now (empty before anything was loaded); for the tests.</summary>
+    internal string LoadedCharacter => _loadedCharacter;
 
     public MascotConfig Config => _config;
 
@@ -151,6 +155,14 @@ internal sealed class MascotController : IDisposable
     public void Apply(MascotSettings settings)
     {
         _settings = settings.Normalized();
+        if (_renderer is not null && _loadedCharacter != MascotCharacters.Find(_settings.Character).Id)
+        {
+            // Another character: its sheet replaces the old one at once (a running character keeps walking where it is).
+            _renderer.Dispose();
+            _renderer = null;
+            if (_running && !LoadAssets()) Stop();
+        }
+
         if (!_running) return;
         if (!_settings.Enabled)
         {
@@ -200,13 +212,24 @@ internal sealed class MascotController : IDisposable
         if (_renderer is null)
         {
             LoadConfig();
+            var character = MascotCharacters.Find(_settings.Character);
             try
             {
-                _renderer = new MascotRenderer(Path.Combine(_assetsDirectory, "robot-sprites.png"), _config.FrameSize);
+                _renderer = new MascotRenderer(Path.Combine(_assetsDirectory, character.SheetFile), _config.FrameSize);
+                _loadedCharacter = character.Id;
             }
             catch (Exception ex) when (ex is IOException or ArgumentException or ExternalException or OutOfMemoryException)
             {
-                return false; // no art, no character
+                // A sheet that is missing or damaged: the robot instead, and no character at all only when its art is missing too.
+                try
+                {
+                    _renderer = new MascotRenderer(Path.Combine(_assetsDirectory, MascotCharacters.Default.SheetFile), _config.FrameSize);
+                    _loadedCharacter = MascotCharacters.DefaultId;
+                }
+                catch (Exception inner) when (inner is IOException or ArgumentException or ExternalException or OutOfMemoryException)
+                {
+                    return false;
+                }
             }
         }
 

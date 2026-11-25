@@ -22,7 +22,7 @@
   <ItemGroup>
     <None Include="Assets\Wallpapers\*.jpg" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Assets\Sounds\*.wav" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="Assets\Mascot\robot-sprites.png" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Assets\Mascot\*-sprites.png" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Assets\Mascot\*.wav" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Assets\Mascot\*.json" CopyToOutputDirectory="PreserveNewest" />
     <EmbeddedResource Include="Assets\Providers\*.png" LogicalName="PomoQuote.providers.%(Filename)%(Extension)" />
