@@ -3,39 +3,9 @@ using System.Text.Json;
 
 namespace PomoQuote.AiUsage;
 
-/// <summary>Finds the Grok CLI on this PC: only the program is looked up, no file of the CLI's own folder is opened.</summary>
-internal static class GrokLocator
-{
-    /// <summary>The grok program: first on PATH (exe, then cmd), then the folder its installer uses. Null when not found.</summary>
-    public static string? FindExecutable(Func<string, bool>? fileExists = null, IEnumerable<string>? pathDirectories = null, string? userProfile = null)
-    {
-        fileExists ??= File.Exists;
-        var directories = pathDirectories ?? (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries);
-        foreach (var name in new[] { "grok.exe", "grok.cmd" })
-        {
-            foreach (var directory in directories)
-            {
-                try
-                {
-                    var candidate = Path.Combine(directory.Trim('"'), name);
-                    if (fileExists(candidate)) return candidate;
-                }
-                catch (ArgumentException)
-                {
-                    // A malformed PATH entry.
-                }
-            }
-        }
-
-        var profile = userProfile ?? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        var installed = Path.Combine(profile, ".grok", "bin", "grok.exe");
-        return fileExists(installed) ? installed : null;
-    }
-}
-
 /// <summary>
-/// Starts `grok agent stdio` (the CLI's own agent server for editors) as a real child process. The environment switches off the CLI's worktree
-/// housekeeping and its update check for this child, so reading the allowance changes nothing else on the PC. Nothing here opens a login file.
+/// Starts `grok agent stdio` (the CLI's own agent server for editors) as a real child process. The CLI does its normal start-up work each time
+/// it starts; the environment only switches off its worktree auto-clean and its update check for this child. Nothing here opens a login file.
 /// </summary>
 internal sealed class GrokAcpSessionFactory : IJsonLineSessionFactory
 {

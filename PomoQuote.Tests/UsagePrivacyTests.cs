@@ -33,7 +33,7 @@ public sealed class UsagePrivacyTests
 
     // The only places that may name the user's Claude folder or home: the installer (it edits the user-level settings.json,
     // which holds no credentials) and the locator for claude.exe in ~/.local/bin.
-    private static readonly string[] MayNameTheUserProfile = ["ClaudeBridgeInstaller.cs", "ClaudeRefresher.cs", "GrokUsageProvider.cs"];
+    private static readonly string[] MayNameTheUserProfile = ["ClaudeBridgeInstaller.cs", "ClaudeRefresher.cs", "GrokLocator.cs"];
 
     [Fact]
     public void The_usage_code_never_reads_or_enumerates_the_cli_home_folders_except_the_one_settings_file_the_installer_edits()
