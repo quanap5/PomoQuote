@@ -63,6 +63,8 @@ The widget (280 logical px wide, scaled for 100 to 200% display scaling) keeps i
 - **Keyboard and accessibility:** the logo selector (Compact) and the arrow button are focusable controls with accessible names. **Expanded is a keyboard list**: Tab gives it the focus, Up/Down/Home/End move between the provider blocks and scroll the focused one into view, the focused block gets a dotted focus rectangle, and every block is an accessible list item whose name is the provider and plan and whose description has its windows, percents, resets, source and update time. The quotation marks are drawn decoration, not text, so a screen reader does not read them out. Hover the **timer bar** for the phase, the elapsed and remaining time and the exact end time.
 - **One width:** the widget is a fixed 280 px wide at 100% (scaled with the display); **no narrower layout is supported**. A test measures the longest labels, percents and countdowns against their columns at that width.
 
+*The previews below are made with test data. This version shows Codex and Claude Code only: where a preview has a third provider (Antigravity, or a test provider with a long name), it is a sample of the layout for a later release, not something the app shows today.*
+
 ![Compact with one provider, Compact with two, Expanded with two and with three providers](Assets/AiUsage/preview-compact-and-expanded.png)
 
 ![Compact at 100, 125, 150 and 200 percent](Assets/AiUsage/preview-compact-scales-100-125-150-200.png)
