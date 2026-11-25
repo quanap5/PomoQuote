@@ -165,7 +165,18 @@ internal sealed partial class WidgetView
 
     private void OnUserPreferenceChanged(object? sender, UserPreferenceChangedEventArgs e)
     {
-        if (e.Category is UserPreferenceCategory.General or UserPreferenceCategory.Window or UserPreferenceCategory.VisualStyle) PostEvaluate();
+        if (e.Category is UserPreferenceCategory.General or UserPreferenceCategory.Window or UserPreferenceCategory.VisualStyle)
+        {
+            PostEvaluate();
+            PostSystemThemeChanged();
+        }
+    }
+
+    private void PostSystemThemeChanged()
+    {
+        if (IsDisposed || !IsHandleCreated) return;
+        try { BeginInvoke(SystemThemeChanged); }
+        catch (InvalidOperationException) { } // the handle went away between the check and the post
     }
 
     private void PostEvaluate()
@@ -288,7 +299,7 @@ internal sealed partial class WidgetView
     {
         if (!_effects.HasVisibleEffect || ClientSize.Width < 2 || ClientSize.Height < 2) return false;
 
-        graphics.Clear(PanelColor);
+        graphics.Clear(_theme.Panel);
         graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
         _effects.Draw(graphics, Unit);
 

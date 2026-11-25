@@ -1,4 +1,5 @@
 using System.Drawing.Drawing2D;
+using PomoQuote.Widget;
 
 namespace PomoQuote;
 
@@ -10,6 +11,7 @@ internal sealed class UsageExpandToggle : Control
 {
     private bool _expanded;
     private bool _hot;
+    private WidgetTheme _theme = WidgetTheme.Dark;
 
     public UsageExpandToggle()
     {
@@ -18,6 +20,19 @@ internal sealed class UsageExpandToggle : Control
         Cursor = Cursors.Hand;
         AccessibleRole = AccessibleRole.PushButton;
         Expanded = false;
+    }
+
+    /// <summary>The colours in force (set by the widget; a change repaints).</summary>
+    [System.ComponentModel.Browsable(false), System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+    public WidgetTheme Theme
+    {
+        get => _theme;
+        set
+        {
+            if (ReferenceEquals(_theme, value)) return;
+            _theme = value;
+            Invalidate();
+        }
     }
 
     [System.ComponentModel.Browsable(false), System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
@@ -104,14 +119,14 @@ internal sealed class UsageExpandToggle : Control
         g.SmoothingMode = SmoothingMode.AntiAlias;
         var u = Math.Max(0.5f, PixelsPerUnit);
         // A small pill button sitting on the separator line: its own panel-coloured face hides the line behind it.
-        using (var face = new SolidBrush(_hot ? Color.FromArgb(52, 60, 74) : BackColor))
-        using (var outline = new Pen(Color.FromArgb(84, 94, 110), Math.Max(1f, u)))
+        using (var face = new SolidBrush(_hot ? _theme.ButtonHot : BackColor))
+        using (var outline = new Pen(_theme.ButtonOutline, Math.Max(1f, u)))
         using (var path = Widget.PillBar.Pill(new RectangleF(0.5f * u, 0.5f * u, Width - 1 * u, Height - 1 * u)))
         {
             g.FillPath(face, path);
             g.DrawPath(outline, path);
         }
-        using var pen = new Pen(_hot ? Color.White : Color.FromArgb(196, 206, 218), Math.Max(1.5f, 1.7f * u)) { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
+        using var pen = new Pen(_hot ? _theme.GlyphHot : _theme.Glyph, Math.Max(1.5f, 1.7f * u)) { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
         var cx = Width / 2f;
         var cy = Height / 2f;
         var half = 3.4f * u;
@@ -120,7 +135,7 @@ internal sealed class UsageExpandToggle : Control
 
         if (Focused && ShowFocusCues)
         {
-            using var focus = new Pen(Color.FromArgb(150, 190, 240), Math.Max(1f, u)) { DashStyle = DashStyle.Dot };
+            using var focus = new Pen(_theme.Focus, Math.Max(1f, u)) { DashStyle = DashStyle.Dot };
             g.DrawRectangle(focus, 0, 0, Width - 1, Height - 1);
         }
     }

@@ -15,6 +15,7 @@ internal sealed partial class MainForm
 
     private bool _widgetHidden;
     private readonly List<(StartMode Mode, ToolStripMenuItem Item)> _startInItems = [];
+    private readonly List<(ThemeMode Mode, ToolStripMenuItem Item)> _themeItems = [];
 
     /// <summary>The widget on screen, the widget hidden in the tray, or the normal window.</summary>
     internal ShellState ShellState => !_widgetMode ? ShellState.NormalWindow : _widgetHidden ? ShellState.WidgetHidden : ShellState.WidgetVisible;
@@ -149,6 +150,37 @@ internal sealed partial class MainForm
     private void UpdateStartInChecks()
     {
         foreach (var (mode, item) in _startInItems) item.Checked = mode == _widgetSettings.StartIn;
+    }
+
+    private ToolStripMenuItem BuildThemeMenu()
+    {
+        var menu = new ToolStripMenuItem("&Theme");
+        foreach (var mode in Enum.GetValues<ThemeMode>())
+        {
+            var item = new ToolStripMenuItem(mode.ToString(), null, (_, _) => SetTheme(mode));
+            _themeItems.Add((mode, item));
+            menu.DropDownItems.Add(item);
+        }
+
+        UpdateThemeChecks();
+        return menu;
+    }
+
+    /// <summary>For the tests: each Theme menu entry (there is one in each of the three Settings menus) with whether it is ticked.</summary>
+    internal IReadOnlyList<(ThemeMode Mode, string Text, bool Checked)> ThemeMenuForTests => _themeItems.Select(i => (i.Mode, i.Item.Text ?? "", i.Item.Checked)).ToList();
+
+    private void UpdateThemeChecks()
+    {
+        foreach (var (mode, item) in _themeItems) item.Checked = mode == _widgetSettings.Theme;
+    }
+
+    /// <summary>Sets, applies at once and saves the widget theme (System follows Windows, Light, Dark).</summary>
+    internal void SetTheme(ThemeMode mode)
+    {
+        _widgetSettings = _widgetSettings with { Theme = mode };
+        _widgetView.ApplyTheme(mode);
+        UpdateThemeChecks();
+        SaveWidgetSettings();
     }
 
     /// <summary>Sets and saves which mode the app opens in.</summary>

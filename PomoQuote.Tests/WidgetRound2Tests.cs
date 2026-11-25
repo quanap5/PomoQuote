@@ -22,7 +22,11 @@ public sealed class WidgetRound2Tests
     [InlineData(2)]
     public void Timer_phase_colours_are_not_the_quota_warning_colours(int phaseNumber)
     {
-        var colour = (Color)typeof(WidgetView).GetMethod("PhaseColor", BindingFlags.NonPublic | BindingFlags.Static)!.Invoke(null, [(PomodoroPhase)phaseNumber])!;
+        foreach (var theme in new[] { WidgetTheme.Dark, WidgetTheme.Light }) AssertNotWarmColour(theme.Phase((PomodoroPhase)phaseNumber), phaseNumber);
+    }
+
+    private static void AssertNotWarmColour(Color colour, int phaseNumber)
+    {
 
         // Warning is amber (240,180,80), critical is red-orange (240,98,82): nothing red, orange or yellow for a timer.
         Assert.True(colour.R < 200 || (colour.G > 190 && colour.B < 130 && colour.R < 200), $"phase {phaseNumber} {colour} is too warm");
@@ -164,6 +168,7 @@ public sealed class WidgetAnchorTests : IDisposable
             Location = location,
         };
         form.BridgeNoticeSink = (_, _) => { };
+        form.SetTheme(ThemeMode.Dark); // these tests measure the dark panel; the theme tests cover the others
         form.Show();
         form.SetWidgetMode(true);
         form.Location = location;

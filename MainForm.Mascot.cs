@@ -60,6 +60,7 @@ internal sealed partial class MainForm
         settings.DropDownItems.Add(new ToolStripMenuItem("&Pomodoro...", null, (_, _) => { BringBack(); ShowPomodoroSettings(); }));
         settings.DropDownItems.Add(new ToolStripMenuItem("&Mascot...", null, (_, _) => { BringBack(); ShowMascotSettings(); }));
         settings.DropDownItems.Add(new ToolStripMenuItem("Weather &effects...", null, (_, _) => { BringBack(); ShowWeatherEffectsSettings(); }));
+        settings.DropDownItems.Add(BuildThemeMenu());
         settings.DropDownItems.Add(BuildStartInMenu());
 
         _trayMenu = new ContextMenuStrip();

@@ -60,6 +60,7 @@ internal sealed partial class MainForm
     {
         _widgetView = new WidgetView(_pomodoro, _weather) { Dock = DockStyle.Fill, Visible = false };
         _widgetView.UsageUiChanged += (_, e) => _usage.SetLayout(e.Expanded, e.SelectedProvider);
+        _widgetView.ApplyTheme(_widgetSettings.Theme);
         Controls.Add(_widgetView);
 
         _widgetModeItem = new ToolStripMenuItem("&Widget mode", null, (_, _) => SetWidgetMode(!_widgetMode))
@@ -78,6 +79,7 @@ internal sealed partial class MainForm
         settings.DropDownItems.Add(new ToolStripMenuItem("&Quotes...", null, (_, _) => ShowQuoteSettings()));
         settings.DropDownItems.Add(new ToolStripMenuItem("&AI Usage...", null, (_, _) => ShowUsageSettings()));
         settings.DropDownItems.Add(new ToolStripMenuItem("Weather &effects...", null, (_, _) => ShowWeatherEffectsSettings()));
+        settings.DropDownItems.Add(BuildThemeMenu());
         settings.DropDownItems.Add(BuildStartInMenu());
 
         _widgetPomodoroToggleItem = new ToolStripMenuItem("Start Pomodoro", null, (_, _) => TogglePomodoro());
