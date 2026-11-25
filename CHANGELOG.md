@@ -7,10 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-11-26
+
+The sentences release: 13,677 English-Vietnamese sentence pairs from Tatoeba join the 357 sentences PomoQuote already had, for 14,034 in all, with each sentence's authors credited.
+
+Highlights:
+
+- **14,034 sentences** instead of 357: the new ones are everyday conversation pairs from [Tatoeba](https://tatoeba.org), all bundled offline (the app still makes no network request for sentences).
+- **Credits where the licence asks for them**: Tatoeba text is CC BY 2.0 FR, so each sentence's authors (the English sentence's and its Vietnamese translation's) are shown as a tooltip on the sentence, in the widget and in the normal window, and **Help > About** names Tatoeba and the licence.
+- **Please note**: the Vietnamese translations come from Tatoeba contributors and have **not been reviewed by a native speaker**; in a sample, about 3 in 100 pairs were loose or slightly wrong. With all categories on (the default) about 97% of the sentences you see are now these conversation sentences: **Settings > Quotes...** picks the categories.
+
 ### Added
 
 - **13677 English-Vietnamese sentence pairs from Tatoeba** (category conversation) join the 357 sentences, all bundled offline in `Assets/Quotes/quotes.json` (about 2.7 MB; the 357 original sentences and their groups are unchanged). They are licensed CC BY 2.0 FR, which asks for the author's name: every entry records the Tatoeba id and the author of the English sentence and of its Vietnamese translation, the sentence shows them as a tooltip (widget and normal window), **Help > About** credits Tatoeba, and `Assets/Quotes/CREDITS.md` and `THIRD_PARTY_ASSETS.md` record the licence, the changes made (typography only) and the selection rules. The pairs were chosen by `tools/import-tatoeba.mjs` (a development tool, never run by the app, which makes no network request for sentences) from 23,285 candidates: both authors known, a length and shape that fits the widget, no adult, offensive, violent, drug, political or religious content, no pair tagged vulgar, slang, ambiguous or non-literal, heuristic checks of the translation and of spelling, one pair per sentence, no duplicates; `Assets/Quotes/tatoeba-import-report.md` gives the count after each step. The loader now refuses a CC BY entry that lacks its ids and authors. The translations come from Tatoeba contributors and are not reviewed by a native speaker; about 3 in 100 pairs read in a sample were loose or slightly wrong.
 
+### Known issues
+
+- With the Conversation category switched off, 244 of the original sentences remain, not 357: 113 of the original sentences are conversation lines and share the category with the Tatoeba pairs. A separate category for the Tatoeba pairs is a possible follow-up.
+- The Vietnamese translations of the 357 original sentences, and those of the Tatoeba pairs, have not been reviewed by a native speaker; about 3 in 100 Tatoeba pairs read in a sample were loose or slightly wrong, or had a Vietnamese typo.
+- The program now keeps about 20 MB more memory and starts about 45 ms slower than 1.3.0 because of the larger sentence file.
+- The Compact provider logo can stay in the old theme's colours for up to about 12 seconds after you change the Windows theme while the widget is on System.
+- A rare crash at exit: an `InvalidOperationException` from the provider list's *Closed* handler in `WidgetView.Usage.cs` (`ShowProviderList`) when the app closes while the list is open.
+- Not checked in the running app before 1.3.0 and still not checked by hand: dragging the cat, the Mascot Options dialog, a restart with the cat selected, and the real Grok and Antigravity readings.
+- The weather effect is very faint by design: its colours are kept dark enough to keep the text at a contrast of 4.5:1 or more (the intro GIF brightens it so it shows). It is a still picture, not an animation, when Windows animations are turned off or Reduce motion is on.
+- [#46](https://github.com/quanap5/PomoQuote/issues/46): non-standard Codex windows (not 5 hours or one week) get identical truncated labels.
+- [#44](https://github.com/quanap5/PomoQuote/issues/44): the PowerShell form of the Claude status line bridge (used only when Git Bash is missing) does not propagate the exit code of the original command.
+- The Claude icon is Anthropic's official mark used **without written permission** from Anthropic (the owner accepted the risk; the contact is marketing@anthropic.com; see `THIRD_PARTY_ASSETS.md`). The Grok icon is likewise xAI's official mark without written permission.
+- Windows only; WSL is not supported yet.
 ## [1.3.0] - 2026-11-25
 
 The characters, themes and providers release: a choice of four mascot characters, a Light, Dark or System theme for the widget, Grok and Antigravity usage next to Codex and Claude Code, and an optional automatic Claude refresh.
@@ -150,7 +173,8 @@ Highlights:
 - "Hello World" stays on one centered line at any window size (PR #1).
 - The full clock rim stays inside its area at any window size (PR #4).
 
-[Unreleased]: https://github.com/quanap5/PomoQuote/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/quanap5/PomoQuote/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/quanap5/PomoQuote/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/quanap5/PomoQuote/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/quanap5/PomoQuote/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/quanap5/PomoQuote/releases/tag/v1.1.0
