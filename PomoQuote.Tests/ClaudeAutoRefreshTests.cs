@@ -301,6 +301,31 @@ public sealed class ClaudeAutoRefreshScheduleTests : IDisposable
     }
 
     [Fact]
+    public async Task Unlocks_signalled_from_another_thread_while_ticks_run_are_seen_without_a_torn_value()
+    {
+        using var auto = Create();
+        auto.Configure(true, 15);
+        var stop = false;
+        var signals = Task.Run(() =>
+        {
+            while (!Volatile.Read(ref stop))
+            {
+                auto.OnSessionSwitch(null, new SessionSwitchEventArgs(SessionSwitchReason.SessionUnlock));
+                auto.OnSessionSwitch(null, new SessionSwitchEventArgs(SessionSwitchReason.SessionLock));
+            }
+        });
+
+        for (var i = 0; i < 20000; i++) auto.Tick();
+        Volatile.Write(ref stop, true);
+        await signals;
+
+        auto.OnSessionSwitch(null, new SessionSwitchEventArgs(SessionSwitchReason.SessionUnlock));
+        _clock.Advance(ClaudeAutoRefresh.ResumeDelay + TimeSpan.FromMinutes(16));
+        auto.Tick();
+        Assert.True(_calls >= 2); // the first look at the start, and one after the pause and the interval
+    }
+
+    [Fact]
     public void A_sleeping_pc_pauses_it_and_a_resume_waits_a_little()
     {
         using var auto = Create();

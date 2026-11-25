@@ -56,7 +56,8 @@ internal sealed class ClaudeAutoRefresh : IDisposable
     private bool _enabled;
     private TimeSpan _interval = TimeSpan.FromMinutes(UsageSettings.DefaultAutoRefreshMinutes);
     private DateTimeOffset? _lastAttempt;
-    private DateTimeOffset? _notBefore;
+    // Written by the system-events thread (unlock, resume) and read by the UI thread: UTC ticks, 0 for none, always through Interlocked.
+    private long _notBeforeTicks;
     private volatile bool _locked;
     private volatile bool _asleep;
     private bool _running;
@@ -114,7 +115,7 @@ internal sealed class ClaudeAutoRefresh : IDisposable
         if (changed)
         {
             _lastAttempt = null;
-            _notBefore = null;
+            Interlocked.Exchange(ref _notBeforeTicks, 0);
             Tick();
         }
     }
@@ -144,7 +145,9 @@ internal sealed class ClaudeAutoRefresh : IDisposable
     {
         if (_disposed || _running || !_enabled) return;
         var now = _clock.GetUtcNow();
-        var cheap = new AutoRefreshInputs(true, _interval, now, _lastAttempt, _notBefore, _locked, _asleep, _widgetHidden(), null, false);
+        var notBeforeTicks = Interlocked.Read(ref _notBeforeTicks);
+        var notBefore = notBeforeTicks == 0 ? (DateTimeOffset?)null : new DateTimeOffset(notBeforeTicks, TimeSpan.Zero);
+        var cheap = new AutoRefreshInputs(true, _interval, now, _lastAttempt, notBefore, _locked, _asleep, _widgetHidden(), null, false);
         if (Decide(cheap) != AutoRefreshDecision.Run) return;
 
         var (newest, atLimit) = ReadNumbers(now);
@@ -221,7 +224,7 @@ internal sealed class ClaudeAutoRefresh : IDisposable
         }
 
         _lastAttempt = null;
-        _notBefore = null;
+        Interlocked.Exchange(ref _notBeforeTicks, 0);
         LastOutcome = null;
     }
 
@@ -254,7 +257,7 @@ internal sealed class ClaudeAutoRefresh : IDisposable
     {
         _asleep = false;
         _locked = false;
-        _notBefore = _clock.GetUtcNow() + ResumeDelay;
+        Interlocked.Exchange(ref _notBeforeTicks, (_clock.GetUtcNow() + ResumeDelay).UtcTicks);
     }
 
     private static IDisposable StartFormsTimer(TimeSpan period, Action tick)
