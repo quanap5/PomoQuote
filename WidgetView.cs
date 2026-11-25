@@ -162,9 +162,14 @@ internal sealed partial class WidgetView : Control
     private const int QuoteTail = 6;
 
     private QuoteGeometry.Plan? _quotePlan;
+    private string? _quoteAttribution;
+
+    /// <summary>The credit shown as a tooltip on the sentence (a Tatoeba sentence's authors), or null; for the tests.</summary>
+    internal string? QuoteAttribution => _quoteAttribution;
     /// <summary>Sets the sentence and its translation; returns true when the widget height changed (the card grows with the text).</summary>
-    public bool SetQuote(string english, string? vietnamese)
+    public bool SetQuote(string english, string? vietnamese, string? attribution = null)
     {
+        _quoteAttribution = attribution;
         _quoteEnglish = english;
         _quoteVietnamese = string.IsNullOrWhiteSpace(vietnamese) ? null : vietnamese;
         var before = LogicalHeight;
@@ -199,6 +204,7 @@ internal sealed partial class WidgetView : Control
     {
         if (_quotePlan is not { } plan) return;
         var card = new RectangleF(UsageGeometry.Margin * u, QuoteTop * u, (UsageGeometry.WidgetWidth - 2 * UsageGeometry.Margin) * u, plan.CardHeight * u);
+        if (_quoteAttribution is not null) _hotSpots.Add((card, "quote", _quoteAttribution)); // the credit a Tatoeba sentence needs, as a tooltip
         using (var path = PillBar.Rounded(card, 11 * u))
         using (var fill = new SolidBrush(_theme.Card))
         {
