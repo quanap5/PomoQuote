@@ -91,7 +91,7 @@ Codex shows the official OpenAI Blossom, Antigravity (when it is added) the offi
 - **Start in** (**Settings > Start in**, also in the widget's right-click menu and the tray menu): **Widget** (the default, also when nothing was ever saved), **Normal window**, or **Remember last** (the mode you closed the app in). Saved atomically in `%AppData%\PomoQuote\widget.json`; a missing or damaged file means Widget.
 - **Hide to tray from the widget.** Right-click the widget > **Hide to tray**, or press **Ctrl+H** while the widget has the keyboard focus. In widget mode the tray icon is always there: a left click hides or shows the widget, a double click shows it, and the right-click menu has **Show widget / Hide widget**, **Normal window**, **Start Pomodoro**, **Settings** (with **Start in**) and **Exit**. Starting a second copy of the app while the widget is hidden shows the first one (it never opens a second instance).
 - **While hidden** there is no taskbar button and nothing is drawn: the weather effect timer and the clock tick stop (zero ticks). The weather, AI usage and Pomodoro timers keep running, and a Pomodoro phase end still plays its sound and shows the balloon. Showing it again puts the widget back where it was, with its opacity, layout and selected provider (moved into a visible work area if its monitor is gone).
-- Leaving widget mode (Ctrl+W) always gives the normal window its title-bar logo and its taskbar button, also when the app started as the widget.
+- The widget never has a taskbar button (it lives in the tray). Leaving widget mode (Ctrl+W) always gives the normal window its title-bar logo and its taskbar button, also when the app started as the widget.
 
 ## Weather effects
 

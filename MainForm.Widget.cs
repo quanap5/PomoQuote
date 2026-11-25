@@ -157,6 +157,7 @@ internal sealed partial class MainForm
             MainMenuStrip = null;
             MinimumSize = Size.Empty;
             FormBorderStyle = FormBorderStyle.None;
+            ShowInTaskbar = false; // the visible widget never has a taskbar button: it lives in the tray
             ClientSize = LogicalToDeviceUnits(_widgetView.LogicalClientSize);
             Location = WidgetPlacement.Clamp(_widgetSettings.Position, Size, WorkAreaProvider());
             TopMost = true;

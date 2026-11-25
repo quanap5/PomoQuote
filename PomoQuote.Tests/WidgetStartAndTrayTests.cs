@@ -245,7 +245,6 @@ public sealed class WidgetTrayFormTests : IDisposable
 
     private static MainForm Shown(MainForm form)
     {
-        form.ShowInTaskbar = false; // only the first show; leaving widget mode makes it true again, which is what some tests check
         form.Show();
         form.WidgetViewForTests.OcclusionProbe = _ => false;
         form.WidgetViewForTests.SystemAnimationsProbe = () => true;
@@ -414,6 +413,34 @@ public sealed class WidgetTrayFormTests : IDisposable
     }
 
     [Fact]
+    public void A_phase_end_while_hidden_requests_the_balloon_and_the_sound_and_the_widget_stays_hidden()
+    {
+        OnStaThread(() =>
+        {
+            var clock = new FakeClock();
+            using var form = Shown(NewForm(clock: clock));
+            var pomodoro = form.PomodoroForTests;
+            var balloons = new List<(string Title, string Message)>();
+            var sounds = new List<bool>();
+            pomodoro.BalloonObserver = (title, message) => balloons.Add((title, message));
+            pomodoro.SoundSink = workEnd => sounds.Add(workEnd); // reported instead of played: the test is silent
+            pomodoro.ApplySettings(new PomodoroSettings(25, 5, 15, 4, SoundEnabled: true, AutoStartNext: false));
+            pomodoro.Timer.Start();
+            form.HideWidgetToTray();
+
+            clock.Advance(TimeSpan.FromMinutes(26));
+            Pump(TimeSpan.FromSeconds(2));
+
+            var balloon = Assert.Single(balloons);
+            Assert.Equal("Pomodoro", balloon.Title);
+            Assert.StartsWith("Work session complete", balloon.Message);
+            Assert.Equal([true], sounds); // the work-end sound was requested once
+            Assert.Equal(ShellState.WidgetHidden, form.ShellState); // and nothing brought the widget back
+            Assert.False(form.Visible);
+            Assert.True(form.TrayIconVisible);
+        });
+    }
+    [Fact]
     public void Restoring_keeps_the_position_and_the_opacity_and_moves_the_widget_back_onto_a_screen()
     {
         OnStaThread(() =>
@@ -476,23 +503,151 @@ public sealed class WidgetTrayFormTests : IDisposable
 
     // ---------- issue 30: the normal window after widget mode ----------
 
+    // ---------- the real taskbar (UI Automation) ----------
+
+    /// <summary>
+    /// How many taskbar buttons of this process the real taskbar shows right now (one per taskbar, so two on two monitors), read with UI Automation
+    /// from a Windows PowerShell child; -1 when it cannot be read (no taskbar, no Windows PowerShell). The button is named after the program.
+    /// </summary>
+    private static int TaskbarButtons()
+    {
+        var program = Process.GetCurrentProcess().ProcessName;
+        var script = "Add-Type -AssemblyName UIAutomationClient; Add-Type -AssemblyName UIAutomationTypes; "
+            + "$A = [System.Windows.Automation.AutomationElement]; $root = $A::RootElement; $bars = @(); "
+            + "foreach ($cls in 'Shell_TrayWnd', 'Shell_SecondaryTrayWnd') { $c = New-Object System.Windows.Automation.PropertyCondition($A::ClassNameProperty, $cls); foreach ($e in $root.FindAll([System.Windows.Automation.TreeScope]::Children, $c)) { $bars += $e } }; "
+            + "$bc = New-Object System.Windows.Automation.PropertyCondition($A::ControlTypeProperty, [System.Windows.Automation.ControlType]::Button); "
+            + "$n = 0; foreach ($b in $bars) { foreach ($e in $b.FindAll([System.Windows.Automation.TreeScope]::Descendants, $bc)) { if ($e.Current.Name -like '" + program + " -*') { $n++ } } }; $n";        var file = Path.Combine(Path.GetTempPath(), "pomoquote-taskbar-" + Guid.NewGuid().ToString("N") + ".ps1");
+        File.WriteAllText(file, script);
+        try
+        {
+            var info = new ProcessStartInfo("powershell.exe", $"-NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"{file}\"")
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = false,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            };
+            using var process = Process.Start(info);
+            if (process is null) return -1;
+            var output = new System.Text.StringBuilder();
+            process.OutputDataReceived += (_, e) => { if (e.Data is not null) output.AppendLine(e.Data); };
+            process.BeginOutputReadLine();
+            var limit = DateTime.UtcNow.AddSeconds(30);
+            while (!process.HasExited && DateTime.UtcNow < limit) Pump(TimeSpan.FromMilliseconds(30)); // the window keeps answering Windows while the child looks at the taskbar
+            if (!process.HasExited) { process.Kill(); return -1; }
+            process.WaitForExit();
+            return int.TryParse(output.ToString().Trim(), out var count) ? count : -1;
+        }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or IOException)
+        {
+            return -1;
+        }
+        finally
+        {
+            try { File.Delete(file); } catch (IOException) { }
+        }
+    }
+
+    /// <summary>Waits for the taskbar to catch up, then checks: no button (expectButton false) or at least one.</summary>
+    private static void AssertTaskbar(bool expectButton, string when)
+    {
+        var count = -2;
+        for (var attempt = 0; attempt < 4; attempt++)
+        {
+            Pump(TimeSpan.FromMilliseconds(500));
+            count = TaskbarButtons();
+            if (count < 0) return; // the taskbar cannot be read here (no desktop session): the style-flag test below still runs
+            if ((count > 0) == expectButton) return;
+        }
+
+        Assert.Fail($"{when}: the real taskbar shows {count} button(s) of this program, expected {(expectButton ? "one or more" : "none")}");
+    }
+
     [Fact]
-    public void Leaving_widget_mode_gives_the_normal_window_its_logo_and_its_taskbar_button_back()
+    public void The_real_taskbar_shows_a_button_for_the_normal_window_and_never_for_the_widget()
     {
         OnStaThread(() =>
         {
             using var form = NewForm(new WidgetSettings(Enabled: true, StartIn: StartMode.Remember));
-            form.Show(); // starts in widget mode, as a saved profile does
-            Pump(TimeSpan.FromMilliseconds(200));
-            Assert.True(form.IsWidgetMode);
+            form.Show(); // created the way the program creates it: started in widget mode
+            form.WidgetViewForTests.OcclusionProbe = _ => false;
+            Pump(TimeSpan.FromMilliseconds(300));
+            AssertTaskbar(false, "fresh start as the widget");
 
             form.SetWidgetMode(false);
             Pump(TimeSpan.FromMilliseconds(300));
-
             AssertNormalWindowPresence(form);
+            AssertTaskbar(true, "after leaving widget mode (issue 30)");
+
+            form.SetWidgetMode(true);
+            AssertTaskbar(false, "after a Ctrl+W round trip back to the widget");
+
+            form.HideWidgetToTray();
+            AssertTaskbar(false, "hidden in the tray");
+            form.OnTrayClicked();
+            AssertTaskbar(false, "shown again by a tray click");
+
+            form.HideWidgetToTray();
+            form.ShowFromSecondLaunch();
+            Pump(TimeSpan.FromMilliseconds(300));
+            Assert.True(form.Visible);
+            AssertTaskbar(false, "shown again by a second launch");
+
+            for (var i = 0; i < 3; i++)
+            {
+                form.SetWidgetMode(false);
+                AssertTaskbar(true, $"normal window, round {i + 1}");
+                form.SetWidgetMode(true);
+                form.HideWidgetToTray();
+                form.ShowWidgetFromTray();
+                AssertTaskbar(false, $"widget again, round {i + 1}");
+            }
         });
     }
 
+    private static readonly int WS_EX_APPWINDOW = 0x40000;
+
+    /// <summary>The window style of a button-less window: not an app window and owned by the hidden parking window (Windows never gives such a window a taskbar button).</summary>
+    private static bool IsButtonlessStyle(Form form)
+    {
+        const int GWL_EXSTYLE = -20;
+        const uint GW_OWNER = 4;
+        return !form.ShowInTaskbar && (GetWindowLong(form.Handle, GWL_EXSTYLE) & WS_EX_APPWINDOW) == 0 && GetWindow(form.Handle, GW_OWNER) != IntPtr.Zero;
+    }
+
+    [DllImport("user32.dll")] private static extern IntPtr GetWindow(IntPtr hWnd, uint command);
+
+    [Fact]
+    public void The_visible_widget_has_the_button_less_window_style_in_every_path_and_the_normal_window_does_not()
+    {
+        OnStaThread(() =>
+        {
+            using var form = NewForm(new WidgetSettings(Enabled: true, StartIn: StartMode.Remember));
+            form.Show();
+            Pump(TimeSpan.FromMilliseconds(200));
+            Assert.True(IsButtonlessStyle(form), "fresh start as the widget");
+
+            form.HideWidgetToTray();
+            form.ShowWidgetFromTray();
+            Assert.True(IsButtonlessStyle(form), "after a tray show");
+
+            form.HideWidgetToTray();
+            form.ShowFromSecondLaunch();
+            Pump(TimeSpan.FromMilliseconds(200));
+            Assert.True(IsButtonlessStyle(form), "after a second launch");
+
+            form.SetWidgetMode(false);
+            Pump(TimeSpan.FromMilliseconds(200));
+            Assert.False(IsButtonlessStyle(form), "the normal window must have its button");
+            AssertNormalWindowPresence(form);
+
+            form.SetWidgetMode(true);
+            Assert.True(IsButtonlessStyle(form), "after a Ctrl+W round trip");
+            form.HideWidgetToTray();
+            form.ShowWidgetFromTray();
+            Assert.True(IsButtonlessStyle(form), "after a round trip and a hide and show");
+        });
+    }
     private static void AssertNormalWindowPresence(MainForm form)
     {
         const int WS_EX_TOOLWINDOW = 0x80;

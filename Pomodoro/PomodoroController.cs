@@ -40,6 +40,12 @@ internal sealed class PomodoroController : IDisposable
 
     public PomodoroTimer Timer { get; }
 
+    /// <summary>Test seam: called with the balloon's title and message each time a phase-end balloon is requested.</summary>
+    internal Action<string, string>? BalloonObserver { get; set; }
+
+    /// <summary>Test seam: when set, a phase-end sound is reported here (true for the work-end sound) instead of being played, so a test makes no noise.</summary>
+    internal Action<bool>? SoundSink { get; set; }
+
     /// <summary>Work sessions finished today (resets by itself on a new day).</summary>
     public int CompletedToday => _counter.CountFor(Today);
 
@@ -104,7 +110,8 @@ internal sealed class PomodoroController : IDisposable
         if (Timer.Settings.SoundEnabled)
         {
             // Play() returns at once and plays on another thread, so the window never waits for it.
-            (e.WorkSessionCompleted ? _workEndSound : _breakEndSound)?.Play();
+            if (SoundSink is { } sink) sink(e.WorkSessionCompleted);
+            else (e.WorkSessionCompleted ? _workEndSound : _breakEndSound)?.Play();
         }
 
         var settings = Timer.Settings;
@@ -114,7 +121,11 @@ internal sealed class PomodoroController : IDisposable
         ShowBalloon(message);
     }
 
-    private void ShowBalloon(string message) => _tray.ShowBalloon("Pomodoro", message);
+    private void ShowBalloon(string message)
+    {
+        BalloonObserver?.Invoke("Pomodoro", message);
+        _tray.ShowBalloon("Pomodoro", message);
+    }
 
     private void Save()
     {
