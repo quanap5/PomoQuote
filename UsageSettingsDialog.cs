@@ -18,6 +18,11 @@ internal sealed class UsageSettingsDialog : Form
     private readonly Label _agyStatus;
     private readonly Label _agyResult;
     private readonly Button _agyTest;
+    private readonly GrokDetector _grokDetector;
+    private readonly CheckBox _grok;
+    private readonly Label _grokStatus;
+    private readonly Label _grokResult;
+    private readonly Button _grokTest;
     private readonly Func<string, CancellationToken, Task<UsageStatus?>> _test;
     private readonly IReadOnlyList<(string Id, string Name)> _providers;
     private readonly CancellationTokenSource _closing = new();
@@ -48,7 +53,7 @@ internal sealed class UsageSettingsDialog : Form
 
     public UsageSettingsDialog(
         UsageSettings current, IReadOnlyList<(string Id, string Name)> providers, CodexDetector detector,
-        Func<string, CancellationToken, Task<UsageStatus?>> test, ClaudeActions claude, string claudeSettingsPath, Func<Form, BridgePreview, bool> confirmBridge, AgyDetector? antigravityDetector = null)
+        Func<string, CancellationToken, Task<UsageStatus?>> test, ClaudeActions claude, string claudeSettingsPath, Func<Form, BridgePreview, bool> confirmBridge, AgyDetector? antigravityDetector = null, GrokDetector? grokDetector = null)
     {
         _claude = claude;
         _claudeSettingsPath = claudeSettingsPath;
@@ -56,6 +61,7 @@ internal sealed class UsageSettingsDialog : Form
         _providers = providers;
         _detector = detector;
         _agyDetector = antigravityDetector ?? new AgyDetector();
+        _grokDetector = grokDetector ?? new GrokDetector();
         _test = test;
         Text = "Settings - AI Usage";
         FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -69,7 +75,7 @@ internal sealed class UsageSettingsDialog : Form
 
         var intro = new Label
         {
-            Text = "Shows how much of your Codex, Claude Code and Antigravity quota is used, read from the official CLIs on this PC. PomoQuote never asks for a password, key or token and never stores one: log in with the CLI itself.",
+            Text = "Shows how much of your Codex, Claude Code, Antigravity and Grok quota is used, read from the official CLIs on this PC. PomoQuote never asks for a password, key or token and never stores one: log in with the CLI itself.",
             AutoSize = true,
             MaximumSize = new Size(440, 0),
             Margin = new Padding(0, 0, 0, 10),
@@ -113,6 +119,16 @@ internal sealed class UsageSettingsDialog : Form
         agyRow.Controls.Add(_agyTest);
         agyRow.Controls.Add(_agyResult);
         var agyNote = new Label { Text = "Antigravity is read every 5 minutes with agy's own usage command (it starts agy for a few seconds and uses no model).", AutoSize = true, MaximumSize = new Size(440, 0), ForeColor = SystemColors.GrayText, Margin = new Padding(20, 2, 0, 2) };
+        // ---------- Grok ----------
+        _grok = new CheckBox { Text = "Show Grok usage on the widget", AutoSize = true, Checked = current.IsEnabled(GrokUsageProvider.ProviderId), Margin = new Padding(0, 12, 0, 0) };
+        _grokStatus = new Label { Text = "Checking for the Grok CLI (grok)...", AutoSize = true, MaximumSize = new Size(440, 0), Margin = new Padding(20, 2, 0, 2) };
+        _grokTest = new Button { Text = "Test connection", AutoSize = true, Margin = new Padding(20, 2, 8, 2) };
+        _grokResult = new Label { Text = "", AutoSize = true, MaximumSize = new Size(320, 0), Anchor = AnchorStyles.Left, Margin = new Padding(0, 8, 0, 2) };
+        _grokTest.Click += async (_, _) => await RunGrokTestAsync();
+        var grokRow = new FlowLayoutPanel { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, WrapContents = false, Margin = new Padding(0) };
+        grokRow.Controls.Add(_grokTest);
+        grokRow.Controls.Add(_grokResult);
+        var grokNote = new Label { Text = "Grok is read every 5 minutes through the Grok CLI's own agent (it starts grok for a few seconds, sends no prompt and spends no credits).", AutoSize = true, MaximumSize = new Size(440, 0), ForeColor = SystemColors.GrayText, Margin = new Padding(20, 2, 0, 2) };
         _order = new ListBox { Height = 40, Width = 200, IntegralHeight = false };
         foreach (var id in current.Order.Where(id => providers.Any(p => p.Id == id)).Concat(providers.Select(p => p.Id)).Distinct())
         {
@@ -175,6 +191,10 @@ internal sealed class UsageSettingsDialog : Form
         layout.Controls.Add(_agyStatus);
         layout.Controls.Add(agyRow);
         layout.Controls.Add(agyNote);
+        layout.Controls.Add(ProviderRow(GrokUsageProvider.ProviderId, _grok));
+        layout.Controls.Add(_grokStatus);
+        layout.Controls.Add(grokRow);
+        layout.Controls.Add(grokNote);
         layout.Controls.Add(new Label { Text = "Display order:", AutoSize = true, Margin = new Padding(0, 10, 0, 2) });
         layout.Controls.Add(orderRow);
         layout.Controls.Add(new Label { Text = "Layout of the usage area (also the arrow button on the widget):", AutoSize = true, Margin = new Padding(0, 10, 0, 2) });
@@ -191,6 +211,7 @@ internal sealed class UsageSettingsDialog : Form
         {
             await DetectAsync();
             await DetectAgyAsync();
+            await DetectGrokAsync();
             await ShowClaudeStateAsync(check: false);
         };
         FormClosing += (_, _) => _closing.Cancel();
@@ -202,7 +223,7 @@ internal sealed class UsageSettingsDialog : Form
     {
         var order = _order.Items.Cast<string>().Select(name => _providers.First(p => p.Name == name).Id).ToList();
         var thresholds = _warn.Value == _critical.Value ? [(int)_warn.Value] : new List<int> { (int)_warn.Value, (int)_critical.Value };
-        return current.WithEnabled(CodexUsageProvider.ProviderId, _codex.Checked).WithEnabled(ClaudeSnapshotProvider.ProviderId, _claudeEnabled.Checked).WithEnabled(AntigravityUsageProvider.ProviderId, _agy.Checked) with
+        return current.WithEnabled(CodexUsageProvider.ProviderId, _codex.Checked).WithEnabled(ClaudeSnapshotProvider.ProviderId, _claudeEnabled.Checked).WithEnabled(AntigravityUsageProvider.ProviderId, _agy.Checked).WithEnabled(GrokUsageProvider.ProviderId, _grok.Checked) with
         {
             Order = order,
             Expanded = _mode.SelectedIndex == 1,
@@ -415,6 +436,48 @@ internal sealed class UsageSettingsDialog : Form
             if (!IsDisposed) _agyTest.Enabled = true;
         }
     }
+    private async Task DetectGrokAsync()
+    {
+        try
+        {
+            var info = await _grokDetector.DetectAsync(_closing.Token);
+            if (IsDisposed) return;
+            _grokStatus.Text = info.Installed && info.Version.Length > 0 ? $"{info.Detail} (version {info.Version})" : info.Detail;
+            _grokTest.Enabled = info.Installed;
+        }
+        catch (OperationCanceledException)
+        {
+            // The dialog was closed.
+        }
+    }
+
+    /// <summary>The first read: nothing is run until the user presses this (or turns Grok on and presses OK).</summary>
+    private async Task RunGrokTestAsync()
+    {
+        _grokTest.Enabled = false;
+        _grokResult.Text = "Reading...";
+        try
+        {
+            var status = await _test(GrokUsageProvider.ProviderId, _closing.Token);
+            if (IsDisposed) return;
+            var latest = status?.Latest;
+            _grokResult.Text = latest switch
+            {
+                null => "No answer.",
+                { State: UsageState.Ok } ok => "OK: " + string.Join(", ", ok.Windows.Select(w => $"{UsageViewBuilder.Label(w)} {Math.Round(w.PercentUsed):0}%")) + " used" + (ok.Source.PlanTier.Length > 0 ? $" ({ok.Source.PlanTier})" : ""),
+                _ => latest.ErrorText.Length > 0 ? latest.ErrorText : latest.State.ToString(),
+            };
+        }
+        catch (OperationCanceledException)
+        {
+            // The dialog was closed.
+        }
+        finally
+        {
+            if (!IsDisposed) _grokTest.Enabled = true;
+        }
+    }
+
     private async Task RunTestAsync()
     {
         _testButton.Enabled = false;

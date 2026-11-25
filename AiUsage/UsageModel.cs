@@ -52,6 +52,7 @@ public enum UsageDataSource
     ClaudeStatusLine,
     ManualRefresh,
     AntigravityCli,
+    GrokAcp,
 }
 
 /// <summary>Who the numbers belong to. The account is only ever a short hash, never the id, email or name.</summary>
