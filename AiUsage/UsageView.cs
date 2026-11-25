@@ -55,8 +55,9 @@ internal static class UsageViewBuilder
     {
         var shown = status.Shown;
         var latest = status.Latest;
-        // Antigravity is read every 5 minutes whatever the setting says, so its numbers are old only after twice that.
-        var interval = status.ProviderId == AntigravityUsageProvider.ProviderId && settings.Interval < AntigravityUsageProvider.Poll ? AntigravityUsageProvider.Poll : settings.Interval;
+        // Antigravity and Grok are read every 5 minutes whatever the setting says, so their numbers are old only after twice that.
+        var fixedPoll = status.ProviderId == AntigravityUsageProvider.ProviderId ? AntigravityUsageProvider.Poll : status.ProviderId == GrokUsageProvider.ProviderId ? GrokUsageProvider.Poll : (TimeSpan?)null;
+        var interval = fixedPoll is { } poll && settings.Interval < poll ? poll : settings.Interval;
         var effective = latest?.EffectiveState(now, interval);
 
         // The numbers on screen are from an earlier good read while the latest read says something else (no plan limits, no reply, not

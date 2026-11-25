@@ -34,7 +34,7 @@ internal sealed class ProcessJsonLineSession : IJsonLineSession
 
     private ProcessJsonLineSession(Process process) => _process = process;
 
-    public static ProcessJsonLineSession Start(string fileName, IEnumerable<string> arguments, string? workingDirectory = null, bool closeInput = false)
+    public static ProcessJsonLineSession Start(string fileName, IEnumerable<string> arguments, string? workingDirectory = null, bool closeInput = false, IReadOnlyDictionary<string, string>? environment = null)
     {
         var info = new ProcessStartInfo(fileName)
         {
@@ -48,6 +48,10 @@ internal sealed class ProcessJsonLineSession : IJsonLineSession
         };
         if (workingDirectory is not null) info.WorkingDirectory = workingDirectory;
         foreach (var argument in arguments) info.ArgumentList.Add(argument);
+        if (environment is not null)
+        {
+            foreach (var (name, value) in environment) info.Environment[name] = value;
+        }
 
         var process = Process.Start(info) ?? throw new Win32Exception("The process did not start.");
         Live[process.Id] = process;

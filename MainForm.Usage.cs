@@ -31,6 +31,7 @@ internal sealed partial class MainForm
             new CodexUsageProvider(new CodexAppServerSessionFactory(), TimeProvider.System),
             new ClaudeSnapshotProvider(claude.Store, () => bridgeStatus.Get().State, TimeProvider.System, () => bridgeStatus.Get().ProgramMissing),
             new AntigravityUsageProvider(new ProcessAgyRunner(), TimeProvider.System),
+            new GrokUsageProvider(new GrokAcpSessionFactory(), TimeProvider.System),
         ];
         _usage = new UsageController(
             this,

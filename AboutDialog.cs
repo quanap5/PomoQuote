@@ -10,7 +10,7 @@ internal sealed class AboutDialog : Form
     /// <summary>The notice about the marks shown in the widget (the details and sources are in THIRD_PARTY_ASSETS.md).</summary>
     public const string MarksNotice =
         "Third-party marks: OpenAI and the OpenAI Blossom logo belong to OpenAI; Claude and Anthropic belong to Anthropic; " +
-        "Antigravity and Google belong to Google. PomoQuote is not affiliated with or endorsed by any of them. " +
+        "Antigravity and Google belong to Google; Grok and xAI belong to xAI. PomoQuote is not affiliated with or endorsed by any of them. " +
         "Sources and terms: THIRD_PARTY_ASSETS.md in the PomoQuote repository."; 
 
     private readonly Bitmap _logo;
