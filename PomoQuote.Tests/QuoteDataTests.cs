@@ -100,14 +100,13 @@ public sealed class QuoteDataTests
     }
 
     [Fact]
-    public void Attributed_sentences_name_a_public_domain_or_project_license()
+    public void Every_sentence_names_a_public_domain_or_project_license_or_Tatoeba_s_CC_BY_with_its_attribution()
     {
         foreach (var quote in Load())
         {
-            Assert.True(
-                quote.License.Contains("public domain", StringComparison.OrdinalIgnoreCase) ||
-                quote.License.Contains("CC0", StringComparison.Ordinal),
-                quote.English);
+            var open = quote.License.Contains("public domain", StringComparison.OrdinalIgnoreCase) || quote.License.Contains("CC0", StringComparison.Ordinal);
+            var tatoeba = quote.License.Contains("CC BY 2.0 FR", StringComparison.Ordinal) && quote.Attribution is not null;
+            Assert.True(open || tatoeba, quote.English);
         }
     }
 

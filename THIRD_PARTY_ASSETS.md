@@ -2,6 +2,12 @@
 
 PomoQuote itself is MIT licensed (see [LICENSE](LICENSE)). The assets with their own terms are listed here. Other bundled assets (sentences, mascot, sounds, wallpapers, weather icons, PomoQuote logo) are listed in the `CREDITS.md` file of their folder.
 
+## Sentences from Tatoeba (`Assets/Quotes/quotes.json`)
+
+| Data | Source | License and what it asks | Changes |
+| --- | --- | --- | --- |
+| 13677 English sentences with Vietnamese translations (the last group of `quotes.json`) | [Tatoeba](https://tatoeba.org), public exports of 2026-11-21 ([downloads.tatoeba.org/exports](https://downloads.tatoeba.org/exports/)) | [CC BY 2.0 FR](https://creativecommons.org/licenses/by/2.0/fr/) ([Tatoeba terms of use, section 6.2](https://tatoeba.org/en/terms_of_use)): reuse, modification and distribution are allowed if the author's name is cited. The Tatoeba id and the author of the English sentence and of its Vietnamese translation are recorded on every entry (`id`, `author`, `vid`, `vauthor`), shown as a tooltip on the sentence, and the data is credited in **Help > About**. | Typography only (typographic quotes, apostrophes and dashes to ASCII, whitespace collapsed, Vietnamese in Unicode form C); whole pairs chosen by `tools/import-tatoeba.mjs`, see `Assets/Quotes/CREDITS.md` and `Assets/Quotes/tatoeba-import-report.md`. |
+
 ## Provider logos (`Assets/Providers/`)
 
 PomoQuote shows the logo of the AI service whose quota it displays, next to the numbers, so the user can tell the providers apart (nominative use). **The names and marks of OpenAI, Anthropic and Google belong to their owners. PomoQuote is not affiliated with, endorsed by or sponsored by any of them.** A file licence (CC0, MIT) is not a trademark licence, so each vendor's own terms were checked; the result per provider is below. Nothing is fetched at run time: the files are packaged in the program. The logos are only cropped of their empty margin (in memory, at load time) and scaled; they are never recoloured or combined with other marks; an error, stale data or a near-full quota is shown by a separate badge and by text, never by changing the logo.

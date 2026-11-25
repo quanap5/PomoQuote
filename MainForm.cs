@@ -304,6 +304,7 @@ internal sealed partial class MainForm : Form
             _weatherTimer.Dispose();
             DisposeQuotes();
             DisposeUsage();
+        _quoteTip.Dispose();
             DisposeWidget();
             DisposeMascot();
             _pomodoro.Dispose();

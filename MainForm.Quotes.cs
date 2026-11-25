@@ -15,6 +15,7 @@ internal sealed partial class MainForm
     private QuoteRotator _quoteRotator = null!;
     private readonly System.Windows.Forms.Timer _quoteTimer = new();
     private ToolStripMenuItem _translationItem = null!;
+    private readonly ToolTip _quoteTip = new() { InitialDelay = 400, AutoPopDelay = 12000, ShowAlways = true };
     private PomodoroRunState _lastRunState = PomodoroRunState.Idle;
 
     /// <summary>The sentence on screen, or null when no category holds one.</summary>
@@ -71,9 +72,10 @@ internal sealed partial class MainForm
         var english = quote?.English ?? "";
         var vietnamese = quote is not null && _quoteSettings.ShowTranslation ? quote.Vietnamese : null;
         _quote.SetQuote(english, vietnamese);
+        _quoteTip.SetToolTip(_quote, quote?.Attribution ?? ""); // a Tatoeba sentence names its authors (its licence asks for it); nothing for the others
         if (_widgetView is not null)
         {
-            _widgetView.SetQuote(english, vietnamese);
+            _widgetView.SetQuote(english, vietnamese, quote?.Attribution);
             FitWidgetHeight();
         }
     }

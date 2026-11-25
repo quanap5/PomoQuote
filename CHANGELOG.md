@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **13677 English-Vietnamese sentence pairs from Tatoeba** (category conversation) join the 357 sentences, all bundled offline in `Assets/Quotes/quotes.json` (about 2.7 MB; the 357 original sentences and their groups are unchanged). They are licensed CC BY 2.0 FR, which asks for the author's name: every entry records the Tatoeba id and the author of the English sentence and of its Vietnamese translation, the sentence shows them as a tooltip (widget and normal window), **Help > About** credits Tatoeba, and `Assets/Quotes/CREDITS.md` and `THIRD_PARTY_ASSETS.md` record the licence, the changes made (typography only) and the selection rules. The pairs were chosen by `tools/import-tatoeba.mjs` (a development tool, never run by the app, which makes no network request for sentences) from 23,285 candidates: both authors known, a length and shape that fits the widget, no adult, offensive, violent, drug, political or religious content, no pair tagged vulgar, slang, ambiguous or non-literal, heuristic checks of the translation and of spelling, one pair per sentence, no duplicates; `Assets/Quotes/tatoeba-import-report.md` gives the count after each step. The loader now refuses a CC BY entry that lacks its ids and authors. The translations come from Tatoeba contributors and are not reviewed by a native speaker; about 3 in 100 pairs read in a sample were loose or slightly wrong.
+
 ## [1.3.0] - 2026-11-25
 
 The characters, themes and providers release: a choice of four mascot characters, a Light, Dark or System theme for the widget, Grok and Antigravity usage next to Codex and Claude Code, and an optional automatic Claude refresh.

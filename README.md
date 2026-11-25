@@ -14,7 +14,7 @@
 
 ## Features
 
-- **English sentences with Vietnamese translations.** 357 bundled offline sentences (motivation, idioms and proverbs, conversation) in large type that shrinks to fit. A new one appears at start, at each Pomodoro phase, optionally every 5/10/30/60 minutes, or on demand with **View > Next sentence (Ctrl+N)**. It shuffles through all of them before repeating and never shows the same one twice in a row. **Settings > Quotes...** picks the categories, translation on/off and the interval. Data: [Assets/Quotes/quotes.json](Assets/Quotes/quotes.json).
+- **English sentences with Vietnamese translations.** 357 sentences written or collected for PomoQuote (motivation, idioms and proverbs, conversation) and 13677 English-Vietnamese pairs from [Tatoeba](https://tatoeba.org) (conversation; CC BY 2.0 FR, authors credited per sentence: hover a sentence), all bundled offline, in large type that shrinks to fit. A new one appears at start, at each Pomodoro phase, optionally every 5/10/30/60 minutes, or on demand with **View > Next sentence (Ctrl+N)**. It shuffles through all of them before repeating and never shows the same one twice in a row. **Settings > Quotes...** picks the categories, translation on/off and the interval. Data: [Assets/Quotes/quotes.json](Assets/Quotes/quotes.json).
 - **Pomodoro timer.** Work 25 min, break 5 min, long break 15 min after 4 work sessions (all adjustable in **Settings > Pomodoro...**), with Start / Pause / Resume, Skip and Reset, a progress ring, an alert sound and a balloon notification at each phase end, the remaining time in the window title, and a count of today's work sessions.
 - **Weather.** Current weather for a city (default Hanoi, change it in **Settings > City...**) from [Open-Meteo](https://open-meteo.com/) (free, no API key), refreshed about every 10 minutes, with an icon for every value (sun and moon variants by day and night). Offline it keeps the last values and says so.
 - **Wallpapers.** In the normal window, **View > Wallpaper** switches between three bundled photos and the plain background.
@@ -162,7 +162,7 @@ PomoQuote is released under the [MIT License](LICENSE). The bundled assets have 
 
 | Assets | License | Credits |
 |--------|---------|---------|
-| Sentences and Vietnamese translations | Public-domain quotations and proverbs, original sentences and translations under CC0 1.0 | [Assets/Quotes/CREDITS.md](Assets/Quotes/CREDITS.md) |
+| Sentences and Vietnamese translations | Public-domain quotations and proverbs, original sentences and translations under CC0 1.0; Tatoeba sentence pairs under CC BY 2.0 FR with the author of each sentence recorded | [Assets/Quotes/CREDITS.md](Assets/Quotes/CREDITS.md) |
 | Mascot sprites (original), shout sound | CC0 1.0 | [Assets/Mascot/CREDITS.md](Assets/Mascot/CREDITS.md) |
 | Pomodoro alert sounds | CC0 1.0 | [Assets/Sounds/CREDITS.md](Assets/Sounds/CREDITS.md) |
 | Wallpaper photos | CC0 1.0 | [Assets/Wallpapers/CREDITS.md](Assets/Wallpapers/CREDITS.md) |
