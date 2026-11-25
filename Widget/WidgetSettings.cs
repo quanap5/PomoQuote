@@ -5,9 +5,9 @@ namespace PomoQuote.Widget;
 
 /// <summary>
 /// What is remembered about widget mode: whether it is on, where the widget sits (top-left corner in
-/// screen pixels, null until it was first placed) and its opacity.
+/// screen pixels, null until it was first placed), its opacity, and which mode the app starts in (<see cref="StartIn"/>:\n/// the widget unless the file says otherwise; <see cref="Enabled"/> is the mode last used, which Remember last restores).
 /// </summary>
-internal sealed record WidgetSettings(bool Enabled = false, int? X = null, int? Y = null, int OpacityPercent = 100)
+internal sealed record WidgetSettings(bool Enabled = false, int? X = null, int? Y = null, int OpacityPercent = 100, StartMode StartIn = StartMode.Widget)
 {
     public static readonly IReadOnlyList<int> OpacityChoices = [100, 80, 60];
 
@@ -25,6 +25,7 @@ internal sealed record WidgetSettings(bool Enabled = false, int? X = null, int? 
     public WidgetSettings Normalized() => this with
     {
         OpacityPercent = OpacityChoices.Contains(OpacityPercent) ? OpacityPercent : 100,
+        StartIn = Enum.IsDefined(StartIn) ? StartIn : StartMode.Widget,
         X = Position is null ? null : X,
         Y = Position is null ? null : Y,
     };

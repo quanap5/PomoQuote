@@ -26,6 +26,10 @@ internal sealed class TrayIconHost : IDisposable
         {
             if (e.Button == MouseButtons.Left) Clicked?.Invoke(this, EventArgs.Empty);
         };
+        _icon.MouseDoubleClick += (_, e) =>
+        {
+            if (e.Button == MouseButtons.Left) DoubleClicked?.Invoke(this, EventArgs.Empty);
+        };
         _balloonTimer.Tick += (_, _) =>
         {
             _balloonTimer.Stop();
@@ -42,6 +46,9 @@ internal sealed class TrayIconHost : IDisposable
 
     /// <summary>Raised when the icon is clicked with the left mouse button.</summary>
     public event EventHandler? Clicked;
+
+    /// <summary>Raised when the icon is double-clicked with the left mouse button.</summary>
+    public event EventHandler? DoubleClicked;
 
     public bool IconVisible => _icon.Visible;
 
