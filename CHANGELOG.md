@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **AI usage: Antigravity** (Settings > AI Usage...): a third provider, off by default, that reads the quota with the vendor's own command, `agy -p /usage --output-format json`, every 5 minutes (about 6 s each, 12 s limit, killed on timeout, private empty working folder). It uses no model and no quota: the answer must come from the usage command with no conversation turn and no tokens, otherwise the provider says *unsupported version* and stops asking until the app restarts. No login is read or stored (`agy` keeps it), and neither Antigravity's local server nor its sign-in client is used. Antigravity reports a limit per model group: the widget shows one row per window length (`Week`, and `5h` when there is a five-hour limit) for the most used group, and the tooltips and the Expanded source line list every group (*Gemini 33%, Claude and GPT 0%*); warnings work per group (each group warns once per window and re-arms on its own, and the balloon names the group). **Test connection** makes the first read. Minimal model changes: a new data-source value (`AntigravityCli`); the provider abstraction, the collector and the existing states are unchanged.
+
 ## [1.2.0] - 2026-11-25
 
 The widget release: AI usage for Codex and Claude Code, a redesigned widget, provider logos, the date with the Vietnamese lunar date, weather effects, and widget mode as the default with hide to tray.

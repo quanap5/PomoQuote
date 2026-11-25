@@ -30,6 +30,7 @@ internal sealed partial class MainForm
         [
             new CodexUsageProvider(new CodexAppServerSessionFactory(), TimeProvider.System),
             new ClaudeSnapshotProvider(claude.Store, () => bridgeStatus.Get().State, TimeProvider.System, () => bridgeStatus.Get().ProgramMissing),
+            new AntigravityUsageProvider(new ProcessAgyRunner(), TimeProvider.System),
         ];
         _usage = new UsageController(
             this,
@@ -46,6 +47,9 @@ internal sealed partial class MainForm
     }
 
     private ClaudeBridgeInstaller _bridgeInstaller = null!;
+
+    /// <summary>The usage controller, for tests.</summary>
+    internal UsageController UsageForTests => _usage;
 
     /// <summary>Test seam: receives the start-up notice instead of the tray balloon.</summary>
     internal Action<string, string>? BridgeNoticeSink;

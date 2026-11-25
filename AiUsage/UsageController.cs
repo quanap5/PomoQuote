@@ -163,9 +163,7 @@ internal sealed class UsageController : IDisposable
             if (changed) SaveAlerts();
             foreach (var alert in alerts)
             {
-                var label = alert.Kind == QuotaKind.FiveHour ? "5-hour" : alert.Kind == QuotaKind.Weekly ? "weekly" : "usage";
-                var reset = UsageViewBuilder.ResetText(snapshot.Windows.First(w => w.Kind == alert.Kind && w.ResetsAt == alert.ResetsAt), _clock.GetUtcNow());
-                _notify($"{status.DisplayName} usage", $"The {label} window is {Math.Round(alert.PercentUsed):0}% used (warning at {alert.Threshold}%). It resets in {reset}.");
+                _notify($"{status.DisplayName} usage", AlertMessage(alert, snapshot, _clock.GetUtcNow()));
             }
         }
 
@@ -181,6 +179,16 @@ internal sealed class UsageController : IDisposable
     }
 
     private bool _resumeRetryPending;
+
+    /// <summary>The text of a warning balloon; a provider that reports one limit per model group (Antigravity) names the group.</summary>
+    internal static string AlertMessage(UsageAlert alert, UsageSnapshot snapshot, DateTimeOffset now)
+    {
+        var label = alert.Kind == QuotaKind.FiveHour ? "5-hour" : alert.Kind == QuotaKind.Weekly ? "weekly" : "usage";
+        var window = snapshot.Windows.First(w => w.Kind == alert.Kind && w.ResetsAt == alert.ResetsAt && (alert.Group.Length == 0 || w.Bucket == alert.Group));
+        var reset = UsageViewBuilder.ResetText(window, now);
+        var of = alert.Group.Length > 0 ? $" of {UsageViewBuilder.ShortGroup(alert.Group)}" : "";
+        return $"The {label} window{of} is {Math.Round(alert.PercentUsed):0}% used (warning at {alert.Threshold}%). It resets in {reset}.";
+    }
 
     private void SaveAlerts()
     {

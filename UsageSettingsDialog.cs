@@ -13,6 +13,11 @@ internal sealed class UsageSettingsDialog : Form
     private static readonly int[] IntervalChoices = [1, 2, 3, 5, 10, 15];
 
     private readonly CodexDetector _detector;
+    private readonly AgyDetector _agyDetector;
+    private readonly CheckBox _agy;
+    private readonly Label _agyStatus;
+    private readonly Label _agyResult;
+    private readonly Button _agyTest;
     private readonly Func<string, CancellationToken, Task<UsageStatus?>> _test;
     private readonly IReadOnlyList<(string Id, string Name)> _providers;
     private readonly CancellationTokenSource _closing = new();
@@ -43,13 +48,14 @@ internal sealed class UsageSettingsDialog : Form
 
     public UsageSettingsDialog(
         UsageSettings current, IReadOnlyList<(string Id, string Name)> providers, CodexDetector detector,
-        Func<string, CancellationToken, Task<UsageStatus?>> test, ClaudeActions claude, string claudeSettingsPath, Func<Form, BridgePreview, bool> confirmBridge)
+        Func<string, CancellationToken, Task<UsageStatus?>> test, ClaudeActions claude, string claudeSettingsPath, Func<Form, BridgePreview, bool> confirmBridge, AgyDetector? antigravityDetector = null)
     {
         _claude = claude;
         _claudeSettingsPath = claudeSettingsPath;
         _confirmBridge = confirmBridge;
         _providers = providers;
         _detector = detector;
+        _agyDetector = antigravityDetector ?? new AgyDetector();
         _test = test;
         Text = "Settings - AI Usage";
         FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -63,7 +69,7 @@ internal sealed class UsageSettingsDialog : Form
 
         var intro = new Label
         {
-            Text = "Shows how much of your Codex and Claude Code quota is used, read from the official CLIs on this PC. PomoQuote never asks for a password, key or token and never stores one: log in with the CLI itself.",
+            Text = "Shows how much of your Codex, Claude Code and Antigravity quota is used, read from the official CLIs on this PC. PomoQuote never asks for a password, key or token and never stores one: log in with the CLI itself.",
             AutoSize = true,
             MaximumSize = new Size(440, 0),
             Margin = new Padding(0, 0, 0, 10),
@@ -96,6 +102,17 @@ internal sealed class UsageSettingsDialog : Form
         _refreshClaude.Click += async (_, _) => await RefreshClaudeAsync();
         var claudeButtons = new FlowLayoutPanel { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, WrapContents = true, MaximumSize = new Size(460, 0), Margin = new Padding(20, 2, 0, 2) };
         claudeButtons.Controls.AddRange([_setup, _upgrade, _remove, _checkBridge, _checkProject, _refreshClaude]);
+
+        // ---------- Antigravity ----------
+        _agy = new CheckBox { Text = "Show Antigravity usage on the widget", AutoSize = true, Checked = current.IsEnabled(AntigravityUsageProvider.ProviderId), Margin = new Padding(0, 12, 0, 0) };
+        _agyStatus = new Label { Text = "Checking for the Antigravity CLI (agy)...", AutoSize = true, MaximumSize = new Size(440, 0), Margin = new Padding(20, 2, 0, 2) };
+        _agyTest = new Button { Text = "Test connection", AutoSize = true, Margin = new Padding(20, 2, 8, 2) };
+        _agyResult = new Label { Text = "", AutoSize = true, MaximumSize = new Size(320, 0), Anchor = AnchorStyles.Left, Margin = new Padding(0, 8, 0, 2) };
+        _agyTest.Click += async (_, _) => await RunAgyTestAsync();
+        var agyRow = new FlowLayoutPanel { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, WrapContents = false, Margin = new Padding(0) };
+        agyRow.Controls.Add(_agyTest);
+        agyRow.Controls.Add(_agyResult);
+        var agyNote = new Label { Text = "Antigravity is read every 5 minutes with agy's own usage command (it starts agy for a few seconds and uses no model).", AutoSize = true, MaximumSize = new Size(440, 0), ForeColor = SystemColors.GrayText, Margin = new Padding(20, 2, 0, 2) };
         _order = new ListBox { Height = 40, Width = 200, IntegralHeight = false };
         foreach (var id in current.Order.Where(id => providers.Any(p => p.Id == id)).Concat(providers.Select(p => p.Id)).Distinct())
         {
@@ -154,6 +171,10 @@ internal sealed class UsageSettingsDialog : Form
         layout.Controls.Add(_claudeStatus);
         layout.Controls.Add(claudeButtons);
         layout.Controls.Add(_claudeResult);
+        layout.Controls.Add(ProviderRow(AntigravityUsageProvider.ProviderId, _agy));
+        layout.Controls.Add(_agyStatus);
+        layout.Controls.Add(agyRow);
+        layout.Controls.Add(agyNote);
         layout.Controls.Add(new Label { Text = "Display order:", AutoSize = true, Margin = new Padding(0, 10, 0, 2) });
         layout.Controls.Add(orderRow);
         layout.Controls.Add(new Label { Text = "Layout of the usage area (also the arrow button on the widget):", AutoSize = true, Margin = new Padding(0, 10, 0, 2) });
@@ -169,6 +190,7 @@ internal sealed class UsageSettingsDialog : Form
         Shown += async (_, _) =>
         {
             await DetectAsync();
+            await DetectAgyAsync();
             await ShowClaudeStateAsync(check: false);
         };
         FormClosing += (_, _) => _closing.Cancel();
@@ -180,7 +202,7 @@ internal sealed class UsageSettingsDialog : Form
     {
         var order = _order.Items.Cast<string>().Select(name => _providers.First(p => p.Name == name).Id).ToList();
         var thresholds = _warn.Value == _critical.Value ? [(int)_warn.Value] : new List<int> { (int)_warn.Value, (int)_critical.Value };
-        return current.WithEnabled(CodexUsageProvider.ProviderId, _codex.Checked).WithEnabled(ClaudeSnapshotProvider.ProviderId, _claudeEnabled.Checked) with
+        return current.WithEnabled(CodexUsageProvider.ProviderId, _codex.Checked).WithEnabled(ClaudeSnapshotProvider.ProviderId, _claudeEnabled.Checked).WithEnabled(AntigravityUsageProvider.ProviderId, _agy.Checked) with
         {
             Order = order,
             Expanded = _mode.SelectedIndex == 1,
@@ -351,6 +373,48 @@ internal sealed class UsageSettingsDialog : Form
         }
     }
 
+
+    private async Task DetectAgyAsync()
+    {
+        try
+        {
+            var info = await _agyDetector.DetectAsync(_closing.Token);
+            if (IsDisposed) return;
+            _agyStatus.Text = info.Installed && info.Version.Length > 0 ? $"{info.Detail} (version {info.Version})" : info.Detail;
+            _agyTest.Enabled = info.Installed;
+        }
+        catch (OperationCanceledException)
+        {
+            // The dialog was closed.
+        }
+    }
+
+    /// <summary>The first read: nothing is run until the user presses this (or turns Antigravity on and presses OK).</summary>
+    private async Task RunAgyTestAsync()
+    {
+        _agyTest.Enabled = false;
+        _agyResult.Text = "Reading...";
+        try
+        {
+            var status = await _test(AntigravityUsageProvider.ProviderId, _closing.Token);
+            if (IsDisposed) return;
+            var latest = status?.Latest;
+            _agyResult.Text = latest switch
+            {
+                null => "No answer.",
+                { State: UsageState.Ok } ok => "OK: " + (UsageViewBuilder.GroupDetail(ok) is { Length: > 0 } groups ? groups : string.Join(", ", ok.Windows.Select(w => $"{UsageViewBuilder.Label(w)} {Math.Round(w.PercentUsed):0}%"))) + " used",
+                _ => latest.ErrorText.Length > 0 ? latest.ErrorText : latest.State.ToString(),
+            };
+        }
+        catch (OperationCanceledException)
+        {
+            // The dialog was closed.
+        }
+        finally
+        {
+            if (!IsDisposed) _agyTest.Enabled = true;
+        }
+    }
     private async Task RunTestAsync()
     {
         _testButton.Enabled = false;

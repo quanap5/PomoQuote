@@ -55,12 +55,15 @@ internal static class UsageViewBuilder
     {
         var shown = status.Shown;
         var latest = status.Latest;
-        var effective = latest?.EffectiveState(now, settings.Interval);
+        // Antigravity is read every 5 minutes whatever the setting says, so its numbers are old only after twice that.
+        var interval = status.ProviderId == AntigravityUsageProvider.ProviderId && settings.Interval < AntigravityUsageProvider.Poll ? AntigravityUsageProvider.Poll : settings.Interval;
+        var effective = latest?.EffectiveState(now, interval);
 
         // The numbers on screen are from an earlier good read while the latest read says something else (no plan limits, no reply, not
         // set up, a failure): they are kept, but never silently: icon, amber note and badge say they are old.
         var oldNumbers = shown is { Windows.Count: > 0 } && latest is not null && latest.State != UsageState.Ok;
         var rows = shown is null ? [] : Rows(shown, settings, now, zone, effective == UsageState.Stale || oldNumbers);
+        var groups = shown is null ? "" : GroupDetail(shown);
         var plan = shown?.Source.PlanTier ?? "";
 
         string note;
@@ -113,7 +116,7 @@ internal static class UsageViewBuilder
             _ => ProviderSeverity.Error,
         };
         if (oldNumbers && severity is ProviderSeverity.None or ProviderSeverity.NearLimit) severity = ProviderSeverity.Stale;
-        var source = shown is null ? "" : shown.Source.Environment.ToString();
+        var source = shown is null ? "" : shown.Source.Environment.ToString() + (groups.Length > 0 ? " · " + groups : "");
         var tip = new List<string> { status.DisplayName + (plan.Length > 0 ? $" ({plan})" : "") };
         if (source.Length > 0) tip.Add("Source: " + source);
         tip.Add(note.Length > 0 ? char.ToUpperInvariant(note[0]) + note[1..] : note);
@@ -154,11 +157,46 @@ internal static class UsageViewBuilder
         while (text.Length > 1 && measure(text + "…") > maxWidth) text = text[..^1];
         return text.Length == 0 ? text : text + "…";
     }
-    private static List<UsageRow> Rows(UsageSnapshot snapshot, UsageSettings settings, DateTimeOffset now, TimeZoneInfo zone, bool stale) =>
-        snapshot.Windows
+    private static List<UsageRow> Rows(UsageSnapshot snapshot, UsageSettings settings, DateTimeOffset now, TimeZoneInfo zone, bool stale)
+    {
+        var grouped = snapshot.Source.ProviderId == AntigravityUsageProvider.ProviderId;
+        var windows = grouped ? MostUsedPerKind(snapshot.Windows) : snapshot.Windows;
+        return windows
             .OrderBy(w => w.Kind)
-            .Select(w => new UsageRow(Label(w), $"{Math.Round(w.PercentUsed):0}%", Math.Clamp(w.PercentUsed / 100, 0, 1), ResetText(w, now), LevelFor(w.PercentUsed, settings.Thresholds), stale, RowTip(w, now, zone, stale)))
+            .Select(w => new UsageRow(Label(w), $"{Math.Round(w.PercentUsed):0}%", Math.Clamp(w.PercentUsed / 100, 0, 1), ResetText(w, now), LevelFor(w.PercentUsed, settings.Thresholds), stale, grouped ? GroupedRowTip(w, snapshot.Windows, now, zone, stale) : RowTip(w, now, zone, stale)))
             .ToList();
+    }
+
+    /// <summary>Antigravity reports one limit per model group: the widget shows one row per window length, for the group that is most used (the one that will run out first).</summary>
+    internal static IReadOnlyList<QuotaWindow> MostUsedPerKind(IReadOnlyList<QuotaWindow> windows) =>
+        windows
+            .GroupBy(w => (w.Kind, w.DurationMinutes))
+            .Select(g => g.OrderByDescending(w => w.PercentUsed).ThenBy(w => w.ResetsAt ?? DateTimeOffset.MaxValue).First())
+            .ToList();
+
+    /// <summary>The group names with their percent used, for the Expanded source line and the tooltips: "Gemini 33%, Claude and GPT 0%" (empty unless there are two or more groups).</summary>
+    internal static string GroupDetail(UsageSnapshot snapshot)
+    {
+        if (snapshot.Source.ProviderId != AntigravityUsageProvider.ProviderId) return "";
+        var parts = snapshot.Windows
+            .Where(w => w.Bucket.Length > 0)
+            .GroupBy(w => w.Bucket)
+            .Select(g => $"{ShortGroup(g.Key)} {Math.Round(g.Max(w => w.PercentUsed)):0}%")
+            .ToList();
+        return parts.Count > 1 ? string.Join(", ", parts) : "";
+    }
+
+    internal static string ShortGroup(string name) => name.EndsWith(" models", StringComparison.OrdinalIgnoreCase) ? name[..^7].TrimEnd() : name;
+
+    /// <summary>The tooltip of the one row: the most used group first, then every group's own used percent and reset time.</summary>
+    internal static string GroupedRowTip(QuotaWindow shown, IReadOnlyList<QuotaWindow> all, DateTimeOffset now, TimeZoneInfo zone, bool stale)
+    {
+        var tip = shown.Bucket.Length > 0 ? $"{Label(shown)}, {ShortGroup(shown.Bucket)} (the most used): " + RowTip(shown, now, zone, stale)[(Label(shown).Length + 2)..] : RowTip(shown, now, zone, stale);
+        var others = all.Where(w => w.Kind == shown.Kind && w.DurationMinutes == shown.DurationMinutes && !ReferenceEquals(w, shown) && w.Bucket.Length > 0).ToList();
+        if (others.Count == 0) return tip;
+        var lines = others.Select(w => $"{ShortGroup(w.Bucket)}: used {Math.Round(w.PercentUsed):0}%" + (w.IsResetReal && w.ResetsAt is { } at ? (at <= now ? ", reset was due" : $", resets in {ResetText(w, now)}") : "") + ".");
+        return tip + "\n" + string.Join("\n", lines);
+    }
 
     /// <summary>The window name as the data says it: "5h" and "Week" for those lengths, else the length itself ("3h", "2d") or the limit name; never forced into 5 hours or a week.</summary>
     internal static string Label(QuotaWindow window) => window.Kind switch
