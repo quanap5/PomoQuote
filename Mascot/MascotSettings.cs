@@ -4,7 +4,8 @@ namespace PomoQuote.Mascot;
 
 /// <summary>
 /// Options for the taskbar mascot. <see cref="EnabledMonitors"/> lists the monitors (by device name) the
-/// robot may walk on; null means all of them. <see cref="RandomActions"/> is 0 (off), 1 (few) or 2 (normal).
+/// character may walk on; null means all of them. <see cref="RandomActions"/> is 0 (off), 1 (few) or 2 (normal). <see cref="Character"/> is the id of one of
+/// <see cref="MascotCharacters.All"/> (the robot by default and for an unknown id); <see cref="Enabled"/> shows the mascot on the taskbar in widget mode and when the window is minimized.
 /// </summary>
 internal sealed record MascotSettings(
     bool Enabled = true,
@@ -13,7 +14,8 @@ internal sealed record MascotSettings(
     int SpeedPercent = 100,
     int SizeScale = 2,
     string[]? EnabledMonitors = null,
-    int RandomActions = 2)
+    int RandomActions = 2,
+    string Character = MascotCharacters.DefaultId)
 {
     public const int MinVolume = 0;
     public const int MaxVolume = 100;
@@ -33,6 +35,7 @@ internal sealed record MascotSettings(
         SizeScale = SizeChoices.Contains(SizeScale) ? SizeScale : DefaultSizeScale,
         EnabledMonitors = EnabledMonitors is { Length: > 0 } ? EnabledMonitors : null,
         RandomActions = Math.Clamp(RandomActions, 0, MaxRandomActions),
+        Character = MascotCharacters.Find(Character).Id,
     };
 
     /// <summary>The walking speed as a factor of the normal speed.</summary>

@@ -75,7 +75,7 @@ internal sealed partial class MainForm
         var settings = new ToolStripMenuItem("&Settings");
         settings.DropDownItems.Add(_widgetCityItem);
         settings.DropDownItems.Add(new ToolStripMenuItem("&Pomodoro...", null, (_, _) => ShowPomodoroSettings()));
-        settings.DropDownItems.Add(new ToolStripMenuItem("&Mascot...", null, (_, _) => ShowMascotSettings()));
+        settings.DropDownItems.Add(BuildMascotMenu(fromTray: false));
         settings.DropDownItems.Add(new ToolStripMenuItem("&Quotes...", null, (_, _) => ShowQuoteSettings()));
         settings.DropDownItems.Add(new ToolStripMenuItem("&AI Usage...", null, (_, _) => ShowUsageSettings()));
         settings.DropDownItems.Add(new ToolStripMenuItem("Weather &effects...", null, (_, _) => ShowWeatherEffectsSettings()));
@@ -91,6 +91,7 @@ internal sealed partial class MainForm
         _widgetMenu.Items.Add(_widgetRefreshClaudeItem);
         _widgetMenu.Items.Add(new ToolStripMenuItem("&Next sentence", null, (_, _) => ShowNextQuote()) { ShortcutKeyDisplayString = "Ctrl+N" });
         _widgetMenu.Items.Add(BuildOpacityMenu("&Opacity"));
+        _widgetMenu.Items.Add(BuildMascotToggle());
         _widgetMenu.Items.Add(settings);
         _widgetMenu.Items.Add(new ToolStripSeparator());
         _widgetMenu.Items.Add(new ToolStripMenuItem("E&xit app", null, (_, _) => Close()));
@@ -189,6 +190,7 @@ internal sealed partial class MainForm
         ResumeLayout(performLayout: true);
         Invalidate(true);
         SaveWidgetSettings();
+        UpdateWidgetMascot();
         if (!on)
         {
             if (IsHandleCreated && !Visible) Show(); // it was hidden in the tray: leaving widget mode shows the normal window

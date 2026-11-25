@@ -8,7 +8,9 @@
 
     pwsh/powershell -File tools/generate-mascot-sprites.ps1
 
-  Output (in Assets/Mascot): robot-sprites.png (the sheet the app uses) and contact-sheet.png (preview).
+  Output (in Assets/Mascot): one sheet per character the app uses, robot-sprites.png, animal-sprites.png, man-sprites.png and woman-sprites.png, and a
+  labelled contact sheet for each (contact-sheet.png for the robot, contact-sheet-<character>.png for the others). All four characters are drawn
+  from the same pose table below, so they have exactly the same animations and the same row order and frame counts.
   Grid: 24x24 px cells, one cell per frame, 8 columns; each animation is one row. The robot faces right;
   the app mirrors frames for the left. Row order and frame counts must match Assets/Mascot/mascot-config.json.
 #>
@@ -107,6 +109,116 @@ function Robot($p) {
   foreach ($e in $p.fx) { Px $e[0] $e[1] $e[2] }
 }
 
+# ---------- the three people-like characters: animal (a cat), man and woman ----------
+# They use the same skeleton as the robot (same head, body, arm and leg cells, same pose parameters), so every animation of the table below
+# works for them without change. Each has its own palette; the letters are: K outline, B body (shirt, dress, fur), D body shade, L skin / light
+# fur, Y eye white (cat: green), R mouth, W white, C tear, G confetti, P trousers, H hair (cat: inner ear and nose), A accent (the bow).
+$palettes = @{
+  'robot' = $pal
+  'man' = @{
+    'K' = [System.Drawing.Color]::FromArgb(255, 34, 28, 40); 'B' = [System.Drawing.Color]::FromArgb(255, 70, 160, 140); 'D' = [System.Drawing.Color]::FromArgb(255, 44, 112, 100)
+    'L' = [System.Drawing.Color]::FromArgb(255, 246, 204, 164); 'Y' = [System.Drawing.Color]::FromArgb(255, 250, 250, 250); 'R' = [System.Drawing.Color]::FromArgb(255, 214, 92, 84)
+    'W' = [System.Drawing.Color]::FromArgb(255, 250, 250, 250); 'C' = [System.Drawing.Color]::FromArgb(255, 120, 200, 255); 'G' = [System.Drawing.Color]::FromArgb(255, 120, 220, 140)
+    'P' = [System.Drawing.Color]::FromArgb(255, 84, 96, 170); 'H' = [System.Drawing.Color]::FromArgb(255, 122, 80, 48); 'A' = [System.Drawing.Color]::FromArgb(255, 255, 214, 64)
+  }
+  'woman' = @{
+    'K' = [System.Drawing.Color]::FromArgb(255, 40, 26, 40); 'B' = [System.Drawing.Color]::FromArgb(255, 224, 96, 150); 'D' = [System.Drawing.Color]::FromArgb(255, 170, 60, 112)
+    'L' = [System.Drawing.Color]::FromArgb(255, 250, 212, 176); 'Y' = [System.Drawing.Color]::FromArgb(255, 250, 250, 250); 'R' = [System.Drawing.Color]::FromArgb(255, 222, 72, 92)
+    'W' = [System.Drawing.Color]::FromArgb(255, 250, 250, 250); 'C' = [System.Drawing.Color]::FromArgb(255, 120, 200, 255); 'G' = [System.Drawing.Color]::FromArgb(255, 120, 220, 140)
+    'P' = [System.Drawing.Color]::FromArgb(255, 250, 212, 176); 'H' = [System.Drawing.Color]::FromArgb(255, 214, 140, 60); 'A' = [System.Drawing.Color]::FromArgb(255, 120, 200, 255)
+  }
+  'animal' = @{
+    'K' = [System.Drawing.Color]::FromArgb(255, 44, 28, 24); 'B' = [System.Drawing.Color]::FromArgb(255, 240, 158, 76); 'D' = [System.Drawing.Color]::FromArgb(255, 196, 108, 44)
+    'L' = [System.Drawing.Color]::FromArgb(255, 252, 228, 184); 'Y' = [System.Drawing.Color]::FromArgb(255, 140, 232, 120); 'R' = [System.Drawing.Color]::FromArgb(255, 226, 84, 96)
+    'W' = [System.Drawing.Color]::FromArgb(255, 250, 250, 250); 'C' = [System.Drawing.Color]::FromArgb(255, 120, 200, 255); 'G' = [System.Drawing.Color]::FromArgb(255, 120, 220, 140)
+    'P' = [System.Drawing.Color]::FromArgb(255, 240, 158, 76); 'H' = [System.Drawing.Color]::FromArgb(255, 244, 156, 170); 'A' = [System.Drawing.Color]::FromArgb(255, 255, 214, 64)
+  }
+}
+
+# Draws one man, woman or cat ($kind 'man', 'woman', 'animal') from the same pose parameters as the robot. `ant` moves the tuft, bun or ears and
+# the tail; `antdy` lowers them (sad).
+function Figure($p, $kind) {
+  $by = [int]($p.by); $hx = 1 + [int]($p.hx); $hy = [int]($p.hy); $ant = [int]($p.ant); $adx = [int]($p.antdy)
+  $headTop = 6 + $by + $hy
+  $a = [int]($p.a); $b = [int]($p.b); $la = [int]($p.la); $lb = [int]($p.lb); $lh = 4; $sw = [int]($p.sw)
+  $legFill = if ($kind -eq 'woman') { 'L' } elseif ($kind -eq 'animal') { 'B' } else { 'P' }
+  # tail of the cat: behind everything, on the side the character looks away from
+  if ($kind -eq 'animal') { $tx = 2 + $ant; Rc $tx (14 + $by) 2 7 'K'; Rc ($tx + 1) (14 + $by) 1 6 'B'; Rc ($tx + 1) (14 + $by) 1 1 'W' }
+  # legs
+  if ($p.legs -eq 'sit') {
+    Box 10 21 6 3 $legFill; Box 15 21 6 3 $legFill
+  } elseif ($p.legs -eq 'dangle') {
+    Box (8 + $sw) (19 + $by) 3 4 $legFill; Box (13 - $sw) (19 + $by) 3 4 $legFill
+  } else {
+    $hL = [Math]::Max(1, $lh - $la - [Math]::Max(0, $by)); $hR = [Math]::Max(1, $lh - $lb - [Math]::Max(0, $by))
+    if ($hL -lt 2) { Rc (8 + $a) (24 - $hL) 3 $hL 'K' } else { Box (8 + $a) (24 - $hL) 3 $hL $legFill }
+    if ($hR -lt 2) { Rc (13 + $b) (24 - $hR) 3 $hR 'K' } else { Box (13 + $b) (24 - $hR) 3 $hR $legFill }
+  }
+  # arms: a sleeve (or fur) with the hand at its free end; raised arms have the hand on top
+  $al = if ($p.al) { $p.al } else { @(5, 15, 2, 4) }
+  $ar = if ($p.ar) { $p.ar } else { @(17, 15, 2, 4) }
+  $handFill = if ($kind -eq 'animal') { 'L' } else { 'L' }
+  foreach ($side in 0, 1) {
+    $r = if ($side -eq 0) { $al } else { $ar }
+    $x = if ($side -eq 0) { $r[0] + $sw } else { $r[0] - $sw }
+    $y = $r[1] + $by
+    $edge = if ($side -eq 0) { $x } else { $x + $r[2] - 1 }
+    Rc $x $y $r[2] $r[3] 'B'
+    Rc $edge $y 1 $r[3] 'K'
+    $handY = if ($r[1] -lt 14) { $y } else { $y + $r[3] - 1 }
+    Rc $x $handY $r[2] 1 $handFill
+    Px $edge $handY 'K'
+  }  # body
+  Box 7 (14 + $by) 10 6 'B'
+  Rc 8 (18 + $by) 8 1 'D'
+  if ($kind -eq 'man') { Rc 11 (14 + $by) 2 2 'L'; Px 11 (16 + $by) 'W'; Px 12 (16 + $by) 'W' }
+  if ($kind -eq 'woman') { Box 6 (18 + $by) 12 3 'B'; Rc 7 (20 + $by) 10 1 'D'; Rc 11 (14 + $by) 2 1 'L' }
+  if ($kind -eq 'animal') { Rc 9 (16 + $by) 6 3 'L' }
+  # head
+  $headFill = if ($kind -eq 'animal') { 'B' } else { 'L' }
+  Box (5 + $hx) $headTop 12 8 $headFill
+  if ($kind -eq 'animal') {
+    # ears (outline with an inner pink), lowered when sad; muzzle and nose
+    $dy = $adx
+    $lx0 = 5 + $hx + 1; $rx0 = 5 + $hx + 12 - 4
+    Rc $lx0 ($headTop - 1 + $dy) 3 1 'K'; Rc $lx0 ($headTop - 2 + $dy) 2 1 'K'; Px ($lx0 + 1) ($headTop - 1 + $dy) 'H'
+    Rc $rx0 ($headTop - 1 + $dy) 3 1 'K'; Rc ($rx0 + 1 + $ant) ($headTop - 2 + $dy) 2 1 'K'; Px ($rx0 + 1) ($headTop - 1 + $dy) 'H'
+    Rc ($hx + 8) ($headTop + 5) 6 2 'L'
+    Rc ($hx + 11) ($headTop + 5) 2 1 'H'
+  }
+  if ($kind -eq 'man') {
+    Rc (6 + $hx) ($headTop + 1) 10 2 'H'; Rc (6 + $hx) ($headTop + 3) 1 2 'H'; Rc (15 + $hx) ($headTop + 3) 1 1 'H'
+    Rc (8 + $hx + $ant) ($headTop - 2 + $adx) 4 2 'K'; Rc (9 + $hx + $ant) ($headTop - 1 + $adx) 2 1 'H'
+  }
+  if ($kind -eq 'woman') {
+    Rc (6 + $hx) ($headTop + 1) 10 2 'H'
+    Rc (4 + $hx) ($headTop + 2) 1 7 'K'; Rc (5 + $hx) ($headTop + 2) 2 7 'H'; Rc (15 + $hx) ($headTop + 2) 2 7 'H'; Rc (17 + $hx) ($headTop + 2) 1 7 'K'
+    Rc (8 + $hx + $ant) ($headTop - 3 + $adx) 4 1 'K'; Rc (8 + $hx + $ant) ($headTop - 2 + $adx) 4 2 'H'; Px (12 + $hx + $ant) ($headTop - 2 + $adx) 'A'; Px (12 + $hx + $ant) ($headTop - 1 + $adx) 'A'
+  }
+  # eyes and mouth: the same as the robot's
+  $ex = $hx - 1
+  $ey = $headTop + 3
+  $lx = 8 + $ex + 1; $rx = 13 + $ex + 1
+  switch ($p.eyes) {
+    'b' { Rc $lx ($ey + 1) 2 1 'K'; Rc $rx ($ey + 1) 2 1 'K' }
+    'c' { Rc $lx ($ey + 1) 2 1 'K'; Rc $rx ($ey + 1) 2 1 'K' }
+    'w' { Rc ($lx - 1) ($ey - 1) 3 3 'W'; Rc ($rx - 0) ($ey - 1) 3 3 'W'; Px ($lx + 1) $ey 'K'; Px ($rx + 1) $ey 'K'; Px $lx ($ey - 1) 'K'; Px ($rx) ($ey - 1) 'K' }
+    's' { Rc $lx $ey 2 2 'Y'; Rc $rx $ey 2 2 'Y'; Px $lx ($ey - 1) 'K'; Px ($lx + 1) ($ey) 'K'; Px ($rx + 1) ($ey - 1) 'K'; Px $rx ($ey) 'K' }
+    'h' { Px $lx ($ey + 1) 'K'; Px ($lx + 1) $ey 'K'; Px ($lx + 2) ($ey + 1) 'K'; Px $rx ($ey + 1) 'K'; Px ($rx + 1) $ey 'K'; Px ($rx + 2) ($ey + 1) 'K' }
+    'l' { Rc $lx $ey 2 2 'Y'; Rc $rx $ey 2 2 'Y'; Px $lx ($ey + 1) 'K'; Px $rx ($ey + 1) 'K' }
+    'r' { Rc $lx $ey 2 2 'Y'; Rc $rx $ey 2 2 'Y'; Px ($lx + 1) ($ey + 1) 'K'; Px ($rx + 1) ($ey + 1) 'K' }
+    default { Rc $lx $ey 2 2 'Y'; Rc $rx $ey 2 2 'Y'; Px ($lx + 1) ($ey + 1) 'K'; Px ($rx + 1) ($ey + 1) 'K' }
+  }
+  $mx = 11 + $ex; $my = $headTop + 6
+  switch ($p.mouth) {
+    's' { Rc $mx $my 3 1 'R' }
+    'o' { Rc ($mx + 1) $my 1 1 'R' }
+    'O' { Rc $mx $my 3 2 'R'; Px ($mx + 1) ($my + 1) 'K' }
+    'f' { Rc $mx ($my + 0) 3 1 'R'; Px ($mx - 1) ($my + 1) 'R'; Px ($mx + 3) ($my + 1) 'R' }
+    default { }
+  }
+  foreach ($e in $p.fx) { Px $e[0] $e[1] $e[2] }
+}
 # Animation table: name, frames. The order is the row order in the sheet.
 $anims = [ordered]@{}
 
@@ -203,55 +315,60 @@ $anims['shout'] = @(
 )
 
 $rows = $anims.Count
-$sheet = New-Object System.Drawing.Bitmap ($columns * $cell), ($rows * $cell), ([System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
-for ($x = 0; $x -lt $sheet.Width; $x++) { for ($y = 0; $y -lt $sheet.Height; $y++) { $sheet.SetPixel($x, $y, [System.Drawing.Color]::FromArgb(0, 0, 0, 0)) } }
-
-$row = 0
-foreach ($name in $anims.Keys) {
-  $col = 0
-  foreach ($frame in $anims[$name]) {
-    Clear-Cell
-    Robot $frame
-    for ($x = 0; $x -lt $cell; $x++) { for ($y = 0; $y -lt $cell; $y++) { $c = $script:buf[$x, $y]; if ($c -ne '.') { $sheet.SetPixel($col * $cell + $x, $row * $cell + $y, $pal[$c]) } } }
-    $col++
-  }
-  $row++
-}
-
 New-Item -ItemType Directory -Force $OutDir | Out-Null
-$sheetPath = Join-Path $OutDir 'robot-sprites.png'
-$sheet.Save($sheetPath, [System.Drawing.Imaging.ImageFormat]::Png)
-
-# Contact sheet: every animation on a labelled row, enlarged with nearest-neighbour, light and dark backgrounds.
 $zoom = 4
 $labelW = 110
 $pad = 6
-$cw = $labelW + $columns * ($cell * $zoom + $pad) + $pad
-$ch = $rows * ($cell * $zoom + $pad) + $pad
-$contact = New-Object System.Drawing.Bitmap $cw, $ch
-$g = [System.Drawing.Graphics]::FromImage($contact)
-$g.Clear([System.Drawing.Color]::FromArgb(255, 58, 66, 84))
-$g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::NearestNeighbor
-$g.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::Half
-$font = New-Object System.Drawing.Font('Segoe UI', 11, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
-$small = New-Object System.Drawing.Font('Segoe UI', 10, [System.Drawing.FontStyle]::Regular, [System.Drawing.GraphicsUnit]::Pixel)
-$brush = [System.Drawing.Brushes]::White
-$row = 0
-foreach ($name in $anims.Keys) {
-  $y0 = $pad + $row * ($cell * $zoom + $pad)
-  $g.DrawString($name, $font, $brush, 8, $y0 + 4)
-  $g.DrawString("$($anims[$name].Count) frames", $small, [System.Drawing.Brushes]::LightGray, 8, $y0 + 22)
-  for ($col = 0; $col -lt $columns; $col++) {
-    $x0 = $labelW + $pad + $col * ($cell * $zoom + $pad)
-    $bg = if (($row + $col) % 2 -eq 0) { [System.Drawing.Color]::FromArgb(255, 86, 98, 122) } else { [System.Drawing.Color]::FromArgb(255, 214, 222, 232) }
-    if ($col -lt $anims[$name].Count) {
-      $g.FillRectangle((New-Object System.Drawing.SolidBrush $bg), $x0, $y0, $cell * $zoom, $cell * $zoom)
-      $g.DrawImage($sheet, (New-Object System.Drawing.Rectangle $x0, $y0, ($cell * $zoom), ($cell * $zoom)), (New-Object System.Drawing.Rectangle ($col * $cell), ($row * $cell), $cell, $cell), [System.Drawing.GraphicsUnit]::Pixel)
+
+foreach ($kind in 'robot', 'animal', 'man', 'woman') {
+  $colours = $palettes[$kind]
+  $sheet = New-Object System.Drawing.Bitmap ($columns * $cell), ($rows * $cell), ([System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+  for ($x = 0; $x -lt $sheet.Width; $x++) { for ($y = 0; $y -lt $sheet.Height; $y++) { $sheet.SetPixel($x, $y, [System.Drawing.Color]::FromArgb(0, 0, 0, 0)) } }
+
+  $row = 0
+  foreach ($name in $anims.Keys) {
+    $col = 0
+    foreach ($frame in $anims[$name]) {
+      Clear-Cell
+      if ($kind -eq 'robot') { Robot $frame } else { Figure $frame $kind }
+      for ($x = 0; $x -lt $cell; $x++) { for ($y = 0; $y -lt $cell; $y++) { $c = $script:buf[$x, $y]; if ($c -ne '.') { $sheet.SetPixel($col * $cell + $x, $row * $cell + $y, $colours[$c]) } } }
+      $col++
     }
+    $row++
   }
-  $row++
+
+  $sheetPath = Join-Path $OutDir "$kind-sprites.png"
+  $sheet.Save($sheetPath, [System.Drawing.Imaging.ImageFormat]::Png)
+
+  # Contact sheet: every animation on a labelled row, enlarged with nearest-neighbour, light and dark backgrounds.
+  $cw = $labelW + $columns * ($cell * $zoom + $pad) + $pad
+  $ch = $rows * ($cell * $zoom + $pad) + $pad
+  $contact = New-Object System.Drawing.Bitmap $cw, $ch
+  $g = [System.Drawing.Graphics]::FromImage($contact)
+  $g.Clear([System.Drawing.Color]::FromArgb(255, 58, 66, 84))
+  $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::NearestNeighbor
+  $g.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::Half
+  $font = New-Object System.Drawing.Font('Segoe UI', 11, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
+  $small = New-Object System.Drawing.Font('Segoe UI', 10, [System.Drawing.FontStyle]::Regular, [System.Drawing.GraphicsUnit]::Pixel)
+  $brush = [System.Drawing.Brushes]::White
+  $row = 0
+  foreach ($name in $anims.Keys) {
+    $y0 = $pad + $row * ($cell * $zoom + $pad)
+    $g.DrawString($name, $font, $brush, 8, $y0 + 4)
+    $g.DrawString("$($anims[$name].Count) frames", $small, [System.Drawing.Brushes]::LightGray, 8, $y0 + 22)
+    for ($col = 0; $col -lt $columns; $col++) {
+      $x0 = $labelW + $pad + $col * ($cell * $zoom + $pad)
+      $bg = if (($row + $col) % 2 -eq 0) { [System.Drawing.Color]::FromArgb(255, 86, 98, 122) } else { [System.Drawing.Color]::FromArgb(255, 214, 222, 232) }
+      if ($col -lt $anims[$name].Count) {
+        $g.FillRectangle((New-Object System.Drawing.SolidBrush $bg), $x0, $y0, $cell * $zoom, $cell * $zoom)
+        $g.DrawImage($sheet, (New-Object System.Drawing.Rectangle $x0, $y0, ($cell * $zoom), ($cell * $zoom)), (New-Object System.Drawing.Rectangle ($col * $cell), ($row * $cell), $cell, $cell), [System.Drawing.GraphicsUnit]::Pixel)
+      }
+    }
+    $row++
+  }
+  $contactName = if ($kind -eq 'robot') { 'contact-sheet.png' } else { "contact-sheet-$kind.png" }
+  $contactPath = Join-Path $OutDir $contactName
+  $contact.Save($contactPath, [System.Drawing.Imaging.ImageFormat]::Png)
+  $g.Dispose(); $contact.Dispose(); $sheet.Dispose()
+  "Wrote $sheetPath ($($columns * $cell)x$($rows * $cell), $rows animations) and $contactPath"
 }
-$contactPath = Join-Path $OutDir 'contact-sheet.png'
-$contact.Save($contactPath, [System.Drawing.Imaging.ImageFormat]::Png)
-$g.Dispose(); $contact.Dispose(); $sheet.Dispose()
-"Wrote $sheetPath ($($columns * $cell)x$($rows * $cell), $rows animations) and $contactPath"

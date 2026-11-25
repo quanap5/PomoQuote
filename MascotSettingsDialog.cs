@@ -5,6 +5,7 @@ namespace PomoQuote;
 /// <summary>Modal dialog for the mascot options. Enter = OK, Esc = Cancel; at least one monitor must stay ticked.</summary>
 internal sealed class MascotSettingsDialog : Form
 {
+    private readonly string _character;
     private readonly CheckBox _enabled;
     private readonly CheckBox _sound;
     private readonly TrackBar _volume;
@@ -30,9 +31,10 @@ internal sealed class MascotSettingsDialog : Form
         AutoSizeMode = AutoSizeMode.GrowAndShrink;
         Padding = new Padding(16);
         _monitorInfos = monitors;
+        _character = current.Character; // chosen in the Mascot menu; the dialog keeps it
 
-        _enabled = new CheckBox { Text = "Show the robot on the taskbar when the window is minimized", Checked = current.Enabled, AutoSize = true, Margin = new Padding(0, 0, 0, 8) };
-        _sound = new CheckBox { Text = "Play the robot's shout sounds", Checked = current.SoundEnabled, AutoSize = true, Margin = new Padding(0, 0, 0, 8) };
+        _enabled = new CheckBox { Text = "Show the mascot on the taskbar (in widget mode and when the window is minimized)", Checked = current.Enabled, AutoSize = true, Margin = new Padding(0, 0, 0, 8) };
+        _sound = new CheckBox { Text = "Play the mascot's shout sounds", Checked = current.SoundEnabled, AutoSize = true, Margin = new Padding(0, 0, 0, 8) };
         _volume = new TrackBar { Minimum = MascotSettings.MinVolume, Maximum = MascotSettings.MaxVolume, TickFrequency = 25, Value = current.VolumePercent, Width = 200, AutoSize = false, Height = 30 };
         _speed = new TrackBar { Minimum = MascotSettings.MinSpeed, Maximum = MascotSettings.MaxSpeed, TickFrequency = 25, Value = current.SpeedPercent, Width = 200, AutoSize = false, Height = 30 };
         _size = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 200 };
@@ -111,7 +113,8 @@ internal sealed class MascotSettingsDialog : Form
                 _speed.Value,
                 MascotSettings.SizeChoices[Math.Max(0, _size.SelectedIndex)],
                 ticked.Length == _monitorInfos.Count ? null : ticked,
-                _randomActions.SelectedIndex).Normalized();
+                _randomActions.SelectedIndex,
+                _character).Normalized();
         }
     }
 

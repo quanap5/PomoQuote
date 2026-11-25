@@ -19,6 +19,8 @@ internal sealed partial class MainForm
     private ToolStripMenuItem _trayPomodoroToggleItem = null!;
     private Font? _trayOpenFont;
     private bool _inTray;
+    private readonly List<ToolStripMenuItem> _mascotShowItems = [];
+    private readonly List<(string Id, ToolStripMenuItem Item)> _mascotCharacterItems = [];
     private ToolStripMenuItem _trayToggleItem = null!;
     private ToolStripMenuItem _trayOpenItem = null!;
 
@@ -50,7 +52,7 @@ internal sealed partial class MainForm
         };
 
         // A single click only makes the character react; the window comes back on a double click (or from the tray).
-        _mascot.RestoreRequested += (_, _) => RestoreFromTray();
+        _mascot.RestoreRequested += (_, _) => OnMascotDoubleClicked();
         _tray.Clicked += (_, _) => OnTrayClicked();
         _tray.DoubleClicked += (_, _) => OnTrayDoubleClicked();
 
@@ -58,7 +60,7 @@ internal sealed partial class MainForm
         var settings = new ToolStripMenuItem("&Settings");
         settings.DropDownItems.Add(new ToolStripMenuItem("&City...", null, (_, _) => { BringBack(); ChangeCity(); }));
         settings.DropDownItems.Add(new ToolStripMenuItem("&Pomodoro...", null, (_, _) => { BringBack(); ShowPomodoroSettings(); }));
-        settings.DropDownItems.Add(new ToolStripMenuItem("&Mascot...", null, (_, _) => { BringBack(); ShowMascotSettings(); }));
+        settings.DropDownItems.Add(BuildMascotMenu(fromTray: true));
         settings.DropDownItems.Add(new ToolStripMenuItem("Weather &effects...", null, (_, _) => { BringBack(); ShowWeatherEffectsSettings(); }));
         settings.DropDownItems.Add(BuildThemeMenu());
         settings.DropDownItems.Add(BuildStartInMenu());
@@ -88,12 +90,71 @@ internal sealed partial class MainForm
         _tray.Menu = _trayMenu;
     }
 
-    private void ShowMascotSettings()
+    /// <summary>
+    /// Settings > Mascot: Show the mascot (on or off at once), the character picker (the current one is ticked), and Options... (the dialog).
+    /// The same menu is in the normal window, the widget and the tray; their entries are kept in step.
+    /// </summary>
+    private ToolStripMenuItem BuildMascotMenu(bool fromTray)
     {
-        using var dialog = new MascotSettingsDialog(_mascotSettings, MonitorProvider(), _mascot.ReloadConfig);
-        if (dialog.ShowDialog(this) != DialogResult.OK) return;
+        var menu = new ToolStripMenuItem("&Mascot");
+        var show = new ToolStripMenuItem("Show the &mascot", null, (_, _) => SetMascotEnabled(!_mascotSettings.Enabled));
+        _mascotShowItems.Add(show);
+        menu.DropDownItems.Add(show);
+        menu.DropDownItems.Add(new ToolStripSeparator());
+        foreach (var character in MascotCharacters.All)
+        {
+            var id = character.Id;
+            var item = new ToolStripMenuItem(character.Name, null, (_, _) => SetMascotCharacter(id));
+            _mascotCharacterItems.Add((id, item));
+            menu.DropDownItems.Add(item);
+        }
 
-        _mascotSettings = dialog.Value;
+        menu.DropDownItems.Add(new ToolStripSeparator());
+        menu.DropDownItems.Add(new ToolStripMenuItem("&Options...", null, (_, _) =>
+        {
+            if (fromTray) BringBack();
+            ShowMascotSettings();
+        }));
+        UpdateMascotChecks();
+        return menu;
+    }
+
+    /// <summary>The "Show the mascot" item that sits directly in the widget's right-click menu.</summary>
+    private ToolStripMenuItem BuildMascotToggle()
+    {
+        var item = new ToolStripMenuItem("Show the &mascot", null, (_, _) => SetMascotEnabled(!_mascotSettings.Enabled));
+        _mascotShowItems.Add(item);
+        UpdateMascotChecks();
+        return item;
+    }
+
+    private void UpdateMascotChecks()
+    {
+        foreach (var item in _mascotShowItems) item.Checked = _mascotSettings.Enabled;
+        foreach (var (id, item) in _mascotCharacterItems) item.Checked = id == _mascotSettings.Character;
+    }
+
+    /// <summary>For the tests: the Show the mascot entries and the character entries with their tick state.</summary>
+    internal IReadOnlyList<(string Text, bool Checked)> MascotMenuForTests =>
+        _mascotShowItems.Select(i => (i.Text ?? "", i.Checked)).Concat(_mascotCharacterItems.Select(c => (c.Item.Text ?? "", c.Item.Checked))).ToList();
+
+    internal IReadOnlyList<(string Id, bool Checked)> MascotCharacterItemsForTests => _mascotCharacterItems.Select(c => (c.Id, c.Item.Checked)).ToList();
+
+    /// <summary>The mascot on or off, at once and remembered: it walks the taskbar next to the widget (and when the window is minimized), or it is gone.</summary>
+    internal void SetMascotEnabled(bool enabled)
+    {
+        ApplyMascotSettings(_mascotSettings with { Enabled = enabled });
+    }
+
+    /// <summary>The character the mascot is, at once and remembered.</summary>
+    internal void SetMascotCharacter(string id)
+    {
+        ApplyMascotSettings(_mascotSettings with { Character = id });
+    }
+
+    private void ApplyMascotSettings(MascotSettings settings)
+    {
+        _mascotSettings = settings.Normalized();
         try
         {
             _mascotStore.Save(_mascotSettings);
@@ -104,6 +165,34 @@ internal sealed partial class MainForm
         }
 
         _mascot.Apply(_mascotSettings);
+        UpdateWidgetMascot();
+        UpdateMascotChecks();
+    }
+
+    /// <summary>
+    /// In widget mode the mascot walks the taskbar for as long as it is on, the same character that walks out when the window is minimized; a double
+    /// click brings the widget forward (or back from the tray). Outside widget mode only minimizing sends it out, as before.
+    /// </summary>
+    private void UpdateWidgetMascot()
+    {
+        if (_inTray || IsDisposed || !IsHandleCreated) return;
+        if (_widgetMode && _mascotSettings.Enabled) _mascot.Start();
+        else _mascot.Stop();
+    }
+
+    internal void OnMascotDoubleClicked()
+    {
+        if (_inTray) RestoreFromTray();
+        else if (_widgetHidden) ShowWidgetFromTray();
+        else if (_widgetMode) Activate();
+    }
+
+    private void ShowMascotSettings()
+    {
+        using var dialog = new MascotSettingsDialog(_mascotSettings, MonitorProvider(), _mascot.ReloadConfig);
+        if (dialog.ShowDialog(this) != DialogResult.OK) return;
+
+        ApplyMascotSettings(dialog.Value);
     }
 
     protected override void OnResize(EventArgs e)
@@ -139,6 +228,7 @@ internal sealed partial class MainForm
         Show();
         if (WindowState == FormWindowState.Minimized) WindowState = FormWindowState.Normal;
         Activate();
+        UpdateWidgetMascot(); // in widget mode the mascot goes on walking beside the widget
     }
 
     private void DisposeMascot()

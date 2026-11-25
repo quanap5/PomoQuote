@@ -102,7 +102,7 @@ internal sealed partial class MainForm : Form
         var settingsMenu = new ToolStripMenuItem("&Settings");
         settingsMenu.DropDownItems.Add(_cityItem);
         settingsMenu.DropDownItems.Add(pomodoroItem);
-        settingsMenu.DropDownItems.Add(new ToolStripMenuItem("&Mascot...", null, (_, _) => ShowMascotSettings()));
+        settingsMenu.DropDownItems.Add(BuildMascotMenu(fromTray: false));
         settingsMenu.DropDownItems.Add(new ToolStripMenuItem("&Quotes...", null, (_, _) => ShowQuoteSettings()));
         settingsMenu.DropDownItems.Add(new ToolStripMenuItem("&AI Usage...", null, (_, _) => ShowUsageSettings()));
         settingsMenu.DropDownItems.Add(new ToolStripMenuItem("Weather &effects...", null, (_, _) => ShowWeatherEffectsSettings()));
@@ -162,6 +162,7 @@ internal sealed partial class MainForm : Form
         _weatherTimer.Start();
         _pomodoro.Start();
         _usage.Start();
+        UpdateWidgetMascot(); // a start in widget mode: the mascot walks beside it
         _autoRefresh.Configure(_usage.Settings.ClaudeAutoRefresh, _usage.Settings.ClaudeAutoRefreshMinutes);
         _ = StartBridgeCheck();
         _ = RefreshWeatherAsync();

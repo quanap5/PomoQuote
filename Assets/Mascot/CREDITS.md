@@ -1,5 +1,16 @@
 # Mascot credits
 
+## Sprite sheets of the four characters (robot, animal, man, woman)
+
+| File | Character | Source | License |
+| --- | --- | --- | --- |
+| `robot-sprites.png` | Robot (the original mascot) | Original pixel art drawn for this project | CC0 1.0 |
+| `animal-sprites.png` | Animal (an orange cat) | Original pixel art drawn for this project | CC0 1.0 |
+| `man-sprites.png` | Man | Original pixel art drawn for this project | CC0 1.0 |
+| `woman-sprites.png` | Woman | Original pixel art drawn for this project | CC0 1.0 |
+
+All four are produced by [tools/generate-mascot-sprites.ps1](../../tools/generate-mascot-sprites.ps1) from one pose table and one skeleton (the same 14 animations, 24x24 px frames, same row order), so they have exactly the same animation states: idle, look, walk, run, jump, land, sit, sleep, wave, celebrate, surprised, sad, drag and shout. They were made by hand-written drawing code, with no AI image tool, no downloaded sprite and no third-party material: no asset has an outside source. `contact-sheet.png` (robot) and `contact-sheet-animal.png`, `contact-sheet-man.png` and `contact-sheet-woman.png` show every frame, labelled, on a dark and a light background. Everything here except the shout sound is dedicated to the public domain under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/).
+
 ## Robot sprite sheet
 
 `robot-sprites.png` (192x336, 24x24 px frames, 14 animations) is original pixel art drawn for this project, with no third-party material. It is produced by [tools/generate-mascot-sprites.ps1](../../tools/generate-mascot-sprites.ps1), which also writes `contact-sheet.png` (every frame, labelled). `preview-life.png` is a simulated minute of the character's life drawn by the app's own renderer onto a mock taskbar. The sheet, the script, `mascot-config.json` and the previews are dedicated to the public domain under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/). The app enlarges the sheet by whole factors with nearest-neighbour scaling.
