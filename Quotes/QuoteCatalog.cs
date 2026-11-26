@@ -18,11 +18,25 @@ internal sealed class BundledQuoteProvider : IQuoteProvider
 
     public IReadOnlyList<Quote> GetAll() => _quotes.Value;
 
+    /// <summary>The prefix of the embedded expression data files (one JSON Lines file per source and licence).</summary>
+    internal const string ExpressionPrefix = "PomoQuote.expressions.";
+
     private static IReadOnlyList<Quote> Load()
     {
-        using var stream = typeof(BundledQuoteProvider).Assembly.GetManifestResourceStream(ResourceName)
+        var assembly = typeof(BundledQuoteProvider).Assembly;
+        using var stream = assembly.GetManifestResourceStream(ResourceName)
             ?? throw new InvalidOperationException($"Missing embedded resource {ResourceName}.");
-        return QuoteCatalog.Parse(stream); // read from the stream: the 2.7 MB text is never held as one string
+        var quotes = new List<Quote>(QuoteCatalog.Parse(stream)); // read from the stream: the 2.7 MB text is never held as one string
+
+        var ids = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var name in assembly.GetManifestResourceNames().Where(n => n.StartsWith(ExpressionPrefix, StringComparison.Ordinal)).Order(StringComparer.Ordinal))
+        {
+            using var data = assembly.GetManifestResourceStream(name)!;
+            using var reader = new StreamReader(data, System.Text.Encoding.UTF8);
+            quotes.AddRange(ExpressionCatalog.Parse(reader, name[ExpressionPrefix.Length..], ids));
+        }
+
+        return quotes;
     }
 }
 

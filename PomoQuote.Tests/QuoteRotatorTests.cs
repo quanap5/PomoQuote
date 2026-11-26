@@ -137,16 +137,82 @@ public sealed class QuoteRotatorTests
     }
 
     [Fact]
-    public void The_real_data_rotates_through_everything_without_a_repeat_in_a_row()
+    public void The_real_data_shows_every_sentence_of_a_category_before_repeating_one_of_it_and_never_one_twice_in_a_row()
     {
         var all = new BundledQuoteProvider().GetAll();
+        var sizes = all.GroupBy(q => q.Category).ToDictionary(g => g.Key, g => g.Count());
         var rotator = new QuoteRotator(all, QuoteCategory.All, new Random(2024));
+        var seen = sizes.Keys.ToDictionary(c => c, _ => new HashSet<Quote>(ReferenceEqualityComparer.Instance));
+        Quote? previous = null;
 
-        var firstPass = Enumerable.Range(0, all.Count).Select(_ => rotator.Next()!).ToList();
-        Assert.Equal(all.Count, firstPass.Distinct().Count());
-
-        var previous = firstPass[^1];
         for (var i = 0; i < all.Count * 3; i++)
+        {
+            var next = rotator.Next()!;
+            Assert.NotSame(previous, next);
+            previous = next;
+            var deck = seen[next.Category];
+            if (deck.Count == sizes[next.Category]) deck.Clear(); // the category's pass is complete: a new one starts
+            Assert.True(deck.Add(next), $"shown twice before the rest of {next.Category}: {next.English}");
+        }
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void The_categories_come_up_by_their_weights_however_many_sentences_each_has(int seed)
+    {
+        // conversation has thousands of sentences, the others only a few: the weights decide, not the counts
+        var pool = Pool(5000, QuoteCategory.Conversation).Select(q => q with { English = "C " + q.English })
+            .Concat(Pool(20, QuoteCategory.Idiom).Select(q => q with { English = "I " + q.English }))
+            .Concat(Pool(20, QuoteCategory.Proverb).Select(q => q with { English = "P " + q.English }))
+            .Concat(Pool(20, QuoteCategory.Quote).Select(q => q with { English = "Q " + q.English }))
+            .Concat(Pool(20, QuoteCategory.Maxim).Select(q => q with { English = "M " + q.English }))
+            .Concat(Pool(20, QuoteCategory.Expression).Select(q => q with { English = "E " + q.English }))
+            .Concat(Pool(20, QuoteCategory.PhrasalVerb).Select(q => q with { English = "V " + q.English }))
+            .Concat(Pool(20, QuoteCategory.Motivation))
+            .ToList();
+        var rotator = new QuoteRotator(pool, QuoteCategory.All, new Random(seed));
+        const int draws = 40000;
+
+        var counts = Enumerable.Range(0, draws).Select(_ => rotator.Next()!.Category).GroupBy(c => c).ToDictionary(g => g.Key, g => g.Count());
+
+        foreach (var category in new[] { QuoteCategory.Conversation, QuoteCategory.Idiom, QuoteCategory.Proverb, QuoteCategory.Quote, QuoteCategory.Maxim, QuoteCategory.Expression, QuoteCategory.PhrasalVerb, QuoteCategory.Motivation })
+        {
+            var share = 100.0 * counts[category] / draws;
+            Assert.InRange(share, QuoteRotator.Weight(category) - 1.0, QuoteRotator.Weight(category) + 1.0);
+        }
+    }
+
+    [Fact]
+    public void The_weights_add_up_to_one_hundred_and_conversation_keeps_about_a_third()
+    {
+        var categories = Enum.GetValues<QuoteCategory>().Where(c => c is not (QuoteCategory.None or QuoteCategory.All)).ToList();
+
+        Assert.Equal(100, categories.Sum(QuoteRotator.Weight));
+        Assert.Equal(35, QuoteRotator.Weight(QuoteCategory.Conversation));
+        Assert.All(categories, c => Assert.True(QuoteRotator.Weight(c) >= 5));
+    }
+
+    [Fact]
+    public void Only_the_chosen_categories_share_the_draws_and_their_weights_are_relative()
+    {
+        var pool = Pool(10, QuoteCategory.Conversation).Select(q => q with { English = "C " + q.English })
+            .Concat(Pool(10, QuoteCategory.Idiom).Select(q => q with { English = "I " + q.English })).ToList();
+        var rotator = new QuoteRotator(pool, QuoteCategory.Conversation | QuoteCategory.Idiom, new Random(8));
+
+        var idioms = Enumerable.Range(0, 20000).Count(_ => rotator.Next()!.Category == QuoteCategory.Idiom);
+
+        Assert.InRange(idioms / 20000.0, 12 / 47.0 - 0.02, 12 / 47.0 + 0.02);
+    }
+
+    [Fact]
+    public void Two_categories_of_one_sentence_each_alternate_without_an_immediate_repeat()
+    {
+        var pool = new[] { Make("a", QuoteCategory.Idiom), Make("b", QuoteCategory.Proverb) };
+        var rotator = new QuoteRotator(pool, QuoteCategory.All, new Random(3));
+        Quote? previous = null;
+
+        for (var i = 0; i < 50; i++)
         {
             var next = rotator.Next()!;
             Assert.NotSame(previous, next);

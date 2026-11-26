@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Categories for proverbs, quotes, life maxims, common expressions and phrasal verbs in **Settings > Quotes...**, and a loader for their licensed data files (one file per source and licence; an incomplete or wrongly licensed record is refused). A settings file saved with all categories includes the new ones; a saved choice of some categories stays as it was.
+- A machine-drafted Vietnamese translation that nobody reviewed is marked under the sentence, and the sentence's tooltip shows its meaning, example and credit.
+
+### Changed
+
+- The next sentence is drawn by category weight (conversation 35, idioms 12, proverbs 12, quotes 10, life maxims 10, common expressions 8, phrasal verbs 8, motivation 5) instead of from one shuffled pile, so conversation sentences no longer make up about 97% of what you see. Each category still shows all of its sentences before repeating one.
+
 ## [1.4.0] - 2026-11-26
 
 The sentences release: 13,677 English-Vietnamese sentence pairs from Tatoeba join the 357 sentences PomoQuote already had, for 14,034 in all, with each sentence's authors credited.

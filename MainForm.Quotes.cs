@@ -71,11 +71,13 @@ internal sealed partial class MainForm
         var quote = CurrentQuote;
         var english = quote?.English ?? "";
         var vietnamese = quote is not null && _quoteSettings.ShowTranslation ? quote.Vietnamese : null;
-        _quote.SetQuote(english, vietnamese);
-        _quoteTip.SetToolTip(_quote, quote?.Attribution ?? ""); // a Tatoeba sentence names its authors (its licence asks for it); nothing for the others
+        var badge = vietnamese is null ? null : quote?.Info?.Badge;
+        _quote.SetQuote(english, vietnamese, badge);
+        // A Tatoeba sentence names its authors (its licence asks for it); an expression adds its meaning, example, translation state and credit.
+        _quoteTip.SetToolTip(_quote, quote?.Details ?? "");
         if (_widgetView is not null)
         {
-            _widgetView.SetQuote(english, vietnamese, quote?.Attribution);
+            _widgetView.SetQuote(english, vietnamese, quote?.Details, badge);
             FitWidgetHeight();
         }
     }
