@@ -24,6 +24,11 @@ internal sealed class AboutDialog : Form
         "for PomoQuote, licensed CC BY-SA 4.0 (creativecommons.org/licenses/by-sa/4.0). Vietnamese marked \"not reviewed\" is machine translated. " +
         "Details: Assets/Quotes/data/LICENSE.md in the PomoQuote repository.";
 
+    /// <summary>Where the quotes and life maxims come from. Their words are in the public domain; the credit names the author and the work.</summary>
+    public const string QuotesNotice =
+        "Quotes and life maxims are sentences from public-domain books; each names its author and work in its tooltip. Their Vietnamese is machine translated " +
+        "for PomoQuote and dedicated to the public domain (CC0 1.0).";
+
     private readonly Bitmap _logo;
 
     public AboutDialog()
@@ -65,6 +70,7 @@ internal sealed class AboutDialog : Form
         layout.Controls.Add(new Label { Text = MarksNotice, AutoSize = true, MaximumSize = new Size(300, 0), ForeColor = SystemColors.GrayText, Margin = new Padding(0, 0, 0, 14), AccessibleName = "Third-party marks" });
         layout.Controls.Add(new Label { Text = SentencesNotice, AutoSize = true, MaximumSize = new Size(300, 0), ForeColor = SystemColors.GrayText, Margin = new Padding(0, 0, 0, 14), AccessibleName = "Sentence sources" });
         layout.Controls.Add(new Label { Text = ExpressionsNotice, AutoSize = true, MaximumSize = new Size(300, 0), ForeColor = SystemColors.GrayText, Margin = new Padding(0, 0, 0, 14), AccessibleName = "Expression sources" });
+        layout.Controls.Add(new Label { Text = QuotesNotice, AutoSize = true, MaximumSize = new Size(300, 0), ForeColor = SystemColors.GrayText, Margin = new Padding(0, 0, 0, 14), AccessibleName = "Quote sources" });
         layout.Controls.Add(okButton);
         Controls.Add(layout);
     }
