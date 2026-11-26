@@ -41,10 +41,10 @@ public sealed class WiktionaryDataTests
     }
 
     [Theory]
-    [InlineData("wiktionary-idioms.jsonl", QuoteCategory.Idiom, 1500)]
-    [InlineData("wiktionary-phrasal-verbs.jsonl", QuoteCategory.PhrasalVerb, 800)]
-    [InlineData("wiktionary-expressions.jsonl", QuoteCategory.Expression, 800)]
-    [InlineData("wiktionary-proverbs.jsonl", QuoteCategory.Proverb, 256)]
+    [InlineData("wiktionary-idioms.jsonl", QuoteCategory.Idiom, 1441)]
+    [InlineData("wiktionary-phrasal-verbs.jsonl", QuoteCategory.PhrasalVerb, 778)]
+    [InlineData("wiktionary-expressions.jsonl", QuoteCategory.Expression, 775)]
+    [InlineData("wiktionary-proverbs.jsonl", QuoteCategory.Proverb, 248)]
     public void Each_file_holds_its_type_under_CC_BY_SA_with_its_page_and_credit(string file, QuoteCategory category, int count)
     {
         var quotes = ExpressionCatalog.Parse(Text("Assets", "Quotes", "data", file), file);
@@ -101,7 +101,7 @@ public sealed class WiktionaryDataTests
     public void The_sentences_that_were_there_before_are_all_still_there()
     {
         Assert.Equal(14034, All.Count(q => q.Info is null));
-        Assert.Equal(3356, Entries.Count);
+        Assert.Equal(3242, Entries.Count);
     }
 
     [Fact]
@@ -117,14 +117,21 @@ public sealed class WiktionaryDataTests
         Assert.True(File.Exists(Path.Combine(AppContext.BaseDirectory, "Assets", "Quotes", "data", "LICENSE.md")));
     }
 
+    /// <summary>The owner's decision: a translation the back-translation check doubted does not ship, and a new import run does not bring it back.</summary>
     [Fact]
-    public void Every_flag_in_the_files_is_one_the_import_writes()
+    public void No_entry_the_check_doubted_ships_and_the_build_keeps_them_out()
     {
-        var flags = Directory.GetFiles(Path.Combine(RepoRoot(), "Assets", "Quotes", "data"), "wiktionary-*.jsonl")
-            .SelectMany(File.ReadLines)
-            .SelectMany(line => JsonDocument.Parse(line).RootElement.TryGetProperty("flags", out var list) ? list.EnumerateArray().Select(f => f.GetString()) : [])
-            .Distinct().ToList();
+        var dropped = JsonDocument.Parse(Text("tools", "wiktionary-dropped.json")).RootElement.GetProperty("ids").EnumerateArray().Select(id => id.GetString()!).ToHashSet();
+        Assert.Equal(114, dropped.Count);
+        Assert.DoesNotContain(Entries, q => dropped.Contains(q.Info!.Id));
 
-        Assert.Equal(["back_translation_disagrees"], flags);
+        foreach (var file in Directory.GetFiles(Path.Combine(RepoRoot(), "Assets", "Quotes", "data"), "wiktionary-*.jsonl"))
+        {
+            Assert.All(File.ReadLines(file), line => Assert.False(JsonDocument.Parse(line).RootElement.TryGetProperty("flags", out _), line));
+        }
+
+        var build = Text("tools", "wiktionary-build.mjs");
+        Assert.Contains("wiktionary-dropped.json", build);
+        Assert.Contains("r.check.verdict === 'ok' && !DROPPED.has(r.id)", build);
     }
 }

@@ -11,7 +11,11 @@
  *   (<work>/check/back-NN.jsonl holds only the Vietnamese; ref-NN.jsonl the English). A second, independent model run translates the
  *   Vietnamese back without seeing the English, then compares, and writes verdict-NN.jsonl: {"n", "verdict": "ok"|"doubtful"|"wrong", "back", "note"}.
  * Step 4: node tools/wiktionary-build.mjs write --work <work>
- *   drops what the check calls wrong, flags the doubtful, writes Assets/Quotes/data/wiktionary-*.jsonl, the import report and the review sample.
+ *   ships only what the check calls ok, writes Assets/Quotes/data/wiktionary-*.jsonl, the import report and the review sample.
+ *
+ * What the check calls wrong makes room for the next eligible entry. What it calls doubtful does not ship and is not replaced (owner decision
+ * of 2026-11-26): the target is applied first and those entries are then taken out. The ids dropped by that decision are listed in
+ * wiktionary-dropped.json and never ship, whatever a later translation or check says.
  */
 import { readFileSync, writeFileSync, readdirSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -29,6 +33,7 @@ const NAMES = { proverb: 'proverbs', phrasal_verb: 'phrasal-verbs', expression: 
 const MIN_USEFUL = 2;
 const RESERVE = 1.06; // checked beyond the target, to make up for what the check drops
 const LIMITS = { vietnamese: 110, exampleVietnamese: 200 };
+const DROPPED = new Set(JSON.parse(readFileSync(new URL('./wiktionary-dropped.json', import.meta.url), 'utf8')).ids);
 
 const lines = (path) => readFileSync(path, 'utf8').split(/\r?\n/).filter((l) => l.trim()).map((l) => JSON.parse(l));
 const jsonl = (rows) => rows.map((r) => JSON.stringify(r)).join('\n') + '\n';
@@ -111,31 +116,34 @@ function write() {
   for (const type of Object.keys(TARGETS)) {
     const list = selected.filter((r) => r.type === type).map((r) => ({ ...r, check: verdicts.get(r.n) }));
     const kept = list.filter((r) => r.check.verdict !== 'wrong');
-    final[type] = kept.slice(0, TARGETS[type]);
+    // the target is applied first, so an entry taken out below is not replaced by the next one
+    const chosen = kept.slice(0, TARGETS[type]);
+    const ships = (r) => r.check.verdict === 'ok' && !DROPPED.has(r.id);
+    final[type] = chosen.filter(ships);
+    const dropped = chosen.filter((r) => !ships(r));
     checkCounts[type] = {
       checked: list.length, ok: list.filter((r) => r.check.verdict === 'ok').length, doubtful: list.filter((r) => r.check.verdict === 'doubtful').length,
-      'wrong (left out)': list.length - kept.length, 'above the target (left out)': kept.length - final[type].length, shipped: final[type].length,
-      'shipped and flagged doubtful': final[type].filter((r) => r.check.verdict === 'doubtful').length, 'shipped with the dictionary\'s own Vietnamese': final[type].filter((r) => r.source).length,
+      'wrong (left out)': list.length - kept.length, 'above the target (left out)': kept.length - chosen.length,
+      'within the target but doubtful or on the dropped list (left out, not replaced)': dropped.length, shipped: final[type].length,
+      'shipped with the dictionary\'s own Vietnamese': final[type].filter((r) => r.source).length,
     };
     const records = [...final[type]].sort((a, b) => a.id.localeCompare(b.id, 'en')).map((r) => ({
       id: r.id, type, lang: 'en', text: r.text,
       meanings: [{ lang: 'en', text: r.meaning, ...(r.register?.length ? { register: r.register } : {}) }],
       translations: [{ lang: 'vi', text: r.vi, status: r.source ? 'source' : 'machine_unreviewed', by: r.source ? 'English Wiktionary contributors' : model, date, license: 'CC-BY-SA-4.0' }],
       ...(r.example ? { examples: [{ en: r.example, ...(r.exampleVi ? { vi: r.exampleVi } : {}) }] } : {}),
-      ...(r.check.verdict === 'doubtful' ? { flags: ['back_translation_disagrees'] } : {}),
       source: {
         dataset: 'English Wiktionary (kaikki.org extract)', url: r.url, retrieved: date, license: 'CC-BY-SA-4.0',
         attribution_text: 'English Wiktionary contributors (en.wiktionary.org), selected and translated for PomoQuote',
       },
     }));
     writeFileSync(`Assets/Quotes/data/wiktionary-${NAMES[type]}.jsonl`, jsonl(records), 'utf8');
-    // for the owner: 50 random shipped items, every shipped doubtful one, and what the check left out
+    // for the owner: 50 random shipped items, and everything the check or the dropped list took out
     const pool = [...final[type]];
     const sample = [];
     while (sample.length < 50 && pool.length) sample.push(...pool.splice(Math.floor(next() * pool.length), 1));
-    const inSample = new Set(sample.map((r) => r.n));
     review.push(...sample.map((r) => ['random sample', r]),
-      ...final[type].filter((r) => r.check.verdict === 'doubtful' && !inSample.has(r.n)).map((r) => ['flagged by the check', r]),
+      ...dropped.map((r) => [r.check.verdict === 'doubtful' ? 'left out: check says doubtful' : 'left out: on the dropped list', r]),
       ...list.filter((r) => r.check.verdict === 'wrong').map((r) => ['left out: check says wrong', r]));
   }
   const cell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
@@ -176,10 +184,12 @@ ${table(selectCounts)}
 ${table(checkCounts)}
 
 Target per type: ${Object.entries(TARGETS).map(([t, n]) => `${NAMES[t].replace('-', ' ')} ${n}`).join(', ')}. Shipped: **${total}** (${Object.entries(final).map(([t, l]) => `${NAMES[t].replace('-', ' ')} ${l.length}`).join(', ')}).
-Nothing is added to reach a target; where the number is below it, the eligible entries ran out.
+Nothing is added to reach a target. Entries the check calls doubtful were taken out by owner decision (2026-11-26) after the target was applied
+and were not replaced; their ids are in \`tools/wiktionary-dropped.json\`, and the build never ships them. Proverbs were below the target before
+that: the eligible entries ran out.
 
-Review sample for the owner: [review/wiktionary-review-sample.csv](review/wiktionary-review-sample.csv) (50 random shipped items per type, every shipped item the check
-calls doubtful, and every item it called wrong).
+Review sample for the owner: [review/wiktionary-review-sample.csv](review/wiktionary-review-sample.csv) (50 random shipped items per type, and every item left out
+as doubtful or wrong).
 `, 'utf8');
   console.table(checkCounts);
   console.log(`shipped ${total}; review rows ${rows.length}`);

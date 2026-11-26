@@ -42,12 +42,14 @@ The best candidates by commonness were translated; the translator rated each one
 | doubtful | 8 | 22 | 25 | 61 |
 | wrong (left out) | 0 | 0 | 1 | 1 |
 | above the target (left out) | 0 | 48 | 47 | 89 |
-| shipped | 256 | 800 | 800 | 1500 |
-| shipped and flagged doubtful | 8 | 22 | 25 | 59 |
-| shipped with the dictionary's own Vietnamese | 1 | 33 | 41 | 85 |
+| within the target but doubtful or on the dropped list (left out, not replaced) | 8 | 22 | 25 | 59 |
+| shipped | 248 | 778 | 775 | 1441 |
+| shipped with the dictionary's own Vietnamese | 0 | 30 | 40 | 79 |
 
-Target per type: proverbs 600, phrasal verbs 800, expressions 800, idioms 1500. Shipped: **3356** (proverbs 256, phrasal verbs 800, expressions 800, idioms 1500).
-Nothing is added to reach a target; where the number is below it, the eligible entries ran out.
+Target per type: proverbs 600, phrasal verbs 800, expressions 800, idioms 1500. Shipped: **3242** (proverbs 248, phrasal verbs 778, expressions 775, idioms 1441).
+Nothing is added to reach a target. Entries the check calls doubtful were taken out by owner decision (2026-11-26) after the target was applied
+and were not replaced; their ids are in `tools/wiktionary-dropped.json`, and the build never ships them. Proverbs were below the target before
+that: the eligible entries ran out.
 
-Review sample for the owner: [review/wiktionary-review-sample.csv](review/wiktionary-review-sample.csv) (50 random shipped items per type, every shipped item the check
-calls doubtful, and every item it called wrong).
+Review sample for the owner: [review/wiktionary-review-sample.csv](review/wiktionary-review-sample.csv) (50 random shipped items per type, and every item left out
+as doubtful or wrong).
