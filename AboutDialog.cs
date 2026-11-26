@@ -18,6 +18,12 @@ internal sealed class AboutDialog : Form
         "Many sentences and their Vietnamese translations come from Tatoeba (tatoeba.org), licensed CC BY 2.0 FR; each sentence's authors are shown in its tooltip " +
         "and listed in Assets/Quotes/quotes.json. Details: Assets/Quotes/CREDITS.md in the PomoQuote repository.";
 
+    /// <summary>The credit for the expression data (CC BY-SA 4.0 asks for attribution, the licence and a note of the changes).</summary>
+    public const string ExpressionsNotice =
+        "Idioms, proverbs, phrasal verbs and common expressions come from English Wiktionary (en.wiktionary.org) contributors, selected, shortened and translated " +
+        "for PomoQuote, licensed CC BY-SA 4.0 (creativecommons.org/licenses/by-sa/4.0). Vietnamese marked \"not reviewed\" is machine translated. " +
+        "Details: Assets/Quotes/data/LICENSE.md in the PomoQuote repository.";
+
     private readonly Bitmap _logo;
 
     public AboutDialog()
@@ -58,6 +64,7 @@ internal sealed class AboutDialog : Form
         layout.Controls.Add(new Label { Text = $"Version {GetAppVersion()}", Anchor = AnchorStyles.None, AutoSize = true, Margin = new Padding(0, 0, 0, 12) });
         layout.Controls.Add(new Label { Text = MarksNotice, AutoSize = true, MaximumSize = new Size(300, 0), ForeColor = SystemColors.GrayText, Margin = new Padding(0, 0, 0, 14), AccessibleName = "Third-party marks" });
         layout.Controls.Add(new Label { Text = SentencesNotice, AutoSize = true, MaximumSize = new Size(300, 0), ForeColor = SystemColors.GrayText, Margin = new Padding(0, 0, 0, 14), AccessibleName = "Sentence sources" });
+        layout.Controls.Add(new Label { Text = ExpressionsNotice, AutoSize = true, MaximumSize = new Size(300, 0), ForeColor = SystemColors.GrayText, Margin = new Padding(0, 0, 0, 14), AccessibleName = "Expression sources" });
         layout.Controls.Add(okButton);
         Controls.Add(layout);
     }
