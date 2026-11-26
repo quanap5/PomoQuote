@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-11-26
+
+The expressions release: 4,396 idioms, phrasal verbs, common expressions, proverbs, quotes and life maxims join the 14,034 sentences PomoQuote already had, for 18,430 in all, still bundled offline.
+
+Highlights:
+
+- **4,396 new entries** in six categories: 1,441 idioms, 778 phrasal verbs, 775 common expressions and 248 proverbs from [English Wiktionary](https://en.wiktionary.org), and 568 quotes and 586 life maxims from public-domain books.
+- **Eight categories** in **Settings > Quotes...**, drawn by weight, so the conversation sentences are now about a third of what you see instead of about 97% (with all categories on, the default).
+- **Hover a sentence** for what an expression means, an example, or a quote's author and work, with the credit.
+- **Please note**: 4,247 of the new Vietnamese translations are **machine drafts that no person has reviewed**; the app says "machine translation, not reviewed" under each.
+- **Licences**: the new data is in its own files beside the MIT code. The Wiktionary entries, their translations included, are **CC BY-SA 4.0**; the public-domain quotes and maxims have **CC0 1.0** translations. See `Assets/Quotes/data/LICENSE.md`, which also comes with the program.
+
 ### Added
 
 - Categories for proverbs, quotes, life maxims, common expressions and phrasal verbs in **Settings > Quotes...**, and a loader for their licensed data files (one file per source and licence; an incomplete or wrongly licensed record is refused). A settings file saved with all categories includes the new ones; a saved choice of some categories stays as it was.
@@ -20,7 +32,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Known issues
 
-- Loading the sentences at start takes about 180 ms instead of about 80 ms in 1.4.0, because of the 4,396 new entries. The program also takes roughly 11 to 16 MB more memory while loading them (about 4 MB of it for the sentences it keeps). Measured outside the program on one Windows 11 PC; the start-up time of the whole program was not measured.
+- **Machine translations are not reviewed.** 4,247 of the new translations are machine drafts, marked "machine translation, not reviewed"; no person has reviewed them (the other 149 are Wiktionary's own). They were drafted by one model run and checked by a second one of the same model family, so a mistake both make goes unnoticed. Translations the check doubted were left out.
+- **Quotes include speech by characters** in plays and novels. The tooltip names the author and the work, not the speaker: an attribution means that the sentence stands in that author's work, not that it is the author's own opinion.
+- **A saved choice that includes Idiom now shows much more.** The saved list stays as it was, but the Idiom category grew from 131 to 1,572 sentences: with Motivation and Idiom ticked there are 1,685 sentences instead of 244, and about 7 in 10 shown are idioms.
+- **Start-up and memory.** The first window appears about 95 ms later than in 1.4.0 and the program uses about 15 MB more private memory (about 43 MB instead of 28 MB), because of the new data. Measured on one Windows 11 PC.
+- **Long tooltips may be cut off** at 200% display scaling or on a narrow screen (calculated from their width, not seen on screen).
+- **Not checked on screen:** the tooltips of the new entries, **Help > About** and **Settings > Quotes...** as they are now, and display scaling of 125% and 150% (their content and the fit of every sentence were checked by tests).
+- 113 of the 357 original sentences are conversation lines and share the Conversation category with the Tatoeba pairs, so switching that category off hides them too. A separate category for the Tatoeba pairs is a possible follow-up.
+- The Vietnamese translations of the 357 original sentences, and those of the Tatoeba pairs, have not been reviewed by a native speaker; about 3 in 100 Tatoeba pairs read in a sample were loose or slightly wrong, or had a Vietnamese typo.
+- The Compact provider logo can stay in the old theme's colours for up to about 12 seconds after you change the Windows theme while the widget is on System.
+- A rare crash at exit: an `InvalidOperationException` from the provider list's *Closed* handler in `WidgetView.Usage.cs` (`ShowProviderList`) when the app closes while the list is open.
+- Not checked in the running app before 1.3.0 and still not checked by hand: dragging the cat, the Mascot Options dialog, a restart with the cat selected, and the real Grok and Antigravity readings.
+- The weather effect is very faint by design: its colours are kept dark enough to keep the text at a contrast of 4.5:1 or more (the intro GIF brightens it so it shows). It is a still picture, not an animation, when Windows animations are turned off or Reduce motion is on.
+- [#46](https://github.com/quanap5/PomoQuote/issues/46): non-standard Codex windows (not 5 hours or one week) get identical truncated labels.
+- [#44](https://github.com/quanap5/PomoQuote/issues/44): the PowerShell form of the Claude status line bridge (used only when Git Bash is missing) does not propagate the exit code of the original command.
+- The Claude icon is Anthropic's official mark used **without written permission** from Anthropic (the owner accepted the risk; the contact is marketing@anthropic.com; see `THIRD_PARTY_ASSETS.md`). The Grok icon is likewise xAI's official mark without written permission.
+- Windows only; WSL is not supported yet.
 
 ## [1.4.0] - 2026-11-26
 
@@ -188,7 +215,8 @@ Highlights:
 - "Hello World" stays on one centered line at any window size (PR #1).
 - The full clock rim stays inside its area at any window size (PR #4).
 
-[Unreleased]: https://github.com/quanap5/PomoQuote/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/quanap5/PomoQuote/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/quanap5/PomoQuote/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/quanap5/PomoQuote/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/quanap5/PomoQuote/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/quanap5/PomoQuote/compare/v1.1.0...v1.2.0
