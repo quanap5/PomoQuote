@@ -94,4 +94,26 @@ public sealed class PublicDomainDataTests
         Assert.All(QuoteSettingsDialog.CategoryChoices, choice => Assert.Contains(all, q => q.Category == choice.Value));
         Assert.Equal(14034 + 3356 + 1183, all.Count);
     }
+
+    [Fact]
+    public void The_about_dialog_with_all_its_notices_stays_short_enough_for_a_scaled_screen()
+    {
+        Exception? failure = null;
+        var height = 0;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                using var dialog = new AboutDialog { StartPosition = System.Windows.Forms.FormStartPosition.Manual, Location = new System.Drawing.Point(-3000, -3000) };
+                dialog.Show();
+                height = (int)(dialog.ClientSize.Height * 96f / dialog.DeviceDpi);
+            }
+            catch (Exception ex) { failure = ex; }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        Assert.True(thread.Join(TimeSpan.FromSeconds(60)));
+        Assert.Null(failure);
+        Assert.InRange(height, 200, 600);
+    }
 }

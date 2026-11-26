@@ -29,6 +29,9 @@ internal sealed class AboutDialog : Form
         "Quotes and life maxims are sentences from public-domain books; each names its author and work in its tooltip. Their Vietnamese is machine translated " +
         "for PomoQuote and dedicated to the public domain (CC0 1.0).";
 
+    /// <summary>The width of the notices: wide enough that the dialog, with all of them, still fits a small or scaled screen.</summary>
+    private const int NoticeWidth = 460;
+
     private readonly Bitmap _logo;
 
     public AboutDialog()
@@ -67,10 +70,10 @@ internal sealed class AboutDialog : Form
         layout.Controls.Add(new PictureBox { Image = _logo, SizeMode = PictureBoxSizeMode.CenterImage, Size = _logo.Size, Anchor = AnchorStyles.None, Margin = new Padding(0, 0, 0, 8) });
         layout.Controls.Add(new Label { Text = AppName, Anchor = AnchorStyles.None, AutoSize = true, Font = new Font(Font, FontStyle.Bold), Margin = new Padding(0, 0, 0, 4) });
         layout.Controls.Add(new Label { Text = $"Version {GetAppVersion()}", Anchor = AnchorStyles.None, AutoSize = true, Margin = new Padding(0, 0, 0, 12) });
-        layout.Controls.Add(new Label { Text = MarksNotice, AutoSize = true, MaximumSize = new Size(300, 0), ForeColor = SystemColors.GrayText, Margin = new Padding(0, 0, 0, 14), AccessibleName = "Third-party marks" });
-        layout.Controls.Add(new Label { Text = SentencesNotice, AutoSize = true, MaximumSize = new Size(300, 0), ForeColor = SystemColors.GrayText, Margin = new Padding(0, 0, 0, 14), AccessibleName = "Sentence sources" });
-        layout.Controls.Add(new Label { Text = ExpressionsNotice, AutoSize = true, MaximumSize = new Size(300, 0), ForeColor = SystemColors.GrayText, Margin = new Padding(0, 0, 0, 14), AccessibleName = "Expression sources" });
-        layout.Controls.Add(new Label { Text = QuotesNotice, AutoSize = true, MaximumSize = new Size(300, 0), ForeColor = SystemColors.GrayText, Margin = new Padding(0, 0, 0, 14), AccessibleName = "Quote sources" });
+        layout.Controls.Add(new Label { Text = MarksNotice, AutoSize = true, MaximumSize = new Size(NoticeWidth, 0), ForeColor = SystemColors.GrayText, Margin = new Padding(0, 0, 0, 14), AccessibleName = "Third-party marks" });
+        layout.Controls.Add(new Label { Text = SentencesNotice, AutoSize = true, MaximumSize = new Size(NoticeWidth, 0), ForeColor = SystemColors.GrayText, Margin = new Padding(0, 0, 0, 14), AccessibleName = "Sentence sources" });
+        layout.Controls.Add(new Label { Text = ExpressionsNotice, AutoSize = true, MaximumSize = new Size(NoticeWidth, 0), ForeColor = SystemColors.GrayText, Margin = new Padding(0, 0, 0, 14), AccessibleName = "Expression sources" });
+        layout.Controls.Add(new Label { Text = QuotesNotice, AutoSize = true, MaximumSize = new Size(NoticeWidth, 0), ForeColor = SystemColors.GrayText, Margin = new Padding(0, 0, 0, 14), AccessibleName = "Quote sources" });
         layout.Controls.Add(okButton);
         Controls.Add(layout);
     }
