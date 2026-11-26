@@ -7,7 +7,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <!-- Single source of truth for the app version (SemVer); the About dialog reads it at runtime. -->
-    <Version>1.4.0</Version>
+    <Version>1.5.0</Version>
     <ApplicationIcon>Assets\Logo\pomoquote.ico</ApplicationIcon>
   </PropertyGroup>
 
