@@ -27,6 +27,8 @@
     <None Include="Assets\Mascot\*.json" CopyToOutputDirectory="PreserveNewest" />
     <EmbeddedResource Include="Assets\Providers\*.png" LogicalName="PomoQuote.providers.%(Filename)%(Extension)" />
     <EmbeddedResource Include="Assets\Quotes\quotes.json" LogicalName="PomoQuote.quotes.json" />
+    <!-- Expression records (idioms, proverbs, quotes, ...), one JSON Lines file per source and licence. -->
+    <EmbeddedResource Include="Assets\Quotes\data\*.jsonl" LogicalName="PomoQuote.expressions.%(Filename)%(Extension)" />
     <EmbeddedResource Include="Assets\Logo\pomoquote.ico" LogicalName="PomoQuote.pomoquote.ico" />
   </ItemGroup>
 

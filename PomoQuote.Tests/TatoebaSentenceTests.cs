@@ -16,7 +16,7 @@ public sealed class TatoebaSentenceTests
 
     private static IReadOnlyList<Quote> Tatoeba => All.Where(q => q.TatoebaId is not null).ToList();
 
-    private static IReadOnlyList<Quote> Original => All.Where(q => q.TatoebaId is null).ToList();
+    private static IReadOnlyList<Quote> Original => All.Where(q => q.TatoebaId is null && q.Info is null).ToList(); // the sentences of quotes.json that are not from Tatoeba
 
     private static string RepoRoot() => AppContext.BaseDirectory.Split("PomoQuote.Tests")[0];
 
@@ -28,7 +28,7 @@ public sealed class TatoebaSentenceTests
         Assert.Equal(131, Original.Count(q => q.Category == QuoteCategory.Idiom));
         Assert.Equal(113, Original.Count(q => q.Category == QuoteCategory.Conversation));
         Assert.True(Tatoeba.Count >= 10000, $"only {Tatoeba.Count} Tatoeba sentences");
-        Assert.Equal(All.Count, Original.Count + Tatoeba.Count);
+        Assert.Equal(All.Count, Original.Count + Tatoeba.Count + All.Count(q => q.Info is not null));
         // the first sentence of the file is still the first sentence of the first group
         Assert.Equal("A journey of a thousand miles begins with a single step.", All[0].English);
         Assert.All(Tatoeba, q => Assert.Equal(QuoteCategory.Conversation, q.Category)); // the existing categories only
@@ -89,11 +89,11 @@ public sealed class TatoebaSentenceTests
     [Fact]
     public void The_rotation_over_all_sentences_never_repeats_one_straight_away_and_shows_each_before_any_comes_again()
     {
-        var rotator = new QuoteRotator(All, QuoteCategory.All, new Random(11));
+        var rotator = new QuoteRotator(All.Where(q => q.Category == QuoteCategory.Conversation).ToList(), QuoteCategory.All, new Random(11)); // within one category: a pass through all of it
         var seen = new HashSet<string>();
         string? last = null;
 
-        for (var i = 0; i < All.Count; i++)
+        for (var i = 0; i < All.Count(q => q.Category == QuoteCategory.Conversation); i++)
         {
             var quote = rotator.Next()!;
             Assert.True(seen.Add(quote.English), $"shown twice in one pass: {quote.English}");

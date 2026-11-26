@@ -21,6 +21,7 @@ internal sealed class QuoteLabel : Control
 
     private string _english = "";
     private string? _vietnamese;
+    private string? _badge;
     private bool _onWallpaper;
     private QuoteFit? _fit;
     private SizeF _fitArea;
@@ -54,13 +55,19 @@ internal sealed class QuoteLabel : Control
         }
     }
 
-    public void SetQuote(string english, string? vietnamese)
+    /// <summary>The small note under the sentence (a machine translation that nobody reviewed), or null.</summary>
+    public string? Badge => _badge;
+
+    public void SetQuote(string english, string? vietnamese, string? badge = null)
     {
-        if (english == _english && vietnamese == _vietnamese) return;
+        var translation = string.IsNullOrWhiteSpace(vietnamese) ? null : vietnamese;
+        var note = translation is null ? null : badge; // a note about the translation only while it is shown
+        if (english == _english && translation == _vietnamese && note == _badge) return;
         _english = english;
-        _vietnamese = string.IsNullOrWhiteSpace(vietnamese) ? null : vietnamese;
+        _vietnamese = translation;
+        _badge = note;
         _fit = null;
-        Text = _vietnamese is null ? english : $"{english} {_vietnamese}";
+        Text = _vietnamese is null ? english : _badge is null ? $"{english} {_vietnamese}" : $"{english} {_vietnamese} ({_badge})";
         Invalidate();
     }
 
@@ -83,9 +90,11 @@ internal sealed class QuoteLabel : Control
         var graphics = e.Graphics;
         var padding = new SizeF(ClientSize.Width * 0.06f, ClientSize.Height * 0.06f);
         var area = new RectangleF(padding.Width, padding.Height, ClientSize.Width - 2 * padding.Width, ClientSize.Height - 2 * padding.Height);
+        var scale = DeviceDpi / 96f;
+        var badgeHeight = _badge is null ? 0f : 14f * scale;
+        area.Height -= badgeHeight;
         if (area.Width < 8 || area.Height < 8) return;
 
-        var scale = DeviceDpi / 96f;
         if (_fit is null || _fitArea != area.Size)
         {
             _fit = QuoteLayout.Fit(graphics, _english, _vietnamese, area.Size, scale);
@@ -107,6 +116,13 @@ internal sealed class QuoteLabel : Control
         {
             using var font = new Font(QuoteLayout.VietnameseFamily, fit.VietnamesePixels, FontStyle.Regular, GraphicsUnit.Pixel);
             DrawText(graphics, _vietnamese, font, vietnameseColor, Offset(fit.Vietnamese, area), format, scale);
+        }
+
+        if (_badge is not null)
+        {
+            using var font = new Font(QuoteLayout.VietnameseFamily, 10.5f * scale, FontStyle.Italic, GraphicsUnit.Pixel);
+            using var centre = new StringFormat(StringFormatFlags.NoWrap) { Alignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisCharacter };
+            DrawText(graphics, _badge, font, vietnameseColor, new RectangleF(area.X, area.Bottom, area.Width, badgeHeight), centre, scale);
         }
     }
 

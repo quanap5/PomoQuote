@@ -164,12 +164,22 @@ internal sealed partial class WidgetView : Control
     private QuoteGeometry.Plan? _quotePlan;
     private string? _quoteAttribution;
 
-    /// <summary>The credit shown as a tooltip on the sentence (a Tatoeba sentence's authors), or null; for the tests.</summary>
+    /// <summary>The tooltip on the sentence (credit, and for an expression its meaning and example), or null; for the tests.</summary>
     internal string? QuoteAttribution => _quoteAttribution;
+
+    private const int BadgeHeight = 13;
+    private string? _quoteBadge;
+
+    /// <summary>The note drawn at the foot of the card (a machine translation that nobody reviewed), or null; for the tests.</summary>
+    internal string? QuoteBadge => _quoteBadge;
+
+    /// <summary>The card's height at 100% scale: the sentence, plus the note when there is one.</summary>
+    private float CardHeight(QuoteGeometry.Plan plan) => plan.CardHeight + (_quoteBadge is null ? 0 : BadgeHeight);
     /// <summary>Sets the sentence and its translation; returns true when the widget height changed (the card grows with the text).</summary>
-    public bool SetQuote(string english, string? vietnamese, string? attribution = null)
+    public bool SetQuote(string english, string? vietnamese, string? attribution = null, string? badge = null)
     {
         _quoteAttribution = attribution;
+        _quoteBadge = badge;
         _quoteEnglish = english;
         _quoteVietnamese = string.IsNullOrWhiteSpace(vietnamese) ? null : vietnamese;
         var before = LogicalHeight;
@@ -203,7 +213,7 @@ internal sealed partial class WidgetView : Control
     private void DrawQuote(Graphics graphics, float u)
     {
         if (_quotePlan is not { } plan) return;
-        var card = new RectangleF(UsageGeometry.Margin * u, QuoteTop * u, (UsageGeometry.WidgetWidth - 2 * UsageGeometry.Margin) * u, plan.CardHeight * u);
+        var card = new RectangleF(UsageGeometry.Margin * u, QuoteTop * u, (UsageGeometry.WidgetWidth - 2 * UsageGeometry.Margin) * u, CardHeight(plan) * u);
         if (_quoteAttribution is not null) _hotSpots.Add((card, "quote", _quoteAttribution)); // the credit a Tatoeba sentence needs, as a tooltip
         using (var path = PillBar.Rounded(card, 11 * u))
         using (var fill = new SolidBrush(_theme.Card))
@@ -238,6 +248,14 @@ internal sealed partial class WidgetView : Control
         {
             graphics.DrawString(line, english, englishBrush, x0, y, typo);
             y += plan.EnglishPixels * QuoteGeometry.LineHeightFactor * u;
+        }
+
+        if (_quoteBadge is not null)
+        {
+            using var note = new Font("Segoe UI", 9.5f * u, FontStyle.Italic, GraphicsUnit.Pixel);
+            using var noteBrush = new SolidBrush(_theme.SecondaryText);
+            using var noteFormat = new StringFormat(StringFormatFlags.NoWrap) { Trimming = StringTrimming.EllipsisCharacter };
+            graphics.DrawString(_quoteBadge, note, noteBrush, new RectangleF(card.X + QuoteInsetLeft * u, card.Bottom - (BadgeHeight + 1) * u, card.Width - (QuoteInsetLeft + QuoteInsetRight + 16) * u, BadgeHeight * u), noteFormat);
         }
 
         if (plan.Vietnamese is null) return;
@@ -319,7 +337,7 @@ internal sealed partial class WidgetView : Control
     {
         _quotePlan = PlanQuote();
         var y = QuoteTop;
-        if (_quotePlan is { } plan) y += (int)plan.CardHeight + QuoteTail;
+        if (_quotePlan is { } plan) y += (int)CardHeight(plan) + QuoteTail;
         var hasUsage = _views.Count > 0;
         // A separator line under the quote bubble, with the Expand/Collapse button centred on it; the usage area starts below it.
         _separatorY = y + UsageGeometry.SeparatorGap;

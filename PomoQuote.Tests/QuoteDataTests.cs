@@ -52,7 +52,7 @@ public sealed class QuoteDataTests
             Assert.False(string.IsNullOrWhiteSpace(quote.Vietnamese), quote.English);
             Assert.False(string.IsNullOrWhiteSpace(quote.Source), quote.English);
             Assert.False(string.IsNullOrWhiteSpace(quote.License), quote.English);
-            Assert.True(quote.Category is QuoteCategory.Motivation or QuoteCategory.Idiom or QuoteCategory.Conversation, quote.English);
+            Assert.True(quote.Category != QuoteCategory.None && (quote.Category & ~QuoteCategory.All) == 0 && System.Numerics.BitOperations.IsPow2((int)quote.Category), quote.English);
             Assert.True(quote.English.Length <= 140, $"too long to show: {quote.English}");
             Assert.True(quote.Vietnamese.Length <= 200, $"translation too long to show: {quote.English}");
         }
@@ -106,7 +106,8 @@ public sealed class QuoteDataTests
         {
             var open = quote.License.Contains("public domain", StringComparison.OrdinalIgnoreCase) || quote.License.Contains("CC0", StringComparison.Ordinal);
             var tatoeba = quote.License.Contains("CC BY 2.0 FR", StringComparison.Ordinal) && quote.Attribution is not null;
-            Assert.True(open || tatoeba, quote.English);
+            var record = quote.Info is not null && quote.License is "CC-BY-SA-4.0" or "CC-BY-2.0-FR" or "Public-Domain" && quote.Attribution is not null;
+            Assert.True(open || tatoeba || record, quote.English);
         }
     }
 

@@ -71,7 +71,7 @@ public sealed class QuoteSettingsTests : IDisposable
     [InlineData("[]")]
     [InlineData("""{ "Categories": "Poetry", "ShowTranslation": true, "Interval": "Off" }""")]
     [InlineData("""{ "Categories": "None", "ShowTranslation": true, "Interval": "Off" }""")]
-    [InlineData("""{ "Categories": 99, "ShowTranslation": true, "Interval": "Off" }""")]
+    [InlineData("""{ "Categories": 999, "ShowTranslation": true, "Interval": "Off" }""")] // a number with a bit no category has
     [InlineData("""{ "Categories": "All", "ShowTranslation": true, "Interval": "Hourly" }""")]
     [InlineData("""{ "Categories": "All", "ShowTranslation": true, "Interval": 42 }""")]
     [InlineData("""{ "Categories": "All", "ShowTranslation": "yes", "Interval": "Off" }""")]
