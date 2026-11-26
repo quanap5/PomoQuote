@@ -5,6 +5,12 @@ PomoQuote's **code** is MIT licensed. The **data files in this folder are not**:
 | Files | Source | Licence |
 | --- | --- | --- |
 | `wiktionary-idioms.jsonl`, `wiktionary-phrasal-verbs.jsonl`, `wiktionary-expressions.jsonl`, `wiktionary-proverbs.jsonl` | [English Wiktionary](https://en.wiktionary.org), through the [kaikki.org](https://kaikki.org/dictionary/English/) extract, retrieved 2026-11-26 | [Creative Commons Attribution-ShareAlike 4.0 International](https://creativecommons.org/licenses/by-sa/4.0/) ([legal code](https://creativecommons.org/licenses/by-sa/4.0/legalcode)) |
+| `public-domain-quotes.jsonl`, `public-domain-maxims.jsonl` | Sentences from books by authors (and translators) who died in 1955 or before, published before 1930 | English: public domain. Vietnamese made for PomoQuote: [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) |
+
+## Public-domain files
+
+- **English:** each sentence stands word for word in the work its entry names (`attribution.work`); the author and, for a translated work, the translator are given with the year of their death. The books and what was read of each are listed in [`tools/public-domain-works.mjs`](../../../tools/public-domain-works.mjs). "Public domain" rests on the authors' death dates (checked against Wikidata) and publication before 1930; the law of your country may differ.
+- **Vietnamese:** drafted by a language model for PomoQuote, not reviewed by a person, and dedicated to the public domain under CC0 1.0.
 
 ## English Wiktionary files (CC BY-SA 4.0)
 

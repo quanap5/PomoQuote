@@ -12,10 +12,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Categories for proverbs, quotes, life maxims, common expressions and phrasal verbs in **Settings > Quotes...**, and a loader for their licensed data files (one file per source and licence; an incomplete or wrongly licensed record is refused). A settings file saved with all categories includes the new ones; a saved choice of some categories stays as it was.
 - A machine-drafted Vietnamese translation that nobody reviewed is marked under the sentence, and the sentence's tooltip shows its meaning, example and credit.
 - 3,242 entries from [English Wiktionary](https://en.wiktionary.org), bundled offline: 1,441 idioms, 778 phrasal verbs, 775 common expressions and 248 proverbs, each with an English meaning and a Vietnamese translation, under CC BY-SA 4.0 (credited in the tooltip and in **Help > About**). Most translations are machine drafted and marked as not reviewed.
+- 568 quotes and 586 life maxims from public-domain books by authors who died in 1955 or before, each naming its author and work in the tooltip, with machine-drafted Vietnamese (CC0 1.0) marked as not reviewed.
 
 ### Changed
 
 - The next sentence is drawn by category weight (conversation 35, idioms 12, proverbs 12, quotes 10, life maxims 10, common expressions 8, phrasal verbs 8, motivation 5) instead of from one shuffled pile, so conversation sentences no longer make up about 97% of what you see. Each category still shows all of its sentences before repeating one.
+
+### Known issues
+
+- Loading the sentences at start takes about 180 ms instead of about 80 ms in 1.4.0, because of the 4,396 new entries. The program also takes roughly 11 to 16 MB more memory while loading them (about 4 MB of it for the sentences it keeps). Measured outside the program on one Windows 11 PC; the start-up time of the whole program was not measured.
 
 ## [1.4.0] - 2026-11-26
 
