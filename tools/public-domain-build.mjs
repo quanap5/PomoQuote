@@ -164,7 +164,8 @@ death dates checked against Wikidata. Vietnamese: ${model}, ${date}, checked by 
 
 \`Book\` is the ebook number of the plain-text file used (see \`tools/public-domain-works.mjs\`). Sentences: all pieces of the text; "alone" those that
 pass the automatic rules (35 to 130 characters, a whole sentence, readable on its own, not quoted from somebody else); at most 170 per book were offered
-(all of them for the numbered maxims, calendar sayings and the Analects).
+(all of them for the numbered maxims, calendar sayings and the Analects). The first three counts are those of the rules as committed. The translator was
+given the sentences of an earlier, looser version (section 2); what the committed rules no longer take as the author's own was dropped.
 
 | Author | Work | Book | Type | Sentences | Alone | Offered | Shipped |
 | --- | --- | ---: | --- | ---: | ---: | ---: | ---: |
