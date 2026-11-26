@@ -18,7 +18,7 @@ PomoQuote itself is MIT licensed (see [LICENSE](LICENSE)). The assets with their
 
 | Data | Source | License and what it asks | Changes |
 | --- | --- | --- | --- |
-| 1183 sentences: 583 quotes and 600 life maxims, with Vietnamese translations | Books of 26 authors who died in 1955 or before, published before 1930 (translated works: translators likewise); each entry names author, work and year | English words: public domain, nothing is asked. Vietnamese made for PomoQuote: [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/). The author and work are shown in the sentence's tooltip. | Single sentences chosen; typography reduced to plain characters, italics and footnote marks removed; Vietnamese machine translated, not reviewed by a person. `tools/public-domain-candidates.mjs`, `tools/public-domain-build.mjs`, `Assets/Quotes/public-domain-import-report.md`. |
+| 1154 sentences: 568 quotes and 586 life maxims, with Vietnamese translations | Books of 26 authors who died in 1955 or before, published before 1930 (translated works: translators likewise); each entry names author, work and year | English words: public domain, nothing is asked. Vietnamese made for PomoQuote: [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/). The author and work are shown in the sentence's tooltip. | Single sentences chosen; typography reduced to plain characters, italics and footnote marks removed; Vietnamese machine translated, not reviewed by a person. `tools/public-domain-candidates.mjs`, `tools/public-domain-build.mjs`, `Assets/Quotes/public-domain-import-report.md`. |
 
 ## Provider logos (`Assets/Providers/`)
 

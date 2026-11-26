@@ -20,8 +20,8 @@ public sealed class PublicDomainDataTests
         .Select(line => JsonDocument.Parse(line).RootElement);
 
     [Theory]
-    [InlineData("public-domain-quotes.jsonl", QuoteCategory.Quote, 583)]
-    [InlineData("public-domain-maxims.jsonl", QuoteCategory.Maxim, 600)]
+    [InlineData("public-domain-quotes.jsonl", QuoteCategory.Quote, 568)]
+    [InlineData("public-domain-maxims.jsonl", QuoteCategory.Maxim, 586)]
     public void Each_file_holds_its_type_with_author_work_and_a_marked_translation(string file, QuoteCategory category, int count)
     {
         var quotes = ExpressionCatalog.Parse(Text("Assets", "Quotes", "data", file), file);
@@ -52,6 +52,23 @@ public sealed class PublicDomainDataTests
             Assert.Equal("CC0-1.0", record.GetProperty("translations")[0].GetProperty("license").GetString());
             Assert.StartsWith("https://www.wikidata.org/wiki/Q", record.GetProperty("source").GetProperty("url").GetString());
         });
+    }
+
+    /// <summary>The owner's decision: a translation the back-translation check doubted does not ship, and a new import run does not bring it back.</summary>
+    [Fact]
+    public void No_sentence_the_check_doubted_ships_and_the_build_keeps_them_out()
+    {
+        var dropped = JsonDocument.Parse(Text("tools", "public-domain-dropped.json")).RootElement.GetProperty("ids").EnumerateArray().Select(id => id.GetString()!).ToHashSet();
+        Assert.Equal(29, dropped.Count);
+        Assert.All(Records(), record =>
+        {
+            Assert.DoesNotContain(record.GetProperty("id").GetString()!, dropped);
+            Assert.False(record.TryGetProperty("flags", out _));
+        });
+
+        var build = Text("tools", "public-domain-build.mjs");
+        Assert.Contains("public-domain-dropped.json", build);
+        Assert.Contains("r.check.verdict === 'ok' && !DROPPED.has(idOf(r))", build);
     }
 
     /// <summary>The archive the book files came from asks that its name does not travel with extracted public-domain text.</summary>
@@ -92,7 +109,7 @@ public sealed class PublicDomainDataTests
         var all = new BundledQuoteProvider().GetAll();
 
         Assert.All(QuoteSettingsDialog.CategoryChoices, choice => Assert.Contains(all, q => q.Category == choice.Value));
-        Assert.Equal(14034 + 3356 + 1183, all.Count);
+        Assert.Equal(14034 + 3242 + 1154, all.Count);
     }
 
     [Fact]

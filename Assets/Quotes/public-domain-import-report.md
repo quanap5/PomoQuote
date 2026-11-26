@@ -12,23 +12,23 @@ given the sentences of an earlier, looser version (section 2); what the committe
 
 | Author | Work | Book | Type | Sentences | Alone | Offered | Shipped |
 | --- | --- | ---: | --- | ---: | ---: | ---: | ---: |
-| Francois de La Rochefoucauld (d. 1680), tr. J. W. Willis-Bund and J. H. Friswell (d. 1928) | Reflections; or Sentences and Moral Maxims (1871) | 9105 | maxim | 503 | 358 | 358 | 155 |
-| Mark Twain (d. 1910) | Pudd'nhead Wilson (1894) | 102 | maxim | 62 | 40 | 40 | 17 |
+| Francois de La Rochefoucauld (d. 1680), tr. J. W. Willis-Bund and J. H. Friswell (d. 1928) | Reflections; or Sentences and Moral Maxims (1871) | 9105 | maxim | 503 | 358 | 358 | 147 |
+| Mark Twain (d. 1910) | Pudd'nhead Wilson (1894) | 102 | maxim | 62 | 40 | 40 | 16 |
 | Mark Twain (d. 1910) | Following the Equator (1897) | 2895 | maxim | 85 | 61 | 61 | 34 |
 | Confucius (479 BC), tr. James Legge (d. 1897) | The Analects (1861) | 4094 | maxim | 348 | 207 | 207 | 33 |
 | Lao Tzu (500 BC), tr. James Legge (d. 1897) | The Tao Te Ching (1891) | 216 | maxim | 543 | 67 | 67 | 11 |
 | Epictetus (d. 138), tr. George Long (d. 1879) | Discourses and Encheiridion (1877) | 10661 | maxim | 2867 | 354 | 170 | 20 |
-| Marcus Aurelius (d. 180), tr. Meric Casaubon (d. 1671) | Meditations (1634) | 2680 | maxim | 1868 | 99 | 99 | 18 |
-| Francis Bacon (d. 1626) | Essays (1625) | 575 | maxim | 1849 | 153 | 153 | 20 |
+| Marcus Aurelius (d. 180), tr. Meric Casaubon (d. 1671) | Meditations (1634) | 2680 | maxim | 1868 | 99 | 99 | 17 |
+| Francis Bacon (d. 1626) | Essays (1625) | 575 | maxim | 1849 | 153 | 153 | 18 |
 | Lord Chesterfield (d. 1773) | Letters to His Son (1774) | 3361 | maxim | 10276 | 996 | 170 | 37 |
 | Samuel Smiles (d. 1904) | Self-Help (1859) | 935 | maxim | 4961 | 297 | 170 | 81 |
 | James Allen (d. 1912) | As a Man Thinketh (1903) | 4507 | maxim | 284 | 67 | 67 | 29 |
-| John Lubbock (d. 1913) | The Pleasures of Life (1887) | 7952 | maxim | 2765 | 326 | 170 | 69 |
-| Orison Swett Marden (d. 1924) | Pushing to the Front (1911) | 21291 | maxim | 12226 | 1968 | 170 | 76 |
-| Ralph Waldo Emerson (d. 1882) | Essays, First Series (1841) | 2944 | quote | 3543 | 1028 | 170 | 49 |
+| John Lubbock (d. 1913) | The Pleasures of Life (1887) | 7952 | maxim | 2765 | 326 | 170 | 68 |
+| Orison Swett Marden (d. 1924) | Pushing to the Front (1911) | 21291 | maxim | 12226 | 1968 | 170 | 75 |
+| Ralph Waldo Emerson (d. 1882) | Essays, First Series (1841) | 2944 | quote | 3543 | 1028 | 170 | 47 |
 | Ralph Waldo Emerson (d. 1882) | Essays, Second Series (1844) | 2945 | quote | 2442 | 595 | 170 | 33 |
-| Ralph Waldo Emerson (d. 1882) | The Conduct of Life (1860) | 39827 | quote | 3026 | 653 | 170 | 57 |
-| Henry David Thoreau (d. 1862) | Walden and Civil Disobedience (1854) | 205 | quote | 4078 | 551 | 170 | 63 |
+| Ralph Waldo Emerson (d. 1882) | The Conduct of Life (1860) | 39827 | quote | 3026 | 653 | 170 | 55 |
+| Henry David Thoreau (d. 1862) | Walden and Civil Disobedience (1854) | 205 | quote | 4078 | 551 | 170 | 60 |
 | Oscar Wilde (d. 1900) | The Picture of Dorian Gray (1891) | 174 | quote | 6321 | 463 | 170 | 39 |
 | Oscar Wilde (d. 1900) | Lady Windermere's Fan (1892) | 790 | quote | 1852 | 223 | 170 | 14 |
 | Oscar Wilde (d. 1900) | A Woman of No Importance (1893) | 854 | quote | 1996 | 248 | 170 | 17 |
@@ -36,14 +36,14 @@ given the sentences of an earlier, looser version (section 2); what the committe
 | Oscar Wilde (d. 1900) | The Importance of Being Earnest (1895) | 844 | quote | 1891 | 233 | 170 | 20 |
 | Benjamin Franklin (d. 1790) | Autobiography (1791) | 20203 | quote | 2063 | 59 | 59 | 7 |
 | Jane Austen (d. 1817) | Pride and Prejudice (1813) | 1342 | quote | 5943 | 230 | 170 | 16 |
-| George Eliot (d. 1880) | Middlemarch (1871) | 145 | quote | 14337 | 492 | 170 | 21 |
+| George Eliot (d. 1880) | Middlemarch (1871) | 145 | quote | 14337 | 492 | 170 | 20 |
 | Samuel Johnson (d. 1784) | Rasselas (1759) | 652 | quote | 1438 | 89 | 89 | 26 |
-| William James (d. 1910) | Talks to Teachers (1899) | 16287 | quote | 2122 | 311 | 170 | 36 |
+| William James (d. 1910) | Talks to Teachers (1899) | 16287 | quote | 2122 | 311 | 170 | 33 |
 | Booker T. Washington (d. 1915) | Up from Slavery (1901) | 2376 | quote | 3045 | 174 | 170 | 23 |
 | Frederick Douglass (d. 1895) | Narrative of the Life of Frederick Douglass (1845) | 23 | quote | 1683 | 94 | 94 | 2 |
-| William Hazlitt (d. 1830) | Table Talk (1821) | 3020 | quote | 5219 | 604 | 170 | 52 |
-| Robert Louis Stevenson (d. 1894) | Virginibus Puerisque (1881) | 386 | quote | 1734 | 198 | 170 | 36 |
-| G. K. Chesterton (d. 1936) | Orthodoxy (1908) | 130 | quote | 3189 | 488 | 170 | 43 |
+| William Hazlitt (d. 1830) | Table Talk (1821) | 3020 | quote | 5219 | 604 | 170 | 51 |
+| Robert Louis Stevenson (d. 1894) | Virginibus Puerisque (1881) | 386 | quote | 1734 | 198 | 170 | 35 |
+| G. K. Chesterton (d. 1936) | Orthodoxy (1908) | 130 | quote | 3189 | 488 | 170 | 41 |
 | John Ruskin (d. 1900) | Sesame and Lilies (1865) | 1293 | quote | 1190 | 127 | 127 | 12 |
 
 ## 2. Choice and translation
@@ -68,9 +68,12 @@ given the sentences of an earlier, looser version (section 2); what the committe
 | looks like another author's words (left out) | 0 | 2 |
 | wrong translation (left out) | 1 | 0 |
 | above the target (left out) | 0 | 58 |
-| shipped | 583 | 600 |
-| shipped and flagged doubtful | 15 | 14 |
+| within the target but doubtful or on the dropped list (left out, not replaced) | 15 | 14 |
+| shipped | 568 | 586 |
 
-Target: quotes 600, life maxims 600. Shipped: **1183** (quotes 583, life maxims 600). Nothing is added to reach a target.
+Target: quotes 600, life maxims 600. Shipped: **1154** (quotes 568, life maxims 586). Nothing is added to reach a target.
+Sentences whose translation the check calls doubtful were taken out by owner decision (2026-11-26) after the target was applied and were not
+replaced; their ids are in `tools/public-domain-dropped.json`, and the build never ships them.
 
-Review sample for the owner: [review/public-domain-review-sample.csv](review/public-domain-review-sample.csv).
+Review sample for the owner: [review/public-domain-review-sample.csv](review/public-domain-review-sample.csv) (50 random shipped sentences per type,
+and every sentence left out by the check).

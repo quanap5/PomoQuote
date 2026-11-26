@@ -10,7 +10,11 @@
  *   translates back before it sees the English, compares, and says whether it knows the sentence as somebody else's words:
  *   verdict-NN.jsonl {"n", "verdict": "ok"|"doubtful"|"wrong", "back", "note", "foreign": true when it is another author's}.
  * Step 4: node tools/public-domain-build.mjs write --work <work>
- *   writes Assets/Quotes/data/public-domain-*.jsonl, the report and the review sample.
+ *   ships only what the check calls ok and the author's own; writes Assets/Quotes/data/public-domain-*.jsonl, the report and the review sample.
+ *
+ * A sentence the check calls wrong, or somebody else's, makes room for the next eligible one. A doubtful translation does not ship and is not
+ * replaced (owner decision of 2026-11-26): the target is applied first and those sentences are then taken out. The ids dropped by that
+ * decision are listed in public-domain-dropped.json and never ship, whatever a later translation or check says.
  */
 import { readFileSync, writeFileSync, readdirSync, mkdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -28,6 +32,8 @@ const model = option('model', 'Claude Sonnet (Anthropic), machine draft');
 const TARGETS = { quote: 600, maxim: 600 };
 const NAMES = { quote: 'quotes', maxim: 'maxims' };
 const RESERVE = 1.1;
+const DROPPED = new Set(JSON.parse(readFileSync(new URL('./public-domain-dropped.json', import.meta.url), 'utf8')).ids);
+const idOf = (r) => `pd:${r.type}:${r.file}:${createHash('sha256').update(key(r.text)).digest('hex').slice(0, 10)}`;
 
 const lines = (path) => readFileSync(path, 'utf8').split(/\r?\n/).filter((l) => l.trim()).map((l) => JSON.parse(l));
 const jsonl = (rows) => rows.map((r) => JSON.stringify(r)).join('\n') + '\n';
@@ -115,20 +121,23 @@ function write() {
     const foreign = list.filter((r) => r.check.foreign === true);
     const wrong = list.filter((r) => r.check.foreign !== true && r.check.verdict === 'wrong');
     const kept = list.filter((r) => r.check.foreign !== true && r.check.verdict !== 'wrong');
-    final[type] = kept.slice(0, TARGETS[type]);
+    // the target is applied first, so a sentence taken out below is not replaced by the next one
+    const chosen = kept.slice(0, TARGETS[type]);
+    const ships = (r) => r.check.verdict === 'ok' && !DROPPED.has(idOf(r));
+    final[type] = chosen.filter(ships);
+    const dropped = chosen.filter((r) => !ships(r));
     checkCounts[type] = {
-      checked: list.length, 'looks like another author\'s words (left out)': foreign.length, 'wrong translation (left out)': wrong.length, 'above the target (left out)': kept.length - final[type].length,
-      shipped: final[type].length, 'shipped and flagged doubtful': final[type].filter((r) => r.check.verdict === 'doubtful').length,
+      checked: list.length, 'looks like another author\'s words (left out)': foreign.length, 'wrong translation (left out)': wrong.length, 'above the target (left out)': kept.length - chosen.length,
+      'within the target but doubtful or on the dropped list (left out, not replaced)': dropped.length, shipped: final[type].length,
     };
     const records = final[type].map((r) => {
       const book = WORKS.find((w) => w.file === r.file);
       const translated = book.translator ? `, translated by ${book.translator}` : '';
       return {
-        id: `pd:${type}:${r.file}:${createHash('sha256').update(key(r.text)).digest('hex').slice(0, 10)}`, type, lang: 'en', text: r.text,
+        id: idOf(r), type, lang: 'en', text: r.text,
         author: { name: book.author, died: book.died, ...(book.translator ? { translator: book.translator, translator_died: book.translatorDied } : {}) },
         attribution: { status: 'verified', work: book.work, year: book.year, evidence: 'the sentence stands word for word in the text of this work' },
         translations: [{ lang: 'vi', text: r.vi, status: 'machine_unreviewed', by: model, date, license: 'CC0-1.0' }],
-        ...(r.check.verdict === 'doubtful' ? { flags: ['back_translation_disagrees'] } : {}),
         source: {
           dataset: 'Public-domain text of the author\'s work', url: `https://www.wikidata.org/wiki/${book.wikidata}`, retrieved: date, license: 'Public-Domain',
           attribution_text: `${book.author}, ${book.work} (${book.year})${translated}. Vietnamese made for PomoQuote, CC0 1.0`,
@@ -138,9 +147,8 @@ function write() {
     writeFileSync(`Assets/Quotes/data/public-domain-${NAMES[type]}.jsonl`, jsonl(records), 'utf8');
     const pool = [...final[type]], sample = [];
     while (sample.length < 50 && pool.length) sample.push(...pool.splice(Math.floor(next() * pool.length), 1));
-    const inSample = new Set(sample.map((r) => r.n));
     review.push(...sample.map((r) => ['random sample', r]),
-      ...final[type].filter((r) => r.check.verdict === 'doubtful' && !inSample.has(r.n)).map((r) => ['flagged by the check', r]),
+      ...dropped.map((r) => [r.check.verdict === 'doubtful' ? 'left out: check says doubtful' : 'left out: on the dropped list', r]),
       ...wrong.map((r) => ['left out: check says wrong', r]), ...foreign.map((r) => ['left out: may be another author', r]));
   }
   const cell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
@@ -180,8 +188,11 @@ ${table(selectCounts)}
 ${table(checkCounts)}
 
 Target: quotes 600, life maxims 600. Shipped: **${final.quote.length + final.maxim.length}** (quotes ${final.quote.length}, life maxims ${final.maxim.length}). Nothing is added to reach a target.
+Sentences whose translation the check calls doubtful were taken out by owner decision (2026-11-26) after the target was applied and were not
+replaced; their ids are in \`tools/public-domain-dropped.json\`, and the build never ships them.
 
-Review sample for the owner: [review/public-domain-review-sample.csv](review/public-domain-review-sample.csv).
+Review sample for the owner: [review/public-domain-review-sample.csv](review/public-domain-review-sample.csv) (50 random shipped sentences per type,
+and every sentence left out by the check).
 `, 'utf8');
   console.table(checkCounts);
   console.log(`shipped ${final.quote.length + final.maxim.length}; review rows ${rows.length}`);
