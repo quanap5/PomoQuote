@@ -122,45 +122,106 @@ internal static class DialogHost
     /// <summary>A Windows dialog (the folder picker) over <paramref name="owner"/>, placed like a dialog.</summary>
     public static DialogResult Common(CommonDialog dialog, Form owner) => Placed(owner, () => dialog.ShowDialog(owner));
 
-    /// <summary>Runs a call that shows a Windows dialog box and moves that box into place as it first becomes active.</summary>
+    /// <summary>
+    /// How long after a Windows dialog box first becomes active it is still put back in place when it changes its size or position by itself.
+    /// The folder picker opens small and grows to the size it remembers only after it has become active.
+    /// </summary>
+    private static readonly TimeSpan SettleTime = TimeSpan.FromSeconds(3);
+
+    /// <summary>
+    /// Runs a call that shows a Windows dialog box and moves that box into place: as it first becomes active, and again while it settles
+    /// (see <see cref="SettleTime"/>), until the user moves or sizes it.
+    /// </summary>
     private static DialogResult Placed(Form owner, Func<DialogResult> show)
     {
         var anchor = AnchorOf(owner);
         var entry = new Open(null, anchor);
-        HookProc proc = null!;
-        var hook = IntPtr.Zero;
-        proc = (code, wParam, lParam) =>
+        var settling = new System.Diagnostics.Stopwatch();
+        var userHasIt = false;
+        var placing = false;
+
+        void Place(IntPtr window)
         {
-            if (code == HCBT_ACTIVATE && entry.Window == IntPtr.Zero && ClassOf(wParam) == DialogBoxClass && GetWindowRect(wParam, out var r))
+            if (placing || IsIconic(window) || IsZoomed(window) || !GetWindowRect(window, out var r)) return;
+            var current = new Rectangle(r.Left, r.Top, r.Right - r.Left, r.Bottom - r.Top);
+            var widget = anchor?.WidgetOnScreen;
+            var overAnchor = ReferenceEquals(owner, anchor);
+            var area = AreaFor(overAnchor && widget is { } shown ? shown : owner.Bounds, anchor);
+            var size = new Size(Math.Min(current.Width, area.Width), Math.Min(current.Height, area.Height));
+            var gap = owner.LogicalToDeviceUnits(DialogPlacement.Gap);
+            Point At(Size of) => overAnchor && widget is { } beside
+                ? DialogPlacement.Beside(beside, of, area, gap)
+                : owner.Visible && owner.WindowState != FormWindowState.Minimized
+                    ? DialogPlacement.Over(owner.Bounds, of, area, widget, gap)
+                    : DialogPlacement.Over(area, of, area, null, gap);
+
+            var at = At(size);
+            if (widget is { } standing && IsResizable(window) && standing.IntersectsWith(new Rectangle(at, size)))
             {
-                entry.Window = wParam;
-                var size = new Size(r.Right - r.Left, r.Bottom - r.Top);
-                var widget = anchor?.WidgetOnScreen;
-                var overAnchor = ReferenceEquals(owner, anchor);
-                var area = AreaFor(overAnchor && widget is { } shown ? shown : owner.Bounds, anchor);
-                var gap = owner.LogicalToDeviceUnits(DialogPlacement.Gap);
-                var at = overAnchor && widget is { } beside
-                    ? DialogPlacement.Beside(beside, size, area, gap)
-                    : owner.Visible && owner.WindowState != FormWindowState.Minimized
-                        ? DialogPlacement.Over(owner.Bounds, size, area, widget, gap)
-                        : DialogPlacement.Over(area, size, area, null, gap);
-                SetWindowPos(wParam, IntPtr.Zero, at.X, at.Y, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+                size = DialogPlacement.FitBeside(standing, size, area, gap, owner.LogicalToDeviceUnits(DialogPlacement.NarrowestResizable));
+                at = At(size);
             }
 
-            return CallNextHookEx(hook, code, wParam, lParam);
+            if (new Rectangle(at, size) == current) return;
+
+            placing = true; // moving the window reports a change of its own
+            var flags = SWP_NOZORDER | SWP_NOACTIVATE | (size == current.Size ? SWP_NOSIZE : 0);
+            SetWindowPos(window, IntPtr.Zero, at.X, at.Y, size.Width, size.Height, flags);
+            placing = false;
+        }
+
+        HookProc activated = null!;
+        var activationHook = IntPtr.Zero;
+        activated = (code, wParam, lParam) =>
+        {
+            if (code == HCBT_ACTIVATE && entry.Window == IntPtr.Zero && ClassOf(wParam) == DialogBoxClass)
+            {
+                entry.Window = wParam;
+                settling.Start();
+                Place(wParam);
+            }
+
+            return CallNextHookEx(activationHook, code, wParam, lParam);
+        };
+
+        HookProc handled = null!;
+        var messageHook = IntPtr.Zero;
+        handled = (code, wParam, lParam) =>
+        {
+            var result = CallNextHookEx(messageHook, code, wParam, lParam);
+            if (code < 0 || entry.Window == IntPtr.Zero || userHasIt || settling.Elapsed > SettleTime) return result;
+
+            var message = Marshal.PtrToStructure<HandledMessage>(lParam);
+            if (message.Window != entry.Window) return result;
+            if (message.Message == WM_ENTERSIZEMOVE) userHasIt = true;
+            else if (message.Message == WM_WINDOWPOSCHANGED) Place(message.Window);
+            return result;
+        };
+
+        // The folder picker can also change its size back while it is being moved (inside our own call, when nothing is looked at), so the
+        // place is checked again a few times from the box's own message loop for as long as it settles.
+        using var settle = new System.Windows.Forms.Timer { Interval = 100 };
+        settle.Tick += (_, _) =>
+        {
+            if (userHasIt || settling.Elapsed > SettleTime) settle.Stop();
+            else if (entry.Window != IntPtr.Zero) Place(entry.Window);
         };
 
         OpenWindows.Add(entry);
-        hook = SetWindowsHookEx(WH_CBT, proc, IntPtr.Zero, GetCurrentThreadId());
+        activationHook = SetWindowsHookEx(WH_CBT, activated, IntPtr.Zero, GetCurrentThreadId());
+        messageHook = SetWindowsHookEx(WH_CALLWNDPROCRET, handled, IntPtr.Zero, GetCurrentThreadId());
+        settle.Start();
         try
         {
             return show();
         }
         finally
         {
-            if (hook != IntPtr.Zero) UnhookWindowsHookEx(hook);
+            if (messageHook != IntPtr.Zero) UnhookWindowsHookEx(messageHook);
+            if (activationHook != IntPtr.Zero) UnhookWindowsHookEx(activationHook);
             OpenWindows.Remove(entry);
-            GC.KeepAlive(proc);
+            GC.KeepAlive(activated);
+            GC.KeepAlive(handled);
         }
     }
 
@@ -201,14 +262,21 @@ internal static class DialogHost
 
     private const string DialogBoxClass = "#32770";
     private const int WH_CBT = 5;
+    private const int WH_CALLWNDPROCRET = 12;
     private const int HCBT_ACTIVATE = 5;
+    private const int WM_WINDOWPOSCHANGED = 0x0047;
+    private const int WM_ENTERSIZEMOVE = 0x0231;
     private const int GWL_EXSTYLE = -20;
+    private const int GWL_STYLE = -16;
     private const int WS_EX_TOPMOST = 0x00000008;
+    private const int WS_THICKFRAME = 0x00040000;
     private const uint SWP_NOSIZE = 0x0001;
     private const uint SWP_NOZORDER = 0x0004;
     private const uint SWP_NOACTIVATE = 0x0010;
 
     private static bool IsTopMost(IntPtr window) => (GetWindowLong(window, GWL_EXSTYLE) & WS_EX_TOPMOST) != 0;
+
+    private static bool IsResizable(IntPtr window) => (GetWindowLong(window, GWL_STYLE) & WS_THICKFRAME) != 0;
 
     private static string ClassOf(IntPtr window)
     {
@@ -217,6 +285,23 @@ internal static class DialogHost
     }
 
     private delegate IntPtr HookProc(int code, IntPtr wParam, IntPtr lParam);
+
+    /// <summary>What a WH_CALLWNDPROCRET hook is told about a message a window has just handled (CWPRETSTRUCT).</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    private struct HandledMessage
+    {
+        public IntPtr Result;
+        public IntPtr LParam;
+        public IntPtr WParam;
+        public int Message;
+        public IntPtr Window;
+    }
+
+    [DllImport("user32.dll")]
+    private static extern bool IsIconic(IntPtr window);
+
+    [DllImport("user32.dll")]
+    private static extern bool IsZoomed(IntPtr window);
 
     [StructLayout(LayoutKind.Sequential)]
     private struct RECT

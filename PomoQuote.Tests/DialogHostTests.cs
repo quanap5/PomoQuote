@@ -79,11 +79,12 @@ public sealed class DialogHostTests : IDisposable
     }
 
     /// <summary>Runs <paramref name="open"/>, which blocks in a modal window; looks at the window from inside its loop and then closes it.</summary>
-    private static void While(Action open, Action<IntPtr> look)
+    private static void While(Action open, Action<IntPtr> look, int afterMilliseconds = 0)
     {
         Exception? failure = null;
         var seen = false;
         var ticks = 0;
+        var since = new System.Diagnostics.Stopwatch();
         var existing = ThreadWindows().ToHashSet();
         using var timer = new System.Windows.Forms.Timer { Interval = 150 };
         timer.Tick += (_, _) =>
@@ -94,6 +95,9 @@ public sealed class DialogHostTests : IDisposable
                 if (++ticks > 60) { timer.Stop(); Application.OpenForms.Cast<Form>().LastOrDefault(f => f.Modal)?.Close(); }
                 return;
             }
+
+            since.Start();
+            if (since.ElapsedMilliseconds < afterMilliseconds) return; // some windows settle into their size only after a while
 
             timer.Stop();
             seen = true;
@@ -184,6 +188,140 @@ public sealed class DialogHostTests : IDisposable
 
             While(() => DialogHost.Message(form, "A question?", "Refresh Claude now", MessageBoxButtons.YesNo, MessageBoxIcon.Information),
                 window => AssertInFrontBesideTheWidget(window, form, form.Handle));
+        });
+    }
+
+    /// <summary>Where the widget stands in the made-up screen: its top-left corner, as a share of the room it can move in.</summary>
+    private static void Put(MainForm form, double across, double down)
+    {
+        form.Location = new Point(Area.Left + (int)((Area.Width - form.Width) * across), Area.Top + (int)((Area.Height - form.Height) * down));
+        Application.DoEvents();
+    }
+
+    /// <summary>
+    /// The folder picker becomes active while still small and then grows to the size it remembers. Here a box is made to do the same: it is placed
+    /// again for its new size, beside the widget and on the widget's screen, also when there is a neighbouring screen it could spill onto.
+    /// </summary>
+    [Theory]
+    [InlineData(1.0, 0.0)] // top right
+    [InlineData(1.0, 1.0)] // bottom right
+    [InlineData(0.0, 0.0)] // top left
+    [InlineData(0.8, 0.4)] // right of the middle
+    public void A_Windows_dialog_that_grows_after_it_appears_is_placed_again_beside_the_widget(double across, double down)
+    {
+        OnStaThread(() =>
+        {
+            using var form = NewWidget();
+            form.WorkAreaProvider = () => [Area, new Rectangle(Area.Right, Area.Top, Area.Width, Area.Height)];
+            Put(form, across, down);
+
+            While(() => DialogHost.Message(form, "small at first", "PomoQuote", MessageBoxButtons.OK, MessageBoxIcon.Information), window =>
+            {
+                Resize(window, 960, 540);
+
+                Assert.Equal(new Size(960, 540), BoundsOf(window).Size);
+                AssertInFrontBesideTheWidget(window, form, form.Handle);
+            });
+        });
+    }
+
+    /// <summary>A box that cannot be narrowed and has no free spot (the widget in the middle) stays on the widget's screen, above the widget.</summary>
+    [Fact]
+    public void With_no_free_spot_a_grown_Windows_dialog_stays_on_the_widget_s_screen()
+    {
+        OnStaThread(() =>
+        {
+            using var form = NewWidget();
+            form.WorkAreaProvider = () => [Area, new Rectangle(Area.Right, Area.Top, Area.Width, Area.Height)];
+            Put(form, 0.5, 0.4);
+
+            While(() => DialogHost.Message(form, "small at first", "PomoQuote", MessageBoxButtons.OK, MessageBoxIcon.Information), window =>
+            {
+                Resize(window, 960, 540);
+
+                Assert.True(Area.Contains(BoundsOf(window)), $"{BoundsOf(window)} is outside {Area}");
+                Assert.True(IsAbove(window, form.Handle));
+            });
+        });
+    }
+
+    [Fact]
+    public void A_Windows_dialog_that_moves_by_itself_while_settling_is_put_back_and_one_the_user_took_hold_of_is_left_alone()
+    {
+        OnStaThread(() =>
+        {
+            using var form = NewWidget();
+
+            While(() => DialogHost.Message(form, "a box", "PomoQuote", MessageBoxButtons.OK, MessageBoxIcon.Information), window =>
+            {
+                var placed = BoundsOf(window);
+                Move(window, form.Left, form.Top); // over the widget, as a window restoring a remembered spot might
+                Assert.Equal(placed, BoundsOf(window));
+
+                SendMessage(window, WmEnterSizeMove, IntPtr.Zero, IntPtr.Zero); // the user starts dragging it
+                Move(window, Area.Left + 40, Area.Top + 50);
+                Assert.Equal(new Point(Area.Left + 40, Area.Top + 50), BoundsOf(window).Location);
+            });
+        });
+    }
+
+    [Fact]
+    public void A_Windows_dialog_larger_than_the_screen_area_is_cut_to_it()
+    {
+        OnStaThread(() =>
+        {
+            using var form = NewWidget();
+            var small = new Rectangle(Area.Left, Area.Top, 800, 480);
+            form.WorkAreaProvider = () => [small];
+            form.Location = new Point(small.Right - form.Width, small.Top);
+
+            While(() => DialogHost.Message(form, "small at first", "PomoQuote", MessageBoxButtons.OK, MessageBoxIcon.Information), window =>
+            {
+                Resize(window, 960, 540);
+
+                Assert.True(small.Contains(BoundsOf(window)), $"{BoundsOf(window)} is outside {small}");
+            });
+        });
+    }
+
+    /// <summary>
+    /// The real folder picker, opened from a settings dialog as "Check a project folder" does. It is looked at after it has grown to the size this
+    /// computer remembers, and again after it is made to grow to its first-run size of 960 pixels: beside the widget and on its screen both times.
+    /// </summary>
+    [Theory]
+    [InlineData(1.0, 0.0, 960)] // top right
+    [InlineData(0.5, 0.4, 812)] // the middle: narrowed to the room beside the widget
+    [InlineData(0.0, 0.0, 960)] // top left
+    public void The_folder_picker_ends_up_beside_the_widget_on_its_screen(double across, double down, int widthAfterGrowing)
+    {
+        OnStaThread(() =>
+        {
+            using var form = NewWidget();
+            form.WorkAreaProvider = () => [Area, new Rectangle(Area.Right, Area.Top, Area.Width, Area.Height)];
+            Put(form, across, down);
+            using var parent = new QuoteSettingsDialog(Quotes.QuoteSettings.Default);
+
+            While(() => DialogHost.Show(parent, form), _ =>
+            {
+                using var picker = new FolderBrowserDialog { Description = "Choose a project folder", UseDescriptionForTitle = true, InitialDirectory = _root };
+                While(() => DialogHost.Common(picker, parent), window =>
+                {
+                    void BesideTheWidget()
+                    {
+                        var bounds = BoundsOf(window);
+                        Assert.True(IsTopMost(window), "the picker is not in the always-on-top group");
+                        Assert.True(IsAbove(window, form.Handle), "the widget is above the picker");
+                        Assert.True(Area.Contains(bounds), $"{bounds} is outside the screen area {Area}");
+                        // there are over 800 pixels beside the widget on this screen, more than the width the picker may be narrowed to
+                        Assert.False(bounds.IntersectsWith(form.Bounds), $"{bounds} covers the widget {form.Bounds}");
+                    }
+
+                    BesideTheWidget();
+                    Resize(window, 960, 540);
+                    Assert.Equal(widthAfterGrowing, BoundsOf(window).Width);
+                    BesideTheWidget();
+                }, afterMilliseconds: 1000);
+            });
         });
     }
 
@@ -370,6 +508,22 @@ public sealed class DialogHostTests : IDisposable
     }
 
     private static int TextLength(IntPtr window) => GetWindowTextLength(window);
+
+    private const uint SwpNoSize = 0x0001;
+    private const uint SwpNoMove = 0x0002;
+    private const uint SwpNoZOrder = 0x0004;
+    private const uint SwpNoActivate = 0x0010;
+    private const int WmEnterSizeMove = 0x0231;
+
+    private static void Resize(IntPtr window, int width, int height) => Assert.True(SetWindowPos(window, IntPtr.Zero, 0, 0, width, height, SwpNoMove | SwpNoZOrder | SwpNoActivate));
+
+    private static void Move(IntPtr window, int x, int y) => Assert.True(SetWindowPos(window, IntPtr.Zero, x, y, 0, 0, SwpNoSize | SwpNoZOrder | SwpNoActivate));
+
+    [DllImport("user32.dll")]
+    private static extern bool SetWindowPos(IntPtr window, IntPtr insertAfter, int x, int y, int width, int height, uint flags);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr SendMessage(IntPtr window, int message, IntPtr wParam, IntPtr lParam);
 
     [StructLayout(LayoutKind.Sequential)]
     private struct RECT

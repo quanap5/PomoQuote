@@ -111,6 +111,30 @@ public sealed class DialogPlacementTests
         }
     }
 
+    [Theory]
+    [InlineData(1640, 0, 960, 540, 960)] // room beside it: unchanged
+    [InlineData(820, 322, 960, 540, 812)] // the middle: narrowed to the room beside the widget
+    [InlineData(700, 322, 960, 540, 932)] // the wider side
+    [InlineData(820, 0, 960, 540, 960)] // free under the widget: unchanged
+    public void A_resizable_window_is_narrowed_only_when_that_is_what_keeps_it_off_the_widget(int x, int y, int width, int height, int expected)
+    {
+        var widget = At(x, y);
+
+        var size = DialogPlacement.FitBeside(widget, new Size(width, height), Primary, Gap, DialogPlacement.NarrowestResizable);
+
+        Assert.Equal(new Size(expected, height), size);
+        Assert.False(new Rectangle(DialogPlacement.Beside(widget, size, Primary, Gap), size).IntersectsWith(widget));
+    }
+
+    [Fact]
+    public void A_resizable_window_is_not_narrowed_below_its_smallest_width()
+    {
+        var area = new Rectangle(0, 0, 1366, 720);
+        var widget = new Rectangle(543, 250, 280, 227); // 543 on each side, less than the narrowest width
+
+        Assert.Equal(new Size(960, 540), DialogPlacement.FitBeside(widget, new Size(960, 540), area, Gap, DialogPlacement.NarrowestResizable));
+    }
+
     [Fact]
     public void Over_a_window_the_dialog_is_centred_and_kept_on_the_screen()
     {

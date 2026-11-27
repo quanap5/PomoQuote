@@ -8,6 +8,9 @@ internal static class DialogPlacement
     /// <summary>The space left between the widget and a dialog beside it, in logical pixels.</summary>
     public const int Gap = 8;
 
+    /// <summary>The width, in logical pixels, down to which a resizable Windows dialog (the folder picker) is narrowed to stand beside the widget.</summary>
+    public const int NarrowestResizable = 560;
+
     /// <summary>
     /// The top-left corner for a dialog of <paramref name="size"/> next to <paramref name="widget"/> inside <paramref name="area"/>, without
     /// covering the widget: left or right of it (the side with more room first), level with its top; else under or above it. When the screen has
@@ -34,6 +37,19 @@ internal static class DialogPlacement
 
         var edge = roomLeft >= roomRight ? area.Left : area.Right - size.Width;
         return new Point(Within(edge, size.Width, area.Left, area.Right), level);
+    }
+
+    /// <summary>
+    /// The size a resizable window should take to stand clear of the widget. Unchanged when there is a free spot for it, beside, under or above;
+    /// else narrowed to the wider side of the widget, if that still leaves it at least <paramref name="narrowest"/> wide; else unchanged (it will
+    /// cover part of the widget, as there is no room).
+    /// </summary>
+    public static Size FitBeside(Rectangle widget, Size size, Rectangle area, int gap, int narrowest)
+    {
+        var side = Math.Max(widget.Left - area.Left, area.Right - widget.Right) - gap;
+        var underOrAbove = Math.Max(widget.Top - area.Top, area.Bottom - widget.Bottom) - gap;
+        var free = side >= size.Width || (underOrAbove >= size.Height && size.Width <= area.Width);
+        return free || side < narrowest ? size : new Size(side, size.Height);
     }
 
     /// <summary>
