@@ -7,9 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-11-27
+
+Dialogs no longer hide behind the always-on-top widget.
+
 ### Fixed
 
 - Dialogs opened while the always-on-top widget is on screen (the settings dialogs and their messages) no longer open behind the widget, where they were partly or completely hidden and could not be clicked. A dialog now opens in front, beside the widget and inside that screen's usable area (the Windows folder picker is narrowed when that is what keeps it beside the widget; where a screen has no free spot, a dialog overlaps the widget but stays in front and on the screen); one of the app's dialogs that is too large for the screen scrolls. The walking mascot stays under an open dialog.
+
+### Known issues
+
+- **Folder picker width.** When there is no free side wide enough, "Check a project folder" narrows the Windows folder picker (to 812 pixels in the case seen, at 100% scaling) to keep it beside the widget, and Windows remembers that width the next time the picker opens.
+- **Only the first 3 seconds are corrected.** A Windows dialog (a message box or the folder picker) that moves or grows by itself more than 3 seconds after it appears is not put back.
+- **Little room.** On a screen with no free spot (for the folder picker: under 560 pixels beside the widget at 100% scaling, and no room under or above it) a dialog covers part of the widget. It stays in front and on the screen.
+- **Dialog placement not tried by hand.** It was checked with the app's windows on a separate test desktop at 100% scaling, not with a real mouse, at real 125% or 150% scaling, or on screens with different scaling.
+- If you switch to the normal window from the tray while a dialog is open, the dialog can end up completely hidden behind that window, which does not respond while the dialog is open. Earlier versions do the same.
+- Closing **Settings > AI Usage** within a moment of opening it can raise an unhandled `ObjectDisposedException` (from the Grok check). Earlier versions do the same.
+- **Machine translations are not reviewed.** 4,247 of the new translations are machine drafts, marked "machine translation, not reviewed"; no person has reviewed them (the other 149 are Wiktionary's own). They were drafted by one model run and checked by a second one of the same model family, so a mistake both make goes unnoticed. Translations the check doubted were left out.
+- **Quotes include speech by characters** in plays and novels. The tooltip names the author and the work, not the speaker: an attribution means that the sentence stands in that author's work, not that it is the author's own opinion.
+- **A saved choice that includes Idiom now shows much more.** The saved list stays as it was, but the Idiom category grew from 131 to 1,572 sentences: with Motivation and Idiom ticked there are 1,685 sentences instead of 244, and about 7 in 10 shown are idioms.
+- **Start-up and memory.** The first window appears about 95 to 120 ms later than in 1.4.0 and the program uses about 15 MB more private memory (about 43 MB instead of 28 MB), because of the expression data added in 1.5.0. Measured on one Windows 11 PC.
+- **Long tooltips may be cut off** at 200% display scaling or on a narrow screen (calculated from their width, not seen on screen).
+- **Not seen on a real screen:** the tooltips of the entries added in 1.5.0, display scaling of 125% and 150%, and the Settings dialogs other than Quotes (their windows were checked on a separate test desktop). **Help > About** and **Settings > Quotes...** have been seen in the running 1.5.0 app.
+- 113 of the 357 original sentences are conversation lines and share the Conversation category with the Tatoeba pairs, so switching that category off hides them too. A separate category for the Tatoeba pairs is a possible follow-up.
+- The Vietnamese translations of the 357 original sentences, and those of the Tatoeba pairs, have not been reviewed by a native speaker; about 3 in 100 Tatoeba pairs read in a sample were loose or slightly wrong, or had a Vietnamese typo.
+- The Compact provider logo can stay in the old theme's colours for up to about 12 seconds after you change the Windows theme while the widget is on System.
+- A rare crash at exit: an `InvalidOperationException` from the provider list's *Closed* handler in `WidgetView.Usage.cs` (`ShowProviderList`) when the app closes while the list is open.
+- Not checked in the running app before 1.3.0 and still not checked by hand: dragging the cat, the Mascot Options dialog, a restart with the cat selected, and the real Grok and Antigravity readings.
+- The weather effect is very faint by design: its colours are kept dark enough to keep the text at a contrast of 4.5:1 or more (the intro GIF brightens it so it shows). It is a still picture, not an animation, when Windows animations are turned off or Reduce motion is on.
+- [#46](https://github.com/quanap5/PomoQuote/issues/46): non-standard Codex windows (not 5 hours or one week) get identical truncated labels.
+- [#44](https://github.com/quanap5/PomoQuote/issues/44): the PowerShell form of the Claude status line bridge (used only when Git Bash is missing) does not propagate the exit code of the original command.
+- The Claude icon is Anthropic's official mark used **without written permission** from Anthropic (the owner accepted the risk; the contact is marketing@anthropic.com; see `THIRD_PARTY_ASSETS.md`). The Grok icon is likewise xAI's official mark without written permission.
+- Windows only; WSL is not supported yet.
 
 ## [1.5.0] - 2026-11-26
 
@@ -219,7 +248,8 @@ Highlights:
 - "Hello World" stays on one centered line at any window size (PR #1).
 - The full clock rim stays inside its area at any window size (PR #4).
 
-[Unreleased]: https://github.com/quanap5/PomoQuote/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/quanap5/PomoQuote/compare/v1.5.1...HEAD
+[1.5.1]: https://github.com/quanap5/PomoQuote/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/quanap5/PomoQuote/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/quanap5/PomoQuote/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/quanap5/PomoQuote/compare/v1.2.0...v1.3.0
