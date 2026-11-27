@@ -348,7 +348,7 @@ internal sealed class UsageSettingsDialog : Form
 
     private async void RemoveBridge()
     {
-        var answer = MessageBox.Show(this, "Put your original Claude status line back?", "Remove bridge", MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2);
+        var answer = DialogHost.Message(this, "Put your original Claude status line back?", "Remove bridge", MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2);
         if (answer != DialogResult.Yes) return;
 
         var result = _claude.Uninstall();
@@ -364,7 +364,7 @@ internal sealed class UsageSettingsDialog : Form
     private void CheckProject()
     {
         using var picker = new FolderBrowserDialog { Description = "Choose a project folder where you use Claude Code. A project that has its own status line replaces the bridge there.", UseDescriptionForTitle = true };
-        if (picker.ShowDialog(this) != DialogResult.OK) return;
+        if (DialogHost.Common(picker, this) != DialogResult.OK) return;
         _claudeResult.Text = ClaudeBridgeInstaller.ProjectOverrides(picker.SelectedPath)
             ? $"\"{Path.GetFileName(picker.SelectedPath.TrimEnd('\\', '/'))}\" has its own status line: it replaces the bridge in that project, so its usage is not read from there."
             : "That project does not override the status line.";
@@ -375,7 +375,7 @@ internal sealed class UsageSettingsDialog : Form
     {
         _autoRefreshMinutes.Enabled = _autoRefresh.Checked;
         if (!_autoRefresh.Checked || _claude.AutoRefreshNoteSeen) return;
-        var go = MessageBox.Show(this, ClaudeActions.AutoRefreshNote + "\r\n\r\nTurn automatic refresh on?", "Refresh Claude usage automatically", MessageBoxButtons.YesNo, MessageBoxIcon.Information, MessageBoxDefaultButton.Button2);
+        var go = DialogHost.Message(this, ClaudeActions.AutoRefreshNote + "\r\n\r\nTurn automatic refresh on?", "Refresh Claude usage automatically", MessageBoxButtons.YesNo, MessageBoxIcon.Information, MessageBoxDefaultButton.Button2);
         if (go == DialogResult.Yes) _claude.MarkAutoRefreshNoteSeen();
         else _autoRefresh.Checked = false;
     }
@@ -384,7 +384,7 @@ internal sealed class UsageSettingsDialog : Form
     {
         if (!_claude.RefreshNoteSeen)
         {
-            var go = MessageBox.Show(this, ClaudeActions.RefreshNote + "\r\n\r\nRefresh now?", "Refresh Claude now", MessageBoxButtons.YesNo, MessageBoxIcon.Information, MessageBoxDefaultButton.Button2);
+            var go = DialogHost.Message(this, ClaudeActions.RefreshNote + "\r\n\r\nRefresh now?", "Refresh Claude now", MessageBoxButtons.YesNo, MessageBoxIcon.Information, MessageBoxDefaultButton.Button2);
             if (go != DialogResult.Yes) return;
             _claude.MarkRefreshNoteSeen();
         }

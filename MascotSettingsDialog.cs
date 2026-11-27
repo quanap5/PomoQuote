@@ -82,7 +82,7 @@ internal sealed class MascotSettingsDialog : Form
         reloadButton.Click += (_, _) =>
         {
             var warnings = reloadConfig!();
-            MessageBox.Show(this, warnings.Count == 0
+            DialogHost.Message(this, warnings.Count == 0
                 ? "The animation settings were reloaded."
                 : "The animation settings were reloaded, but some values were ignored:\n\n" + string.Join("\n", warnings.Take(8)),
                 Text, MessageBoxButtons.OK, warnings.Count == 0 ? MessageBoxIcon.Information : MessageBoxIcon.Warning);

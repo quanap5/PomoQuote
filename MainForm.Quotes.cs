@@ -93,7 +93,7 @@ internal sealed partial class MainForm
     private void ShowQuoteSettings()
     {
         using var dialog = new QuoteSettingsDialog(_quoteSettings);
-        if (dialog.ShowDialog(this) != DialogResult.OK) return;
+        if (DialogHost.Show(dialog, this) != DialogResult.OK) return;
 
         var changedCategories = dialog.ValueFrom(_quoteSettings).Categories != _quoteSettings.Categories;
         _quoteSettings = dialog.ValueFrom(_quoteSettings);

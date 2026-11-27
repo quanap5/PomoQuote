@@ -171,7 +171,7 @@ internal sealed partial class MainForm : Form
     private void ShowPomodoroSettings()
     {
         using var dialog = new PomodoroSettingsDialog(_pomodoro.Timer.Settings);
-        if (dialog.ShowDialog(this) == DialogResult.OK) _pomodoro.ApplySettings(dialog.Value);
+        if (DialogHost.Show(dialog, this) == DialogResult.OK) _pomodoro.ApplySettings(dialog.Value);
     }
 
     /// <summary>
@@ -208,7 +208,7 @@ internal sealed partial class MainForm : Form
         string requested;
         using (var dialog = new CityDialog(_settings.City.Name))
         {
-            if (dialog.ShowDialog(this) != DialogResult.OK) return;
+            if (DialogHost.Show(dialog, this) != DialogResult.OK) return;
             requested = dialog.Value;
         }
 
@@ -247,7 +247,7 @@ internal sealed partial class MainForm : Form
     }
 
     private void ShowCityMessage(string message) =>
-        MessageBox.Show(this, message, "Settings - City", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        DialogHost.Message(this, message, "Settings - City", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
     // Children are transparent, so the form's own background shows the wallpaper behind them.
     protected override void OnPaintBackground(PaintEventArgs e)
@@ -267,7 +267,7 @@ internal sealed partial class MainForm : Form
             }
             catch (Exception ex) when (ex is IOException or ArgumentException or ExternalException or OutOfMemoryException)
             {
-                MessageBox.Show(this, $"Could not load the \"{wallpaper.Name}\" wallpaper.", DisplayText, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                DialogHost.Message(this, $"Could not load the \"{wallpaper.Name}\" wallpaper.", DisplayText, MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
         }
@@ -292,7 +292,7 @@ internal sealed partial class MainForm : Form
     private void ShowAboutDialog()
     {
         using var dialog = new AboutDialog();
-        dialog.ShowDialog(this);
+        DialogHost.Show(dialog, this);
     }
 
     protected override void Dispose(bool disposing)

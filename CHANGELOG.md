@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Dialogs opened while the always-on-top widget is on screen (the settings dialogs and their messages) no longer open behind the widget, where they were partly or completely hidden and could not be clicked. A dialog now opens in front, beside the widget and inside that screen's usable area (the Windows folder picker is narrowed when that is what keeps it beside the widget; where a screen has no free spot, a dialog overlaps the widget but stays in front and on the screen); one of the app's dialogs that is too large for the screen scrolls. The walking mascot stays under an open dialog.
+
 ## [1.5.0] - 2026-11-26
 
 The expressions release: 4,396 idioms, phrasal verbs, common expressions, proverbs, quotes and life maxims join the 14,034 sentences PomoQuote already had, for 18,430 in all, still bundled offline.

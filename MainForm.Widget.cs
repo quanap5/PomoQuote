@@ -53,7 +53,7 @@ internal sealed partial class MainForm
     private void ShowWeatherEffectsSettings()
     {
         using var dialog = new WeatherEffectsDialog(_widgetView.EffectSettings);
-        if (dialog.ShowDialog(this) == DialogResult.OK) ApplyWeatherEffectSettings(dialog.Value);
+        if (DialogHost.Show(dialog, this) == DialogResult.OK) ApplyWeatherEffectSettings(dialog.Value);
     }
 
     private void BuildWidget(ToolStripMenuItem viewMenu)
