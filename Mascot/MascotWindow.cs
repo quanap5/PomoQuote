@@ -138,10 +138,15 @@ internal sealed class MascotWindow : Form
         }
     }
 
-    /// <summary>Lifts the window back above other always-on-top windows without activating it.</summary>
+    /// <summary>
+    /// Lifts the window back above other always-on-top windows without activating it. While one of the app's own dialogs is in front it goes
+    /// directly under that dialog instead, so the walking character never covers a dialog's buttons.
+    /// </summary>
     public void KeepOnTop()
     {
-        if (IsHandleCreated && Visible) SetWindowPos(Handle, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+        if (!IsHandleCreated || !Visible) return;
+        var dialog = DialogHost.FrontTopMostWindow;
+        SetWindowPos(Handle, dialog == IntPtr.Zero ? HWND_TOPMOST : dialog, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
     }
 
     [StructLayout(LayoutKind.Sequential)]

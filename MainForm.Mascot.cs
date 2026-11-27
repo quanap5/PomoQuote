@@ -190,7 +190,7 @@ internal sealed partial class MainForm
     private void ShowMascotSettings()
     {
         using var dialog = new MascotSettingsDialog(_mascotSettings, MonitorProvider(), _mascot.ReloadConfig);
-        if (dialog.ShowDialog(this) != DialogResult.OK) return;
+        if (DialogHost.Show(dialog, this) != DialogResult.OK) return;
 
         ApplyMascotSettings(dialog.Value);
     }

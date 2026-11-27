@@ -131,14 +131,14 @@ internal sealed partial class MainForm
     {
         var providers = _usage.Providers.Select(p => (p.Id, p.DisplayName)).ToList();
         using var dialog = new UsageSettingsDialog(_usage.Settings, providers, new CodexDetector(), _usage.TestAsync, _claude, _claudeSettingsPath, ConfirmBridge);
-        if (dialog.ShowDialog(this) == DialogResult.OK) _usage.Apply(dialog.ValueFrom(_usage.Settings));
+        if (DialogHost.Show(dialog, this) == DialogResult.OK) _usage.Apply(dialog.ValueFrom(_usage.Settings));
     }
 
     /// <summary>Shows the exact change and asks; true only when the user clicked "Set up bridge".</summary>
     private bool ConfirmBridge(Form owner, BridgePreview preview)
     {
         using var confirm = new BridgeConfirmDialog(_claudeSettingsPath, preview);
-        return confirm.ShowDialog(owner) == DialogResult.OK;
+        return DialogHost.Show(confirm, owner) == DialogResult.OK;
     }
 
     /// <summary>Widget menu and Settings: one small request to Claude to read the limits now. Asks once before the first use.</summary>
@@ -146,7 +146,7 @@ internal sealed partial class MainForm
     {
         if (!_claude.RefreshNoteSeen)
         {
-            var go = MessageBox.Show(this, ClaudeActions.RefreshNote + "\r\n\r\nRefresh now?", "Refresh Claude now", MessageBoxButtons.YesNo, MessageBoxIcon.Information, MessageBoxDefaultButton.Button2);
+            var go = DialogHost.Message(this, ClaudeActions.RefreshNote + "\r\n\r\nRefresh now?", "Refresh Claude now", MessageBoxButtons.YesNo, MessageBoxIcon.Information, MessageBoxDefaultButton.Button2);
             if (go != DialogResult.Yes) return;
             _claude.MarkRefreshNoteSeen();
         }
